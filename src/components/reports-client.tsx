@@ -323,36 +323,36 @@ export function ReportsClient() {
     if (formatType === 'PDF') {
       const doc = new jsPDF();
       let startY = 15;
-      const pageW = doc.internal.pageSize.getWidth();
       const leftMargin = 14;
 
       // Add company info header
+      let logoRenderedSuccessfully = false;
       if (companyInfo?.logo) {
         try {
-            const img = new Image();
-            img.src = companyInfo.logo;
-            const imgProps = doc.getImageProperties(img.src);
-            const aspectRatio = imgProps.width / imgProps.height;
-            const imgWidth = 20;
-            const imgHeight = imgWidth / aspectRatio;
-            doc.addImage(companyInfo.logo, 'PNG', leftMargin, startY, imgWidth, imgHeight);
-        } catch(e) {
-            console.error("Error adding logo to PDF", e);
+          const imgProps = doc.getImageProperties(companyInfo.logo);
+          const aspectRatio = imgProps.width / imgProps.height;
+          const imgWidth = 20;
+          const imgHeight = imgWidth / aspectRatio;
+          doc.addImage(companyInfo.logo, undefined, leftMargin, startY, imgWidth, imgHeight);
+          logoRenderedSuccessfully = true;
+        } catch (e) {
+          console.error("Error adding logo to PDF", e);
         }
       }
 
+      const textXOffset = logoRenderedSuccessfully ? 25 : 0;
       if (companyInfo?.name) {
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text(companyInfo.name, leftMargin + (companyInfo.logo ? 25 : 0), startY + 6);
+        doc.text(companyInfo.name, leftMargin + textXOffset, startY + 6);
       }
       if (companyInfo?.document) {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text(companyInfo.document, leftMargin + (companyInfo.logo ? 25 : 0), startY + 12);
+        doc.text(companyInfo.document, leftMargin + textXOffset, startY + 12);
       }
       
-      startY += companyInfo?.logo ? 28 : 20;
+      startY += logoRenderedSuccessfully ? 28 : 20;
 
       // Report Title
       const formatDateRange = () => {
