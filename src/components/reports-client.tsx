@@ -253,7 +253,6 @@ export function ReportsClient() {
       setDate(undefined);
       setSelectionMode(undefined);
     }
-    setActiveTab(undefined);
   };
 
   const handleMonthSelect = (selectedMonth: Date) => {
