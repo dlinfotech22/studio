@@ -218,6 +218,11 @@ export function ReportsClient() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('[data-radix-popper-content-wrapper]')) {
+        return;
+      }
+
       if (
         tabsContainerRef.current &&
         !tabsContainerRef.current.contains(event.target as Node)
