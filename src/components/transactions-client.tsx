@@ -72,10 +72,10 @@ import {
 } from './ui/dropdown-menu';
 
 const initialTransactions: Transaction[] = [
-  { id: '1', date: new Date(), description: 'Prestação de Serviço - Cliente A', amount: 5000, type: 'revenue', category: 'Serviços' },
+  { id: '1', date: new Date(), description: 'Prestação de Serviço - Cliente A', amount: 5000, type: 'revenue', category: 'Prestação de Serviço' },
   { id: '2', date: new Date(new Date().setDate(new Date().getDate() - 1)), description: 'Pagamento de Salários', amount: 12000, type: 'expense', category: 'Salários' },
   { id: '3', date: new Date(new Date().setDate(new Date().getDate() - 2)), description: 'Conta de Luz', amount: 450.75, type: 'expense', category: 'Luz' },
-  { id: '4', date: new Date(new Date().setDate(new Date().getDate() - 3)), description: 'Prestação de Serviço - Cliente B', amount: 7500, type: 'revenue', category: 'Serviços' },
+  { id: '4', date: new Date(new Date().setDate(new Date().getDate() - 3)), description: 'Prestação de Serviço - Cliente B', amount: 7500, type: 'revenue', category: 'Prestação de Serviço' },
 ];
 
 const transactionSchema = z.object({
@@ -107,7 +107,7 @@ export function TransactionsClient() {
   const revenue = transactions.filter((t) => t.type === 'revenue');
   const expenses = transactions.filter((t) => t.type === 'expense');
 
-  const revenueCategories = ['Serviços', 'Venda de Produtos', 'Outros'];
+  const revenueCategories = ['Prestação de Serviço', 'Venda de Produtos', 'Outros'];
   const expenseCategories = ['Salários', 'Fornecedores', 'Água', 'Luz', 'Internet', 'Aluguel', 'Combustível', 'Outros'];
 
   const onSubmit = (data: TransactionFormValues) => {

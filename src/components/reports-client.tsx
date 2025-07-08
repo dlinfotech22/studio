@@ -25,7 +25,7 @@ const allTransactions: Transaction[] = Array.from({ length: 50 }, (_, i) => ({
   description: `Transação ${i + 1}`,
   amount: Math.random() * (i % 3 === 0 ? -1 : 1) * (500 + Math.random() * 2000),
   type: i % 3 === 0 ? 'expense' : 'revenue',
-  category: i % 3 === 0 ? 'Fornecedores' : 'Serviços',
+  category: i % 3 === 0 ? 'Fornecedores' : 'Prestação de Serviço',
 }));
 
 
@@ -43,7 +43,7 @@ export function ReportsClient() {
 
   const totalRevenue = filteredTransactions.filter(t => t.type === 'revenue').reduce((sum, t) => sum + t.amount, 0);
   const totalExpenses = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-  const profit = totalRevenue - totalExpenses;
+  const profit = totalRevenue + totalExpenses;
 
   const handleExport = (format: 'Excel' | 'PDF') => {
     toast({
