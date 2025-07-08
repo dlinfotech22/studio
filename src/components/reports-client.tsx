@@ -327,10 +327,10 @@ export function ReportsClient() {
       };
 
       doc.setFontSize(18);
-      doc.text('Relatório Financeiro', 10, 22);
+      doc.text('Relatório Financeiro', 14, 22);
       doc.setFontSize(11);
       doc.setTextColor(100);
-      doc.text(`Período: ${formatDateRange()}`, 10, 29);
+      doc.text(`Período: ${formatDateRange()}`, 14, 29);
 
       const summaryData = [
         ['Receita Total:', formatCurrency(totalRevenue)],
@@ -399,6 +399,9 @@ export function ReportsClient() {
             3: { halign: 'right' },
           },
           didParseCell: (data: any) => {
+            if (data.cell.section === 'head' && data.column.index > 0) {
+              data.cell.styles.halign = 'right';
+            }
             if (data.cell.section === 'body' && data.column.index > 0) {
               data.cell.text = [formatCurrency(data.cell.raw)];
               if (data.column.index === 1)
@@ -454,6 +457,9 @@ export function ReportsClient() {
             3: { halign: 'right' },
           },
           didParseCell: (data: any) => {
+            if (data.cell.section === 'head' && data.column.index > 0) {
+              data.cell.styles.halign = 'right';
+            }
             if (data.cell.section === 'body' && data.column.index > 0) {
               data.cell.text = [formatCurrency(data.cell.raw)];
               if (data.column.index === 1)
