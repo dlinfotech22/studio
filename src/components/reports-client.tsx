@@ -43,6 +43,7 @@ import {
 } from './ui/table';
 import { type Transaction } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from './ui/skeleton';
 
 const MonthPicker = ({
   onSelect,
@@ -140,13 +141,67 @@ const YearPicker = ({
   );
 };
 
+function ReportsSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <Skeleton className="h-10 w-full md:w-[280px]" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-10 w-[180px]" />
+          <Skeleton className="h-10 w-[180px]" />
+        </div>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Resumo do Período</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Skeleton className="h-[88px]" />
+            <Skeleton className="h-[88px]" />
+            <Skeleton className="h-[88px]" />
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Detalhes dos Lançamentos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center">
+                    Carregando dados...
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export function ReportsClient() {
   const { toast } = useToast();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    // This logic now runs only on the client, avoiding hydration mismatch.
     setDate({
       from: subDays(new Date(), 29),
       to: new Date(),
@@ -161,8 +216,9 @@ export function ReportsClient() {
       category: i % 3 === 0 ? 'Fornecedores' : 'Prestação de Serviço',
     }));
     setTransactions(allTransactions);
-  }, []);
 
+    setIsClient(true);
+  }, []);
 
   const handleDaySelect = (selectedDay: Date | undefined) => {
     if (selectedDay) {
@@ -176,10 +232,12 @@ export function ReportsClient() {
       from: startOfMonth(selectedMonth),
       to: endOfMonth(selectedMonth),
     });
+    setIsPopoverOpen(false);
   };
 
   const handleYearSelect = (selectedYear: Date) => {
     setDate({ from: startOfYear(selectedYear), to: endOfYear(selectedYear) });
+    setIsPopoverOpen(false);
   };
   
   const handleRangeSelect = (range: DateRange | undefined) => {
@@ -219,6 +277,10 @@ export function ReportsClient() {
       description: `A exportação para ${format} ainda não foi implementada.`,
     });
   };
+
+  if (!isClient) {
+    return <ReportsSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
