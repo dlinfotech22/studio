@@ -65,7 +65,7 @@ export default function RootLayout({
                     <path d="M2 12l10 5 10-5"></path>
                   </svg>
                 </Button>
-                <span className="text-3xl font-semibold tracking-tight text-sidebar-foreground">
+                <span className="text-2xl font-semibold tracking-tight text-sidebar-foreground">
                   Gestão Financeira
                 </span>
               </div>
