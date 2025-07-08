@@ -7,6 +7,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -117,6 +118,10 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
+        <CardFooter className="flex-col items-center justify-center pt-4 text-xs text-muted-foreground">
+          <p>Desenvolvido por: David Leonardo</p>
+          <p>Versão 1.0</p>
+        </CardFooter>
       </Card>
     </div>
   );

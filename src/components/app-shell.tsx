@@ -176,6 +176,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
+          <div className="mt-auto p-2 text-center text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
+            <p>Desenvolvido por: David Leonardo</p>
+            <p>Versão 1.0</p>
+          </div>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
