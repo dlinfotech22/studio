@@ -11,10 +11,8 @@ import {
   endOfYear,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import {
-  FileSpreadsheet,
-  FileText,
-} from 'lucide-react';
+import { FileSpreadsheet, FileText } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -43,7 +41,10 @@ const MonthPicker = ({ onSelect }: { onSelect: (date: Date) => void }) => {
   const [month, setMonth] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
 
-  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
+  const years = Array.from(
+    { length: 10 },
+    (_, i) => new Date().getFullYear() - i
+  );
   const months = Array.from({ length: 12 }, (_, i) => ({
     value: i,
     label: format(new Date(2000, i, 1), 'MMMM', { locale: ptBR }),
@@ -55,9 +56,14 @@ const MonthPicker = ({ onSelect }: { onSelect: (date: Date) => void }) => {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Selecione o mês e o ano desejado.</p>
+      <p className="text-sm text-muted-foreground">
+        Selecione o mês e o ano desejado.
+      </p>
       <div className="flex gap-2">
-        <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+        <Select
+          value={String(month)}
+          onValueChange={(v) => setMonth(Number(v))}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Mês" />
           </SelectTrigger>
@@ -95,7 +101,10 @@ const MonthPicker = ({ onSelect }: { onSelect: (date: Date) => void }) => {
 
 const YearPicker = ({ onSelect }: { onSelect: (date: Date) => void }) => {
   const [year, setYear] = useState(new Date().getFullYear());
-  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
+  const years = Array.from(
+    { length: 10 },
+    (_, i) => new Date().getFullYear() - i
+  );
 
   const handleApply = () => {
     onSelect(new Date(year, 0));
@@ -181,22 +190,28 @@ export function ReportsClient() {
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    const allTransactions: Transaction[] = Array.from({ length: 50 }, (_, i) => ({
-      id: `${i + 1}`,
-      date: subDays(new Date(), Math.floor(Math.random() * 365)),
-      description: `Transação ${i + 1}`,
-      amount: Math.random() * (i % 3 === 0 ? -1 : 1) * (500 + Math.random() * 2000),
-      type: i % 3 === 0 ? 'expense' : 'revenue',
-      category: i % 3 === 0 ? 'Fornecedores' : 'Prestação de Serviço',
-    }));
+    const allTransactions: Transaction[] = Array.from(
+      { length: 50 },
+      (_, i) => ({
+        id: `${i + 1}`,
+        date: subDays(new Date(), Math.floor(Math.random() * 365)),
+        description: `Transação ${i + 1}`,
+        amount:
+          Math.random() * (i % 3 === 0 ? -1 : 1) * (500 + Math.random() * 2000),
+        type: i % 3 === 0 ? 'expense' : 'revenue',
+        category: i % 3 === 0 ? 'Fornecedores' : 'Prestação de Serviço',
+      })
+    );
     setTransactions(allTransactions);
 
     setIsClient(true);
   }, []);
 
-  const handleTabChange = () => {
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
     setDate(undefined);
   };
 
@@ -206,6 +221,7 @@ export function ReportsClient() {
     } else {
       setDate(undefined);
     }
+    setActiveTab(undefined);
   };
 
   const handleMonthSelect = (selectedMonth: Date) => {
@@ -213,15 +229,20 @@ export function ReportsClient() {
       from: startOfMonth(selectedMonth),
       to: endOfMonth(selectedMonth),
     });
+    setActiveTab(undefined);
   };
 
   const handleYearSelect = (selectedYear: Date) => {
     setDate({ from: startOfYear(selectedYear), to: endOfYear(selectedYear) });
+    setActiveTab(undefined);
   };
-  
+
   const handleRangeSelect = (range: DateRange | undefined) => {
     setDate(range);
-  }
+    if (range?.from && range.to) {
+      setActiveTab(undefined);
+    }
+  };
 
   const filteredTransactions = transactions.filter((t) => {
     if (!date?.from) return false;
@@ -230,7 +251,7 @@ export function ReportsClient() {
 
     const toDate = new Date(date.to ?? date.from);
     toDate.setHours(23, 59, 59, 999);
-    
+
     return t.date >= fromDate && t.date <= toDate;
   });
 
@@ -242,10 +263,86 @@ export function ReportsClient() {
     .reduce((sum, t) => sum + t.amount, 0);
   const profit = totalRevenue + totalExpenses;
 
-  const handleExport = (format: 'Excel' | 'PDF') => {
+  const handleExport = (formatType: 'Excel' | 'PDF') => {
+    if (formatType === 'PDF') {
+      toast({
+        title: 'Funcionalidade em desenvolvimento',
+        description: `A exportação para PDF ainda não foi implementada.`,
+      });
+      return;
+    }
+
+    if (filteredTransactions.length === 0) {
+      toast({
+        title: 'Nenhum dado para exportar',
+        description:
+          'Selecione um período com transações para gerar o arquivo Excel.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const dataToExport = filteredTransactions.map((t) => ({
+      Data: format(t.date, 'dd/MM/yyyy'),
+      Descrição: t.description,
+      Categoria: t.category,
+      Tipo: t.type === 'revenue' ? 'Receita' : 'Despesa',
+      Valor: t.amount,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+
+    const range = XLSX.utils.decode_range(worksheet['!ref']!);
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+      const cell_address = { c: 4, r: R };
+      const cell_ref = XLSX.utils.encode_cell(cell_address);
+      if (worksheet[cell_ref]) {
+        worksheet[cell_ref].t = 'n';
+        worksheet[cell_ref].z = '"R$"#,##0.00';
+      }
+    }
+
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [
+        [],
+        ['', '', '', 'Receita Total', totalRevenue],
+        ['', '', '', 'Despesa Total', totalExpenses],
+        ['', '', '', 'Lucro/Prejuízo', profit],
+      ],
+      { origin: -1 }
+    );
+
+    const new_range = XLSX.utils.decode_range(worksheet['!ref']!);
+    for (let R = new_range.e.r - 2; R <= new_range.e.r; ++R) {
+      const cell_address = { c: 4, r: R };
+      const cell_ref = XLSX.utils.encode_cell(cell_address);
+      if (worksheet[cell_ref]) {
+        worksheet[cell_ref].t = 'n';
+        worksheet[cell_ref].z = '"R$"#,##0.00';
+      }
+    }
+
+    worksheet['!cols'] = [
+      { wch: 12 },
+      { wch: 40 },
+      { wch: 20 },
+      { wch: 10 },
+      { wch: 15 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Lançamentos');
+
+    const fileName = `relatorio_financeiro_${format(
+      new Date(),
+      'yyyy-MM-dd'
+    )}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+
     toast({
-      title: 'Funcionalidade em desenvolvimento',
-      description: `A exportação para ${format} ainda não foi implementada.`,
+      title: 'Exportação Concluída',
+      description: `O arquivo ${fileName} foi gerado com sucesso.`,
     });
   };
 
@@ -255,7 +352,7 @@ export function ReportsClient() {
 
   return (
     <div className="space-y-6">
-      <Tabs className="w-full" onValueChange={handleTabChange}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
           <TabsList>
             <TabsTrigger value="period">Período</TabsTrigger>
@@ -264,45 +361,69 @@ export function ReportsClient() {
             <TabsTrigger value="year">Ano</TabsTrigger>
           </TabsList>
           <div className="flex w-full items-center gap-2 md:w-auto">
-            <Button variant="outline" onClick={() => handleExport('Excel')} className="w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => handleExport('Excel')}
+              className="w-full sm:w-auto"
+            >
               <FileSpreadsheet className="mr-2 h-4 w-4" />
               Exportar para Excel
             </Button>
-            <Button onClick={() => handleExport('PDF')} className="w-full sm:w-auto">
+            <Button
+              onClick={() => handleExport('PDF')}
+              className="w-full sm:w-auto"
+            >
               <FileText className="mr-2 h-4 w-4" />
               Gerar Relatório PDF
             </Button>
           </div>
         </div>
-        
-        <TabsContent value="period" className="mt-4 rounded-md border p-4">
-          <p className="mb-4 text-sm text-muted-foreground">Selecione um intervalo de datas.</p>
-          <Calendar
-            initialFocus
-            mode="range"
-            defaultMonth={date?.from}
-            selected={date}
-            onSelect={handleRangeSelect}
-            numberOfMonths={2}
-          />
-        </TabsContent>
-        <TabsContent value="day" className="mt-4 rounded-md border p-4">
-          <p className="mb-4 text-sm text-muted-foreground">Selecione um dia.</p>
-          <Calendar
-            initialFocus
-            mode="single"
-            selected={date?.from}
-            onSelect={handleDaySelect}
-          />
-        </TabsContent>
-        <TabsContent value="month" className="mt-4 max-w-sm rounded-md border p-4">
-          <MonthPicker onSelect={handleMonthSelect} />
-        </TabsContent>
-        <TabsContent value="year" className="mt-4 max-w-sm rounded-md border p-4">
-          <YearPicker onSelect={handleYearSelect} />
-        </TabsContent>
-      </Tabs>
 
+        {activeTab === 'period' && (
+          <TabsContent value="period" className="mt-4 rounded-md border p-4">
+            <p className="mb-4 text-sm text-muted-foreground">
+              Selecione um intervalo de datas.
+            </p>
+            <Calendar
+              initialFocus
+              mode="range"
+              defaultMonth={date?.from}
+              selected={date}
+              onSelect={handleRangeSelect}
+              numberOfMonths={2}
+            />
+          </TabsContent>
+        )}
+        {activeTab === 'day' && (
+          <TabsContent value="day" className="mt-4 rounded-md border p-4">
+            <p className="mb-4 text-sm text-muted-foreground">
+              Selecione um dia.
+            </p>
+            <Calendar
+              initialFocus
+              mode="single"
+              selected={date?.from}
+              onSelect={handleDaySelect}
+            />
+          </TabsContent>
+        )}
+        {activeTab === 'month' && (
+          <TabsContent
+            value="month"
+            className="mt-4 max-w-sm rounded-md border p-4"
+          >
+            <MonthPicker onSelect={handleMonthSelect} />
+          </TabsContent>
+        )}
+        {activeTab === 'year' && (
+          <TabsContent
+            value="year"
+            className="mt-4 max-w-sm rounded-md border p-4"
+          >
+            <YearPicker onSelect={handleYearSelect} />
+          </TabsContent>
+        )}
+      </Tabs>
 
       <Card>
         <CardHeader>
