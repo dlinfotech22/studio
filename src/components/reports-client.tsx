@@ -193,6 +193,9 @@ export function ReportsClient() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
+  const [selectionMode, setSelectionMode] = useState<
+    'period' | 'day' | 'month' | 'year' | undefined
+  >();
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -238,14 +241,17 @@ export function ReportsClient() {
     } else {
       setActiveTab(tab);
       setDate(undefined);
+      setSelectionMode(undefined);
     }
   };
 
   const handleDaySelect = (selectedDay: Date | undefined) => {
     if (selectedDay) {
       setDate({ from: selectedDay, to: selectedDay });
+      setSelectionMode('day');
     } else {
       setDate(undefined);
+      setSelectionMode(undefined);
     }
     setActiveTab(undefined);
   };
@@ -255,16 +261,19 @@ export function ReportsClient() {
       from: startOfMonth(selectedMonth),
       to: endOfMonth(selectedMonth),
     });
+    setSelectionMode('month');
     setActiveTab(undefined);
   };
 
   const handleYearSelect = (selectedYear: Date) => {
     setDate({ from: startOfYear(selectedYear), to: endOfYear(selectedYear) });
+    setSelectionMode('year');
     setActiveTab(undefined);
   };
 
   const handleRangeSelect = (range: DateRange | undefined) => {
     setDate(range);
+    setSelectionMode('period');
     if (range?.from && range.to) {
       setActiveTab(undefined);
     }
@@ -306,7 +315,9 @@ export function ReportsClient() {
       const formatDateRange = () => {
         if (!date?.from) return 'Nenhum período selecionado';
         const from = format(date.from, 'dd/MM/yyyy', { locale: ptBR });
-        const to = date.to ? format(date.to, 'dd/MM/yyyy', { locale: ptBR }) : from;
+        const to = date.to
+          ? format(date.to, 'dd/MM/yyyy', { locale: ptBR })
+          : from;
         return from === to ? from : `${from} - ${to}`;
       };
 
@@ -332,31 +343,148 @@ export function ReportsClient() {
           if (data.column.index === 0) {
             data.cell.styles.fontStyle = 'bold';
           }
-          if (data.row.index === 0 && data.column.index === 1) data.cell.styles.textColor = '#16a34a'; // emerald-600
-          if (data.row.index === 1 && data.column.index === 1) data.cell.styles.textColor = '#dc2626'; // red-600
-          if (data.row.index === 2 && data.column.index === 1) data.cell.styles.textColor = profit >= 0 ? '#16a34a' : '#dc2626';
+          if (data.row.index === 0 && data.column.index === 1)
+            data.cell.styles.textColor = '#16a34a'; // emerald-600
+          if (data.row.index === 1 && data.column.index === 1)
+            data.cell.styles.textColor = '#dc2626'; // red-600
+          if (data.row.index === 2 && data.column.index === 1)
+            data.cell.styles.textColor = profit >= 0 ? '#16a34a' : '#dc2626';
         },
       });
 
-      (doc as any).autoTable({
-        head: [['Data', 'Descrição', 'Categoria', 'Valor']],
-        body: filteredTransactions.map((t) => [
-          format(t.date, 'dd/MM/yyyy'),
-          t.description,
-          t.category,
-          formatCurrency(t.amount),
-        ]),
-        startY: (doc as any).lastAutoTable.finalY + 10,
-        headStyles: { fillColor: [41, 128, 185] }, // a blue color
-        columnStyles: { 3: { halign: 'right' } },
-        didParseCell: (data: any) => {
-          if (data.column.index === 3 && data.cell.section === 'body') {
-            const transaction = filteredTransactions[data.row.index];
-            data.cell.styles.textColor =
-              transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
-          }
-        },
-      });
+      let tableBody: any[][] = [];
+      let tableHead: string[][] = [];
+      let autoTableOptions: any = {};
+
+      if (selectionMode === 'month' && date?.from) {
+        tableHead = [['Data', 'Receitas', 'Despesas', 'Saldo']];
+        const dailyData = filteredTransactions.reduce(
+          (acc, t) => {
+            const day = format(t.date, 'yyyy-MM-dd');
+            if (!acc[day]) {
+              acc[day] = { revenue: 0, expense: 0, date: t.date };
+            }
+            if (t.type === 'revenue') {
+              acc[day].revenue += t.amount;
+            } else {
+              acc[day].expense += t.amount;
+            }
+            return acc;
+          },
+          {} as Record<string, { revenue: number; expense: number; date: Date }>
+        );
+
+        tableBody = Object.values(dailyData)
+          .sort((a, b) => a.date.getTime() - b.date.getTime())
+          .map((d) => [
+            format(d.date, 'dd/MM/yyyy'),
+            d.revenue,
+            d.expense,
+            d.revenue + d.expense,
+          ]);
+
+        autoTableOptions = {
+          head: tableHead,
+          body: tableBody,
+          startY: (doc as any).lastAutoTable.finalY + 10,
+          headStyles: { fillColor: [41, 128, 185] },
+          columnStyles: {
+            1: { halign: 'right' },
+            2: { halign: 'right' },
+            3: { halign: 'right' },
+          },
+          didParseCell: (data: any) => {
+            if (data.cell.section === 'body' && data.column.index > 0) {
+              data.cell.text = [formatCurrency(data.cell.raw)];
+              if (data.column.index === 1)
+                data.cell.styles.textColor = '#16a34a';
+              if (data.column.index === 2)
+                data.cell.styles.textColor = '#dc2626';
+              if (data.column.index === 3) {
+                data.cell.styles.textColor =
+                  data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
+              }
+            }
+          },
+        };
+      } else if (selectionMode === 'year' && date?.from) {
+        tableHead = [['Mês', 'Receitas', 'Despesas', 'Saldo']];
+        const monthlyData = filteredTransactions.reduce(
+          (acc, t) => {
+            const monthKey = format(t.date, 'yyyy-MM');
+            if (!acc[monthKey]) {
+              acc[monthKey] = {
+                revenue: 0,
+                expense: 0,
+                date: startOfMonth(t.date),
+              };
+            }
+            if (t.type === 'revenue') {
+              acc[monthKey].revenue += t.amount;
+            } else {
+              acc[monthKey].expense += t.amount;
+            }
+            return acc;
+          },
+          {} as Record<string, { revenue: number; expense: number; date: Date }>
+        );
+
+        tableBody = Object.values(monthlyData)
+          .sort((a, b) => a.date.getTime() - b.date.getTime())
+          .map((m) => [
+            format(m.date, 'MMMM/yyyy', { locale: ptBR }),
+            m.revenue,
+            m.expense,
+            m.revenue + m.expense,
+          ]);
+
+        autoTableOptions = {
+          head: tableHead,
+          body: tableBody,
+          startY: (doc as any).lastAutoTable.finalY + 10,
+          headStyles: { fillColor: [41, 128, 185] },
+          columnStyles: {
+            1: { halign: 'right' },
+            2: { halign: 'right' },
+            3: { halign: 'right' },
+          },
+          didParseCell: (data: any) => {
+            if (data.cell.section === 'body' && data.column.index > 0) {
+              data.cell.text = [formatCurrency(data.cell.raw)];
+              if (data.column.index === 1)
+                data.cell.styles.textColor = '#16a34a';
+              if (data.column.index === 2)
+                data.cell.styles.textColor = '#dc2626';
+              if (data.column.index === 3) {
+                data.cell.styles.textColor =
+                  data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
+              }
+            }
+          },
+        };
+      } else {
+        autoTableOptions = {
+          head: [['Data', 'Descrição', 'Categoria', 'Valor']],
+          body: filteredTransactions.map((t) => [
+            format(t.date, 'dd/MM/yyyy'),
+            t.description,
+            t.category,
+            formatCurrency(t.amount),
+          ]),
+          startY: (doc as any).lastAutoTable.finalY + 10,
+          headStyles: { fillColor: [41, 128, 185] }, // a blue color
+          columnStyles: { 3: { halign: 'right' } },
+          didParseCell: (data: any) => {
+            if (data.column.index === 3 && data.cell.section === 'body') {
+              const transaction = filteredTransactions[data.row.index];
+              data.cell.styles.textColor =
+                transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
+            }
+          },
+        };
+      }
+
+      (doc as any).autoTable(autoTableOptions);
 
       const fileName = `relatorio_financeiro_${format(
         new Date(),
