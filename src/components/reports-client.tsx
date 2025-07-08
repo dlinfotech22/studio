@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DateRange } from 'react-day-picker';
 import {
   format,
@@ -191,6 +191,7 @@ export function ReportsClient() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const allTransactions: Transaction[] = Array.from(
@@ -210,9 +211,32 @@ export function ReportsClient() {
     setIsClient(true);
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        tabsContainerRef.current &&
+        !tabsContainerRef.current.contains(event.target as Node)
+      ) {
+        setActiveTab(undefined);
+      }
+    };
+
+    if (activeTab) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [activeTab]);
+
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    setDate(undefined);
+    if (activeTab === tab) {
+      setActiveTab(undefined);
+    } else {
+      setActiveTab(tab);
+      setDate(undefined);
+    }
   };
 
   const handleDaySelect = (selectedDay: Date | undefined) => {
@@ -352,78 +376,80 @@ export function ReportsClient() {
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-          <TabsList>
-            <TabsTrigger value="period">Período</TabsTrigger>
-            <TabsTrigger value="day">Dia</TabsTrigger>
-            <TabsTrigger value="month">Mês</TabsTrigger>
-            <TabsTrigger value="year">Ano</TabsTrigger>
-          </TabsList>
-          <div className="flex w-full items-center gap-2 md:w-auto">
-            <Button
-              variant="outline"
-              onClick={() => handleExport('Excel')}
-              className="w-full sm:w-auto"
-            >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Exportar para Excel
-            </Button>
-            <Button
-              onClick={() => handleExport('PDF')}
-              className="w-full sm:w-auto"
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              Gerar Relatório PDF
-            </Button>
+      <div ref={tabsContainerRef}>
+        <Tabs value={activeTab || ''} onValueChange={handleTabChange}>
+          <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+            <TabsList>
+              <TabsTrigger value="period">Período</TabsTrigger>
+              <TabsTrigger value="day">Dia</TabsTrigger>
+              <TabsTrigger value="month">Mês</TabsTrigger>
+              <TabsTrigger value="year">Ano</TabsTrigger>
+            </TabsList>
+            <div className="flex w-full items-center gap-2 md:w-auto">
+              <Button
+                variant="outline"
+                onClick={() => handleExport('Excel')}
+                className="w-full sm:w-auto"
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Exportar para Excel
+              </Button>
+              <Button
+                onClick={() => handleExport('PDF')}
+                className="w-full sm:w-auto"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Gerar Relatório PDF
+              </Button>
+            </div>
           </div>
-        </div>
 
-        {activeTab === 'period' && (
-          <TabsContent value="period" className="mt-4 rounded-md border p-4">
-            <p className="mb-4 text-sm text-muted-foreground">
-              Selecione um intervalo de datas.
-            </p>
-            <Calendar
-              initialFocus
-              mode="range"
-              defaultMonth={date?.from}
-              selected={date}
-              onSelect={handleRangeSelect}
-              numberOfMonths={2}
-            />
-          </TabsContent>
-        )}
-        {activeTab === 'day' && (
-          <TabsContent value="day" className="mt-4 rounded-md border p-4">
-            <p className="mb-4 text-sm text-muted-foreground">
-              Selecione um dia.
-            </p>
-            <Calendar
-              initialFocus
-              mode="single"
-              selected={date?.from}
-              onSelect={handleDaySelect}
-            />
-          </TabsContent>
-        )}
-        {activeTab === 'month' && (
-          <TabsContent
-            value="month"
-            className="mt-4 max-w-sm rounded-md border p-4"
-          >
-            <MonthPicker onSelect={handleMonthSelect} />
-          </TabsContent>
-        )}
-        {activeTab === 'year' && (
-          <TabsContent
-            value="year"
-            className="mt-4 max-w-sm rounded-md border p-4"
-          >
-            <YearPicker onSelect={handleYearSelect} />
-          </TabsContent>
-        )}
-      </Tabs>
+          {activeTab === 'period' && (
+            <TabsContent value="period" className="mt-4 rounded-md border p-4">
+              <p className="mb-4 text-sm text-muted-foreground">
+                Selecione um intervalo de datas.
+              </p>
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={date?.from}
+                selected={date}
+                onSelect={handleRangeSelect}
+                numberOfMonths={2}
+              />
+            </TabsContent>
+          )}
+          {activeTab === 'day' && (
+            <TabsContent value="day" className="mt-4 rounded-md border p-4">
+              <p className="mb-4 text-sm text-muted-foreground">
+                Selecione um dia.
+              </p>
+              <Calendar
+                initialFocus
+                mode="single"
+                selected={date?.from}
+                onSelect={handleDaySelect}
+              />
+            </TabsContent>
+          )}
+          {activeTab === 'month' && (
+            <TabsContent
+              value="month"
+              className="mt-4 max-w-sm rounded-md border p-4"
+            >
+              <MonthPicker onSelect={handleMonthSelect} />
+            </TabsContent>
+          )}
+          {activeTab === 'year' && (
+            <TabsContent
+              value="year"
+              className="mt-4 max-w-sm rounded-md border p-4"
+            >
+              <YearPicker onSelect={handleYearSelect} />
+            </TabsContent>
+          )}
+        </Tabs>
+      </div>
 
       <Card>
         <CardHeader>
