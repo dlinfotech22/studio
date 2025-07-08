@@ -10,6 +10,7 @@ import {
   LogOut,
   Settings,
   Users,
+  User,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -21,6 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
@@ -29,9 +31,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isAuthenticating, setIsAuthenticating] = useState(true);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('auth-token');
+    const user = localStorage.getItem('current-user');
+    setCurrentUser(user);
+
     if (!token && pathname !== '/login') {
       router.push('/login');
     } else if (token && pathname === '/login') {
@@ -158,6 +164,22 @@ export function AppShell({ children }: { children: ReactNode }) {
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
+          {currentUser && (
+            <>
+              <SidebarSeparator />
+              <div className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:py-2">
+                <User className="h-6 w-6 shrink-0" />
+                <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+                  <span className="text-sm font-semibold text-sidebar-foreground">
+                    {currentUser}
+                  </span>
+                  <span className="text-xs text-sidebar-foreground/70">
+                    Usuário
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
           <SidebarMenu>
             <SidebarMenuItem>
               <Link href="/settings">
