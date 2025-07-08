@@ -143,13 +143,14 @@ const YearPicker = ({
 export function ReportsClient() {
   const { toast } = useToast();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 29),
-    to: new Date(),
-  });
+  const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
+    setDate({
+      from: subDays(new Date(), 29),
+      to: new Date(),
+    });
     // Mock data, in a real app this would come from an API
     const allTransactions: Transaction[] = Array.from({ length: 50 }, (_, i) => ({
       id: `${i + 1}`,
