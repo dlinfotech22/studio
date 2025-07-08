@@ -25,7 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 
 export const metadata: Metadata = {
-  title: 'Contabilidade Leve',
+  title: 'Contabilidade',
   description: 'Gerencie as finanças da sua empresa de forma simples e eficiente.',
 };
 
@@ -65,14 +65,9 @@ export default function RootLayout({
                     <path d="M2 12l10 5 10-5"></path>
                   </svg>
                 </Button>
-                <div className="flex flex-col">
-                  <span className="text-lg font-semibold tracking-tight text-sidebar-foreground">
-                    Contabilidade
-                  </span>
-                  <span className="-mt-1 text-sm text-sidebar-foreground/80">
-                    Leve
-                  </span>
-                </div>
+                <span className="text-lg font-semibold tracking-tight text-sidebar-foreground">
+                  Contabilidade
+                </span>
               </div>
             </SidebarHeader>
             <SidebarContent>
@@ -115,7 +110,7 @@ export default function RootLayout({
                   <SidebarMenuButton>
                     <Avatar className="h-7 w-7">
                       <AvatarImage src="https://placehold.co/40x40.png" alt="User Avatar" />
-                      <AvatarFallback>CL</AvatarFallback>
+                      <AvatarFallback>C</AvatarFallback>
                     </Avatar>
                     <span>Minha Empresa</span>
                   </SidebarMenuButton>
@@ -126,7 +121,7 @@ export default function RootLayout({
           <SidebarInset>
             <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6 md:hidden">
               <SidebarTrigger />
-              <h1 className="text-lg font-semibold">Contabilidade Leve</h1>
+              <h1 className="text-lg font-semibold">Contabilidade</h1>
             </header>
             <main className="flex-1 p-4 sm:p-6">{children}</main>
           </SidebarInset>
