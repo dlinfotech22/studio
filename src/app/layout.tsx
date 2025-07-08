@@ -49,7 +49,7 @@ export default function RootLayout({
           <Sidebar>
             <SidebarHeader>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="shrink-0 rounded-full">
+                <Button variant="ghost" size="icon" className="shrink-0 rounded-full h-auto w-auto p-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -58,14 +58,14 @@ export default function RootLayout({
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="h-6 w-6 text-primary"
+                    className="h-10 w-10 text-primary"
                   >
                     <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
                     <path d="M2 17l10 5 10-5"></path>
                     <path d="M2 12l10 5 10-5"></path>
                   </svg>
                 </Button>
-                <span className="text-2xl font-semibold tracking-tight text-sidebar-foreground">
+                <span className="text-4xl font-semibold tracking-tight text-sidebar-foreground">
                   Contabilidade
                 </span>
               </div>
@@ -74,25 +74,25 @@ export default function RootLayout({
               <SidebarMenu>
                 <SidebarMenuItem>
                   <Link href="/">
-                    <SidebarMenuButton tooltip="Dashboard" className="h-12">
-                      <LayoutDashboard className="h-6 w-6" />
-                      <span className="text-base">Dashboard</span>
+                    <SidebarMenuButton tooltip="Dashboard" className="h-14 text-lg">
+                      <LayoutDashboard className="h-7 w-7" />
+                      <span className="text-lg">Dashboard</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <Link href="/transactions">
-                    <SidebarMenuButton tooltip="Lançamentos" className="h-12">
-                      <ArrowRightLeft className="h-6 w-6" />
-                      <span className="text-base">Lançamentos</span>
+                    <SidebarMenuButton tooltip="Lançamentos" className="h-14 text-lg">
+                      <ArrowRightLeft className="h-7 w-7" />
+                      <span className="text-lg">Lançamentos</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <Link href="/reports">
-                    <SidebarMenuButton tooltip="Relatórios" className="h-12">
-                      <BarChart3 className="h-6 w-6" />
-                      <span className="text-base">Relatórios</span>
+                    <SidebarMenuButton tooltip="Relatórios" className="h-14 text-lg">
+                      <BarChart3 className="h-7 w-7" />
+                      <span className="text-lg">Relatórios</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
