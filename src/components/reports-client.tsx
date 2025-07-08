@@ -247,6 +247,13 @@ export function ReportsClient() {
     }
   }
 
+  const handlePopoverOpenChange = (open: boolean) => {
+    if (open) {
+      setDate(undefined);
+    }
+    setIsPopoverOpen(open);
+  };
+
   const formatDisplayDate = (dateRange: DateRange | undefined): string => {
     if (!dateRange?.from) return 'Escolha um período';
     if (dateRange.to && format(dateRange.from, 'yyyy-MM-dd') !== format(dateRange.to, 'yyyy-MM-dd')) {
@@ -285,7 +292,7 @@ export function ReportsClient() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+        <Popover open={isPopoverOpen} onOpenChange={handlePopoverOpenChange}>
           <PopoverTrigger asChild>
             <Button
               id="date"
