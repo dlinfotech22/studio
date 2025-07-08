@@ -119,7 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </div>
         </SidebarHeader>
-        <SidebarContent>
+        <SidebarContent className="pt-8">
           <SidebarMenu>
             <SidebarMenuItem>
               <Link href="/">
