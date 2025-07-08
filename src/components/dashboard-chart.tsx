@@ -1,9 +1,13 @@
 'use client';
 
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts';
+
 import { formatCurrency } from '@/lib/utils';
-import { ChartTooltipContent } from './ui/chart';
+import {
+  ChartContainer,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
 
 const chartData = [
   { month: 'Jan', revenue: 18600, expenses: 8000 },
@@ -14,10 +18,21 @@ const chartData = [
   { month: 'Jun', revenue: 21400, expenses: 11400 },
 ];
 
+const chartConfig = {
+  revenue: {
+    label: 'Receita',
+    color: 'hsl(var(--primary))',
+  },
+  expenses: {
+    label: 'Despesa',
+    color: 'hsl(var(--accent))',
+  },
+} satisfies ChartConfig;
+
 export function DashboardChart() {
   return (
-    <ResponsiveContainer width="100%" height={350}>
-      <BarChart data={chartData}>
+    <ChartContainer config={chartConfig} className="h-[350px] w-full">
+      <BarChart accessibilityLayer data={chartData}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis
           dataKey="month"
@@ -44,9 +59,19 @@ export function DashboardChart() {
             )}
            />}
         />
-        <Bar dataKey="revenue" name="Receita" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="expenses" name="Despesa" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
+        <Bar
+          dataKey="revenue"
+          name="Receita"
+          fill="var(--color-revenue)"
+          radius={[4, 4, 0, 0]}
+        />
+        <Bar
+          dataKey="expenses"
+          name="Despesa"
+          fill="var(--color-expenses)"
+          radius={[4, 4, 0, 0]}
+        />
       </BarChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
