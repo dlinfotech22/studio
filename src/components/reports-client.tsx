@@ -249,6 +249,7 @@ export function ReportsClient() {
     if (selectedDay) {
       setDate({ from: selectedDay, to: selectedDay });
       setSelectionMode('day');
+      setActiveTab(undefined);
     } else {
       setDate(undefined);
       setSelectionMode(undefined);
