@@ -108,7 +108,7 @@ export function TransactionsClient() {
   const expenses = transactions.filter((t) => t.type === 'expense');
 
   const revenueCategories = ['Serviços', 'Venda de Produtos', 'Outros'];
-  const expenseCategories = ['Salários', 'Fornecedores', 'Água', 'Luz', 'Internet', 'Aluguel', 'Outros'];
+  const expenseCategories = ['Salários', 'Fornecedores', 'Água', 'Luz', 'Internet', 'Aluguel', 'Combustível', 'Outros'];
 
   const onSubmit = (data: TransactionFormValues) => {
     if (editingTransaction) {
