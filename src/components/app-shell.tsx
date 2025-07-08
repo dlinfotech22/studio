@@ -24,7 +24,6 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from './ui/skeleton';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -160,10 +159,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton tooltip="Configurações">
-                <Settings />
-                <span>Configurações</span>
-              </SidebarMenuButton>
+              <Link href="/settings">
+                <SidebarMenuButton
+                  tooltip="Configurações"
+                  isActive={pathname === '/settings'}
+                >
+                  <Settings />
+                  <span>Configurações</span>
+                </SidebarMenuButton>
+              </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton onClick={handleLogout} tooltip="Sair">

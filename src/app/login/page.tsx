@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,7 +27,7 @@ export default function LoginPage() {
 
     // Mock authentication
     setTimeout(() => {
-      if (email === 'admin@example.com' && password === 'password') {
+      if (username === 'admin' && password === 'senha123') {
         localStorage.setItem('auth-token', 'mock-token-string');
         toast({
           title: 'Login bem-sucedido!',
@@ -51,20 +51,20 @@ export default function LoginPage() {
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
           <CardDescription>
-            Entre com seu email e senha para acessar o painel.
+            Entre com seu usuário e senha para acessar o painel.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Usuário</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="admin@example.com"
+                id="username"
+                type="text"
+                placeholder="admin"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 disabled={isLoading}
               />
             </div>
@@ -73,7 +73,7 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="password"
+                placeholder="senha123"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
