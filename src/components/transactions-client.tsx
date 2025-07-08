@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -14,7 +14,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 
-import { type Transaction } from '@/lib/types';
+import { type Transaction, type Category } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -71,12 +71,23 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 
+const TRANSACTIONS_STORAGE_KEY = 'app-transactions';
+const CATEGORIES_STORAGE_KEY = 'app-categories';
+
 const initialTransactions: Transaction[] = [
   { id: '1', date: new Date(), description: 'Prestação de Serviço - Cliente A', amount: 5000, type: 'revenue', category: 'Prestação de Serviço' },
   { id: '2', date: new Date(new Date().setDate(new Date().getDate() - 1)), description: 'Pagamento de Salários', amount: -12000, type: 'expense', category: 'Salários' },
   { id: '3', date: new Date(new Date().setDate(new Date().getDate() - 2)), description: 'Conta de Luz', amount: -450.75, type: 'expense', category: 'Luz' },
   { id: '4', date: new Date(new Date().setDate(new Date().getDate() - 3)), description: 'Prestação de Serviço - Cliente B', amount: 7500, type: 'revenue', category: 'Prestação de Serviço' },
 ];
+
+const defaultCategories: Category[] = [
+    { id: 'cat-rev-1', name: 'Prestação de Serviço', type: 'revenue' },
+    { id: 'cat-rev-2', name: 'Venda de Produtos', type: 'revenue' },
+    { id: 'cat-exp-1', name: 'Salários', type: 'expense' },
+    { id: 'cat-exp-2', name: 'Fornecedores', type: 'expense' },
+    { id: 'cat-exp-3', name: 'Aluguel', type: 'expense' },
+  ];
 
 const transactionSchema = z.object({
   description: z.string().optional(),
@@ -90,11 +101,36 @@ type TransactionFormValues = z.infer<typeof transactionSchema>;
 
 export function TransactionsClient() {
   const { toast } = useToast();
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const storedTransactions = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
+      setTransactions(storedTransactions ? JSON.parse(storedTransactions, (key, value) => key === 'date' ? new Date(value) : value) : initialTransactions);
+
+      const storedCategories = localStorage.getItem(CATEGORIES_STORAGE_KEY);
+      const categories = storedCategories ? JSON.parse(storedCategories) : defaultCategories;
+      setAllCategories(categories);
+      if (!storedCategories) {
+        localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(defaultCategories));
+      }
+    } catch (error) {
+      console.error("Failed to load data from localStorage", error);
+      setTransactions(initialTransactions);
+      setAllCategories(defaultCategories);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (transactions.length) {
+      localStorage.setItem(TRANSACTIONS_STORAGE_KEY, JSON.stringify(transactions));
+    }
+  }, [transactions]);
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
@@ -109,12 +145,13 @@ export function TransactionsClient() {
   const revenue = transactions.filter((t) => t.type === 'revenue');
   const expenses = transactions.filter((t) => t.type === 'expense');
 
-  const revenueCategories = ['Prestação de Serviço', 'Venda de Produtos', 'Outros'];
-  const expenseCategories = ['Salários', 'Fornecedores', 'Água', 'Luz', 'Internet', 'Aluguel', 'Combustível', 'Outros'];
+  const revenueCategories = allCategories.filter(c => c.type === 'revenue').map(c => c.name);
+  const expenseCategories = allCategories.filter(c => c.type === 'expense').map(c => c.name);
+
 
   const onSubmit = (data: TransactionFormValues) => {
     const amount = data.type === 'expense' ? -Math.abs(data.amount) : data.amount;
-    const payload = { ...data, amount, description: data.description || '' };
+    const payload = { ...data, amount, description: data.description || data.category };
 
     if (editingTransaction) {
       setTransactions(
@@ -144,7 +181,7 @@ export function TransactionsClient() {
 
   const handleEdit = (transaction: Transaction) => {
     setEditingTransaction(transaction);
-    form.reset({ ...transaction, amount: Math.abs(transaction.amount) });
+    form.reset({ ...transaction, date: new Date(transaction.date), amount: Math.abs(transaction.amount) });
     setIsDialogOpen(true);
   };
   
@@ -185,7 +222,7 @@ export function TransactionsClient() {
               <TableCell className={cn("text-right font-mono", type === 'revenue' ? 'text-emerald-600' : 'text-red-600')}>
                 {formatCurrency(item.amount)}
               </TableCell>
-              <TableCell className="text-right">{format(item.date, 'dd/MM/yyyy')}</TableCell>
+              <TableCell className="text-right">{format(new Date(item.date), 'dd/MM/yyyy')}</TableCell>
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

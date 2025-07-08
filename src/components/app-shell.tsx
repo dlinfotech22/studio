@@ -43,6 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const handleLogout = () => {
     localStorage.removeItem('auth-token');
+    localStorage.removeItem('current-user');
     router.push('/login');
   };
 

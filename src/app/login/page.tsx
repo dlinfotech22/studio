@@ -62,6 +62,7 @@ export default function LoginPage() {
 
       if (foundUser) {
         localStorage.setItem('auth-token', 'mock-token-string');
+        localStorage.setItem('current-user', foundUser.username);
         toast({
           title: 'Login bem-sucedido!',
           description: 'Redirecionando para o dashboard.',

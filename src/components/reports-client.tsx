@@ -35,7 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from './ui/table';
-import { type Transaction } from '@/lib/types';
+import { type Transaction, type CompanyInfo } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
 
@@ -187,10 +187,14 @@ function ReportsSkeleton() {
   );
 }
 
+const TRANSACTIONS_STORAGE_KEY = 'app-transactions';
+const COMPANY_INFO_STORAGE_KEY = 'app-company-info';
+
 export function ReportsClient() {
   const { toast } = useToast();
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
   const [selectionMode, setSelectionMode] = useState<
@@ -199,20 +203,22 @@ export function ReportsClient() {
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const allTransactions: Transaction[] = Array.from(
-      { length: 50 },
-      (_, i) => ({
-        id: `${i + 1}`,
-        date: subDays(new Date(), Math.floor(Math.random() * 365)),
-        description: `Transação ${i + 1}`,
-        amount:
-          Math.random() * (i % 3 === 0 ? -1 : 1) * (500 + Math.random() * 2000),
-        type: i % 3 === 0 ? 'expense' : 'revenue',
-        category: i % 3 === 0 ? 'Fornecedores' : 'Prestação de Serviço',
-      })
-    );
-    setTransactions(allTransactions);
+    try {
+      const storedTransactions = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
+      const allTransactions = storedTransactions
+        ? JSON.parse(storedTransactions, (key, value) =>
+            key === 'date' ? new Date(value) : value
+          )
+        : [];
+      setTransactions(allTransactions);
 
+      const storedCompanyInfo = localStorage.getItem(COMPANY_INFO_STORAGE_KEY);
+      if (storedCompanyInfo) {
+        setCompanyInfo(JSON.parse(storedCompanyInfo));
+      }
+    } catch (error) {
+      console.error('Failed to load data from localStorage', error);
+    }
     setIsClient(true);
   }, []);
 
@@ -292,7 +298,7 @@ export function ReportsClient() {
     const toDate = new Date(date.to ?? date.from);
     toDate.setHours(23, 59, 59, 999);
 
-    return t.date >= fromDate && t.date <= toDate;
+    return new Date(t.date) >= fromDate && new Date(t.date) <= toDate;
   });
 
   const totalRevenue = filteredTransactions
@@ -316,21 +322,55 @@ export function ReportsClient() {
 
     if (formatType === 'PDF') {
       const doc = new jsPDF();
+      let startY = 15;
+      const pageW = doc.internal.pageSize.getWidth();
+      const leftMargin = 14;
 
+      // Add company info header
+      if (companyInfo?.logo) {
+        try {
+            const img = new Image();
+            img.src = companyInfo.logo;
+            const imgProps = doc.getImageProperties(img.src);
+            const aspectRatio = imgProps.width / imgProps.height;
+            const imgWidth = 20;
+            const imgHeight = imgWidth / aspectRatio;
+            doc.addImage(companyInfo.logo, 'PNG', leftMargin, startY, imgWidth, imgHeight);
+        } catch(e) {
+            console.error("Error adding logo to PDF", e);
+        }
+      }
+
+      if (companyInfo?.name) {
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(companyInfo.name, leftMargin + (companyInfo.logo ? 25 : 0), startY + 6);
+      }
+      if (companyInfo?.document) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(companyInfo.document, leftMargin + (companyInfo.logo ? 25 : 0), startY + 12);
+      }
+      
+      startY += companyInfo?.logo ? 28 : 20;
+
+      // Report Title
       const formatDateRange = () => {
         if (!date?.from) return 'Nenhum período selecionado';
-        const from = format(date.from, 'dd/MM/yyyy', { locale: ptBR });
-        const to = date.to
-          ? format(date.to, 'dd/MM/yyyy', { locale: ptBR })
-          : from;
-        return from === to ? from : `${from} - ${to}`;
+        const from = format(date.from, 'dd/MM/yyyy');
+        const to = date.to ? format(date.to, 'dd/MM/yyyy') : from;
+        return from === to ? `do dia ${from}` : `de ${from} a ${to}`;
       };
-
+      
       doc.setFontSize(18);
-      doc.text('Relatório Financeiro', 14, 22);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Relatório Financeiro', leftMargin, startY);
       doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
       doc.setTextColor(100);
-      doc.text(`Período: ${formatDateRange()}`, 14, 29);
+      doc.text(`Período ${formatDateRange()}`, leftMargin, startY + 6);
+      startY += 12;
+
 
       const summaryData = [
         ['Receita Total:', formatCurrency(totalRevenue)],
@@ -340,7 +380,7 @@ export function ReportsClient() {
 
       (doc as any).autoTable({
         body: summaryData,
-        startY: 35,
+        startY,
         theme: 'plain',
         styles: { fontSize: 12 },
         columnStyles: { 1: { halign: 'right' } },
@@ -348,14 +388,12 @@ export function ReportsClient() {
           if (data.column.index === 0) {
             data.cell.styles.fontStyle = 'bold';
           }
-          if (data.row.index === 0 && data.column.index === 1)
-            data.cell.styles.textColor = '#16a34a'; // emerald-600
-          if (data.row.index === 1 && data.column.index === 1)
-            data.cell.styles.textColor = '#dc2626'; // red-600
-          if (data.row.index === 2 && data.column.index === 1)
-            data.cell.styles.textColor = profit >= 0 ? '#16a34a' : '#dc2626';
+          if (data.row.index === 0 && data.column.index === 1) data.cell.styles.textColor = '#16a34a'; // emerald-600
+          if (data.row.index === 1 && data.column.index === 1) data.cell.styles.textColor = '#dc2626'; // red-600
+          if (data.row.index === 2 && data.column.index === 1) data.cell.styles.textColor = profit >= 0 ? '#16a34a' : '#dc2626';
         },
       });
+      startY = (doc as any).lastAutoTable.finalY + 10;
 
       let tableBody: any[][] = [];
       let tableHead: string[][] = [];
@@ -365,9 +403,9 @@ export function ReportsClient() {
         tableHead = [['Data', 'Receitas', 'Despesas', 'Saldo']];
         const dailyData = filteredTransactions.reduce(
           (acc, t) => {
-            const day = format(t.date, 'yyyy-MM-dd');
+            const day = format(new Date(t.date), 'yyyy-MM-dd');
             if (!acc[day]) {
-              acc[day] = { revenue: 0, expense: 0, date: t.date };
+              acc[day] = { revenue: 0, expense: 0, date: new Date(t.date) };
             }
             if (t.type === 'revenue') {
               acc[day].revenue += t.amount;
@@ -391,26 +429,24 @@ export function ReportsClient() {
         autoTableOptions = {
           head: tableHead,
           body: tableBody,
-          startY: (doc as any).lastAutoTable.finalY + 10,
-          headStyles: { fillColor: [41, 128, 185] },
+          startY,
+          headStyles: { fillColor: [41, 128, 185], halign: 'center' },
           columnStyles: {
+            0: { halign: 'center' },
             1: { halign: 'right' },
             2: { halign: 'right' },
             3: { halign: 'right' },
           },
           didParseCell: (data: any) => {
-            if (data.cell.section === 'head' && data.column.index > 0) {
-              data.cell.styles.halign = 'right';
+            if (data.cell.section === 'head') {
+               if (data.column.index > 0) data.cell.styles.halign = 'right';
             }
             if (data.cell.section === 'body' && data.column.index > 0) {
               data.cell.text = [formatCurrency(data.cell.raw)];
-              if (data.column.index === 1)
-                data.cell.styles.textColor = '#16a34a';
-              if (data.column.index === 2)
-                data.cell.styles.textColor = '#dc2626';
+              if (data.column.index === 1) data.cell.styles.textColor = '#16a34a';
+              if (data.column.index === 2) data.cell.styles.textColor = '#dc2626';
               if (data.column.index === 3) {
-                data.cell.styles.textColor =
-                  data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
+                data.cell.styles.textColor = data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
               }
             }
           },
@@ -419,12 +455,12 @@ export function ReportsClient() {
         tableHead = [['Mês', 'Receitas', 'Despesas', 'Saldo']];
         const monthlyData = filteredTransactions.reduce(
           (acc, t) => {
-            const monthKey = format(t.date, 'yyyy-MM');
+            const monthKey = format(new Date(t.date), 'yyyy-MM');
             if (!acc[monthKey]) {
               acc[monthKey] = {
                 revenue: 0,
                 expense: 0,
-                date: startOfMonth(t.date),
+                date: startOfMonth(new Date(t.date)),
               };
             }
             if (t.type === 'revenue') {
@@ -449,26 +485,24 @@ export function ReportsClient() {
         autoTableOptions = {
           head: tableHead,
           body: tableBody,
-          startY: (doc as any).lastAutoTable.finalY + 10,
-          headStyles: { fillColor: [41, 128, 185] },
+          startY,
+          headStyles: { fillColor: [41, 128, 185], halign: 'center' },
           columnStyles: {
+             0: { halign: 'left' },
             1: { halign: 'right' },
             2: { halign: 'right' },
             3: { halign: 'right' },
           },
           didParseCell: (data: any) => {
-            if (data.cell.section === 'head' && data.column.index > 0) {
-              data.cell.styles.halign = 'right';
+             if (data.cell.section === 'head') {
+               if (data.column.index > 0) data.cell.styles.halign = 'right';
             }
             if (data.cell.section === 'body' && data.column.index > 0) {
               data.cell.text = [formatCurrency(data.cell.raw)];
-              if (data.column.index === 1)
-                data.cell.styles.textColor = '#16a34a';
-              if (data.column.index === 2)
-                data.cell.styles.textColor = '#dc2626';
+              if (data.column.index === 1) data.cell.styles.textColor = '#16a34a';
+              if (data.column.index === 2) data.cell.styles.textColor = '#dc2626';
               if (data.column.index === 3) {
-                data.cell.styles.textColor =
-                  data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
+                data.cell.styles.textColor = data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
               }
             }
           },
@@ -477,12 +511,12 @@ export function ReportsClient() {
         autoTableOptions = {
           head: [['Data', 'Descrição', 'Categoria', 'Valor']],
           body: filteredTransactions.map((t) => [
-            format(t.date, 'dd/MM/yyyy'),
+            format(new Date(t.date), 'dd/MM/yyyy'),
             t.description,
             t.category,
             formatCurrency(t.amount),
           ]),
-          startY: (doc as any).lastAutoTable.finalY + 10,
+          startY,
           headStyles: { fillColor: [41, 128, 185] }, // a blue color
           columnStyles: { 3: { halign: 'right' } },
           didParseCell: (data: any) => {
@@ -511,7 +545,7 @@ export function ReportsClient() {
     }
 
     const dataToExport = filteredTransactions.map((t) => ({
-      Data: format(t.date, 'dd/MM/yyyy'),
+      Data: format(new Date(t.date), 'dd/MM/yyyy'),
       Descrição: t.description,
       Categoria: t.category,
       Tipo: t.type === 'revenue' ? 'Receita' : 'Despesa',
@@ -629,7 +663,6 @@ export function ReportsClient() {
                 Selecione um dia.
               </p>
               <Calendar
-                initialFocus
                 mode="single"
                 selected={date?.from}
                 onSelect={handleDaySelect}
@@ -674,7 +707,7 @@ export function ReportsClient() {
                 Despesa Total
               </p>
               <p className="text-2xl font-bold text-red-600">
-                {formatCurrency(totalExpenses)}
+                {formatCurrency(Math.abs(totalExpenses))}
               </p>
             </div>
             <div className="rounded-lg border bg-card p-4">
@@ -713,7 +746,7 @@ export function ReportsClient() {
                 {filteredTransactions.length > 0 ? (
                   filteredTransactions.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>{format(t.date, 'dd/MM/yyyy')}</TableCell>
+                      <TableCell>{format(new Date(t.date), 'dd/MM/yyyy')}</TableCell>
                       <TableCell className="font-medium">
                         {t.description}
                       </TableCell>

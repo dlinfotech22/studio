@@ -12,3 +12,15 @@ export type User = {
   username: string;
   password: string;
 };
+
+export type Category = {
+  id: string;
+  name: string;
+  type: 'revenue' | 'expense';
+};
+
+export type CompanyInfo = {
+  name: string;
+  document: string; // CNPJ or CPF
+  logo?: string; // base64 data URI
+};
