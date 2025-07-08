@@ -12,7 +12,6 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Calendar as CalendarIcon,
   FileSpreadsheet,
   FileText,
 } from 'lucide-react';
@@ -184,10 +183,6 @@ export function ReportsClient() {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setDate({
-      from: subDays(new Date(), 29),
-      to: new Date(),
-    });
     const allTransactions: Transaction[] = Array.from({ length: 50 }, (_, i) => ({
       id: `${i + 1}`,
       date: subDays(new Date(), Math.floor(Math.random() * 365)),
@@ -260,7 +255,7 @@ export function ReportsClient() {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="period" className="w-full" onValueChange={handleTabChange}>
+      <Tabs className="w-full" onValueChange={handleTabChange}>
         <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
           <TabsList>
             <TabsTrigger value="period">Período</TabsTrigger>
