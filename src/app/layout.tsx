@@ -65,7 +65,7 @@ export default function RootLayout({
                     <path d="M2 12l10 5 10-5"></path>
                   </svg>
                 </Button>
-                <span className="text-xl font-semibold tracking-tight text-sidebar-foreground">
+                <span className="text-2xl font-semibold tracking-tight text-sidebar-foreground">
                   Contabilidade
                 </span>
               </div>
@@ -74,25 +74,25 @@ export default function RootLayout({
               <SidebarMenu>
                 <SidebarMenuItem>
                   <Link href="/">
-                    <SidebarMenuButton tooltip="Dashboard">
-                      <LayoutDashboard />
-                      <span>Dashboard</span>
+                    <SidebarMenuButton tooltip="Dashboard" className="h-12">
+                      <LayoutDashboard className="h-6 w-6" />
+                      <span className="text-base">Dashboard</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <Link href="/transactions">
-                    <SidebarMenuButton tooltip="Lançamentos">
-                      <ArrowRightLeft />
-                      <span>Lançamentos</span>
+                    <SidebarMenuButton tooltip="Lançamentos" className="h-12">
+                      <ArrowRightLeft className="h-6 w-6" />
+                      <span className="text-base">Lançamentos</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <Link href="/reports">
-                    <SidebarMenuButton tooltip="Relatórios">
-                      <BarChart3 />
-                      <span>Relatórios</span>
+                    <SidebarMenuButton tooltip="Relatórios" className="h-12">
+                      <BarChart3 className="h-6 w-6" />
+                      <span className="text-base">Relatórios</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
