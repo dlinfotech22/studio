@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +13,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { type User } from '@/lib/types';
+
+const USERS_STORAGE_KEY = 'app-users';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,13 +24,42 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Ensure default admin user exists in localStorage on client side
+  useEffect(() => {
+    try {
+      const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+      if (!storedUsers) {
+        const defaultUsers: User[] = [
+          { id: '1', username: 'admin', password: 'senha123' },
+        ];
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
+      }
+    } catch (error) {
+      console.error('Failed to initialize users in localStorage:', error);
+    }
+  }, []);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     // Mock authentication
     setTimeout(() => {
-      if (username === 'admin' && password === 'senha123') {
+      let users: User[] = [];
+      try {
+        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+        if (storedUsers) {
+          users = JSON.parse(storedUsers);
+        }
+      } catch (error) {
+        console.error('Failed to read users from localStorage:', error);
+      }
+
+      const foundUser = users.find(
+        (user) => user.username === username && user.password === password
+      );
+
+      if (foundUser) {
         localStorage.setItem('auth-token', 'mock-token-string');
         toast({
           title: 'Login bem-sucedido!',
@@ -73,7 +105,7 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="senha123"
+                placeholder="••••••••"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

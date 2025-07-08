@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AccessManagementClient } from '@/components/access-management-client';
 
 export default function AccessManagementPage() {
   return (
@@ -9,17 +9,7 @@ export default function AccessManagementPage() {
           Adicione, edite e remova os acessos dos usuários ao sistema.
         </p>
       </header>
-      <Card>
-        <CardHeader>
-          <CardTitle>Usuários</CardTitle>
-          <CardDescription>
-            Funcionalidade de gerenciamento de usuários em desenvolvimento.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p>Em breve, você poderá gerenciar os usuários aqui.</p>
-        </CardContent>
-      </Card>
+      <AccessManagementClient />
     </div>
   );
 }

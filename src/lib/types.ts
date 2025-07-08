@@ -6,3 +6,9 @@ export type Transaction = {
   type: 'revenue' | 'expense';
   category: string;
 };
+
+export type User = {
+  id: string;
+  username: string;
+  password: string;
+};
