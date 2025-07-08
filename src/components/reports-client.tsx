@@ -19,11 +19,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -45,13 +40,7 @@ import { type Transaction } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
 
-const MonthPicker = ({
-  onSelect,
-  closePopover,
-}: {
-  onSelect: (date: Date) => void;
-  closePopover: () => void;
-}) => {
+const MonthPicker = ({ onSelect }: { onSelect: (date: Date) => void }) => {
   const [month, setMonth] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
 
@@ -63,11 +52,11 @@ const MonthPicker = ({
 
   const handleApply = () => {
     onSelect(new Date(year, month));
-    closePopover();
   };
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">Selecione o mês e o ano desejado.</p>
       <div className="flex gap-2">
         <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
           <SelectTrigger>
@@ -105,23 +94,17 @@ const MonthPicker = ({
   );
 };
 
-const YearPicker = ({
-  onSelect,
-  closePopover,
-}: {
-  onSelect: (date: Date) => void;
-  closePopover: () => void;
-}) => {
+const YearPicker = ({ onSelect }: { onSelect: (date: Date) => void }) => {
   const [year, setYear] = useState(new Date().getFullYear());
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
 
   const handleApply = () => {
     onSelect(new Date(year, 0));
-    closePopover();
   };
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">Selecione o ano desejado.</p>
       <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
         <SelectTrigger>
           <SelectValue placeholder="Ano" />
@@ -145,12 +128,13 @@ function ReportsSkeleton() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <Skeleton className="h-10 w-full md:w-[280px]" />
+        <Skeleton className="h-10 w-full md:w-[380px]" />
         <div className="flex items-center gap-2">
           <Skeleton className="h-10 w-[180px]" />
           <Skeleton className="h-10 w-[180px]" />
         </div>
       </div>
+      <Skeleton className="h-[250px] w-full" />
       <Card>
         <CardHeader>
           <CardTitle>Resumo do Período</CardTitle>
@@ -195,18 +179,15 @@ function ReportsSkeleton() {
 
 export function ReportsClient() {
   const { toast } = useToast();
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    // This logic now runs only on the client, avoiding hydration mismatch.
     setDate({
       from: subDays(new Date(), 29),
       to: new Date(),
     });
-    // Mock data, in a real app this would come from an API
     const allTransactions: Transaction[] = Array.from({ length: 50 }, (_, i) => ({
       id: `${i + 1}`,
       date: subDays(new Date(), Math.floor(Math.random() * 365)),
@@ -220,10 +201,15 @@ export function ReportsClient() {
     setIsClient(true);
   }, []);
 
+  const handleTabChange = () => {
+    setDate(undefined);
+  };
+
   const handleDaySelect = (selectedDay: Date | undefined) => {
     if (selectedDay) {
       setDate({ from: selectedDay, to: selectedDay });
-      setIsPopoverOpen(false);
+    } else {
+      setDate(undefined);
     }
   };
 
@@ -232,42 +218,25 @@ export function ReportsClient() {
       from: startOfMonth(selectedMonth),
       to: endOfMonth(selectedMonth),
     });
-    setIsPopoverOpen(false);
   };
 
   const handleYearSelect = (selectedYear: Date) => {
     setDate({ from: startOfYear(selectedYear), to: endOfYear(selectedYear) });
-    setIsPopoverOpen(false);
   };
   
   const handleRangeSelect = (range: DateRange | undefined) => {
     setDate(range);
-    if(range?.from && range?.to) {
-      setIsPopoverOpen(false);
-    }
-  }
-
-  const handlePopoverOpenChange = (open: boolean) => {
-    if (open) {
-      setDate(undefined);
-    }
-    setIsPopoverOpen(open);
-  };
-
-  const formatDisplayDate = (dateRange: DateRange | undefined): string => {
-    if (!dateRange?.from) return 'Escolha um período';
-    if (dateRange.to && format(dateRange.from, 'yyyy-MM-dd') !== format(dateRange.to, 'yyyy-MM-dd')) {
-      return `${format(dateRange.from, 'd LLL, y', { locale: ptBR })} - ${format(dateRange.to, 'd LLL, y', { locale: ptBR })}`;
-    }
-    return format(dateRange.from, 'd LLL, y', { locale: ptBR });
   }
 
   const filteredTransactions = transactions.filter((t) => {
-    if (!date?.from || !date?.to) return false;
-    // Adjust 'to' date to include the entire day
-    const toDate = new Date(date.to);
+    if (!date?.from) return false;
+    const fromDate = new Date(date.from);
+    fromDate.setHours(0, 0, 0, 0);
+
+    const toDate = new Date(date.to ?? date.from);
     toDate.setHours(23, 59, 59, 999);
-    return t.date >= date.from && t.date <= toDate;
+    
+    return t.date >= fromDate && t.date <= toDate;
   });
 
   const totalRevenue = filteredTransactions
@@ -291,67 +260,54 @@ export function ReportsClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <Popover open={isPopoverOpen} onOpenChange={handlePopoverOpenChange}>
-          <PopoverTrigger asChild>
-            <Button
-              id="date"
-              variant={'outline'}
-              className={cn(
-                'w-full justify-start text-left font-normal md:w-auto min-w-[280px]',
-                !date && 'text-muted-foreground'
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {formatDisplayDate(date)}
+      <Tabs defaultValue="period" className="w-full" onValueChange={handleTabChange}>
+        <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+          <TabsList>
+            <TabsTrigger value="period">Período</TabsTrigger>
+            <TabsTrigger value="day">Dia</TabsTrigger>
+            <TabsTrigger value="month">Mês</TabsTrigger>
+            <TabsTrigger value="year">Ano</TabsTrigger>
+          </TabsList>
+          <div className="flex w-full items-center gap-2 md:w-auto">
+            <Button variant="outline" onClick={() => handleExport('Excel')} className="w-full sm:w-auto">
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Exportar para Excel
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Tabs defaultValue="period" className="w-[350px] sm:w-auto">
-              <TabsList className="grid w-full grid-cols-4 rounded-b-none rounded-t-lg">
-                <TabsTrigger value="period">Período</TabsTrigger>
-                <TabsTrigger value="day">Dia</TabsTrigger>
-                <TabsTrigger value="month">Mês</TabsTrigger>
-                <TabsTrigger value="year">Ano</TabsTrigger>
-              </TabsList>
-              <TabsContent value="period" className="p-0">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={date?.from}
-                  selected={date}
-                  onSelect={handleRangeSelect}
-                  numberOfMonths={2}
-                />
-              </TabsContent>
-              <TabsContent value="day" className="p-0">
-                <Calendar
-                  initialFocus
-                  mode="single"
-                  selected={date?.from}
-                  onSelect={handleDaySelect}
-                />
-              </TabsContent>
-              <TabsContent value="month" className="p-4">
-                <MonthPicker onSelect={handleMonthSelect} closePopover={() => setIsPopoverOpen(false)} />
-              </TabsContent>
-              <TabsContent value="year" className="p-4">
-                <YearPicker onSelect={handleYearSelect} closePopover={() => setIsPopoverOpen(false)} />
-              </TabsContent>
-            </Tabs>
-          </PopoverContent>
-        </Popover>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => handleExport('Excel')}>
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Exportar para Excel
-          </Button>
-          <Button onClick={() => handleExport('PDF')}>
-            <FileText className="mr-2 h-4 w-4" />
-            Gerar Relatório PDF
-          </Button>
+            <Button onClick={() => handleExport('PDF')} className="w-full sm:w-auto">
+              <FileText className="mr-2 h-4 w-4" />
+              Gerar Relatório PDF
+            </Button>
+          </div>
         </div>
-      </div>
+        
+        <TabsContent value="period" className="mt-4 rounded-md border p-4">
+          <p className="mb-4 text-sm text-muted-foreground">Selecione um intervalo de datas.</p>
+          <Calendar
+            initialFocus
+            mode="range"
+            defaultMonth={date?.from}
+            selected={date}
+            onSelect={handleRangeSelect}
+            numberOfMonths={2}
+          />
+        </TabsContent>
+        <TabsContent value="day" className="mt-4 rounded-md border p-4">
+          <p className="mb-4 text-sm text-muted-foreground">Selecione um dia.</p>
+          <Calendar
+            initialFocus
+            mode="single"
+            selected={date?.from}
+            onSelect={handleDaySelect}
+          />
+        </TabsContent>
+        <TabsContent value="month" className="mt-4 max-w-sm rounded-md border p-4">
+          <MonthPicker onSelect={handleMonthSelect} />
+        </TabsContent>
+        <TabsContent value="year" className="mt-4 max-w-sm rounded-md border p-4">
+          <YearPicker onSelect={handleYearSelect} />
+        </TabsContent>
+      </Tabs>
+
 
       <Card>
         <CardHeader>
