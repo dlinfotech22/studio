@@ -193,11 +193,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 rounded-full"
+                    className="flex items-center gap-2"
                   >
+                    <span className="hidden font-medium sm:block">
+                      {currentUser}
+                    </span>
                     <User className="h-5 w-5" />
-                    <span className="sr-only">Toggle user menu</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
