@@ -111,11 +111,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/">
                 <SidebarMenuButton
                   tooltip="Dashboard"
-                  className="h-12 text-lg"
+                  className="h-12 text-base"
                   isActive={pathname === '/'}
                 >
                   <LayoutDashboard className="h-7 w-7" />
-                  <span className="text-lg">Dashboard</span>
+                  <span>Dashboard</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
@@ -123,11 +123,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/transactions">
                 <SidebarMenuButton
                   tooltip="Lançamentos"
-                  className="h-12 text-lg"
+                  className="h-12 text-base"
                   isActive={pathname === '/transactions'}
                 >
                   <ArrowRightLeft className="h-7 w-7" />
-                  <span className="text-lg">Lançamentos</span>
+                  <span>Lançamentos</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
@@ -135,11 +135,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/reports">
                 <SidebarMenuButton
                   tooltip="Relatórios"
-                  className="h-12 text-lg"
+                  className="h-12 text-base"
                   isActive={pathname === '/reports'}
                 >
                   <BarChart3 className="h-7 w-7" />
-                  <span className="text-lg">Relatórios</span>
+                  <span>Relatórios</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
@@ -147,11 +147,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/access-management">
                 <SidebarMenuButton
                   tooltip="Gestão de Acessos"
-                  className="h-12 text-lg"
+                  className="h-12 text-base"
                   isActive={pathname === '/access-management'}
                 >
                   <Users className="h-7 w-7" />
-                  <span className="text-lg">Gestão de Acessos</span>
+                  <span>Gestão de Acessos</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
