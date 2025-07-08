@@ -73,8 +73,8 @@ import {
 
 const initialTransactions: Transaction[] = [
   { id: '1', date: new Date(), description: 'Prestação de Serviço - Cliente A', amount: 5000, type: 'revenue', category: 'Prestação de Serviço' },
-  { id: '2', date: new Date(new Date().setDate(new Date().getDate() - 1)), description: 'Pagamento de Salários', amount: 12000, type: 'expense', category: 'Salários' },
-  { id: '3', date: new Date(new Date().setDate(new Date().getDate() - 2)), description: 'Conta de Luz', amount: 450.75, type: 'expense', category: 'Luz' },
+  { id: '2', date: new Date(new Date().setDate(new Date().getDate() - 1)), description: 'Pagamento de Salários', amount: -12000, type: 'expense', category: 'Salários' },
+  { id: '3', date: new Date(new Date().setDate(new Date().getDate() - 2)), description: 'Conta de Luz', amount: -450.75, type: 'expense', category: 'Luz' },
   { id: '4', date: new Date(new Date().setDate(new Date().getDate() - 3)), description: 'Prestação de Serviço - Cliente B', amount: 7500, type: 'revenue', category: 'Prestação de Serviço' },
 ];
 
@@ -93,6 +93,7 @@ export function TransactionsClient() {
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
@@ -111,29 +112,38 @@ export function TransactionsClient() {
   const expenseCategories = ['Salários', 'Fornecedores', 'Água', 'Luz', 'Internet', 'Aluguel', 'Combustível', 'Outros'];
 
   const onSubmit = (data: TransactionFormValues) => {
-    const payload = { ...data, description: data.description || '' };
+    const amount = data.type === 'expense' ? -Math.abs(data.amount) : data.amount;
+    const payload = { ...data, amount, description: data.description || '' };
+
     if (editingTransaction) {
       setTransactions(
         transactions.map((t) =>
-          t.id === editingTransaction.id ? { ...editingTransaction, ...payload } : t
+          t.id === editingTransaction.id ? { ...t, ...payload } : t
         )
       );
       toast({ title: "Sucesso!", description: "Lançamento atualizado." });
+      setEditingTransaction(null);
+      form.reset();
+      setIsDialogOpen(false);
     } else {
       setTransactions([
         ...transactions,
         { id: new Date().toISOString(), ...payload },
       ]);
       toast({ title: "Sucesso!", description: "Lançamento adicionado." });
+      form.reset({
+        description: '',
+        amount: 0,
+        date: new Date(),
+        type: data.type,
+        category: '',
+      });
     }
-    form.reset();
-    setEditingTransaction(null);
-    setIsDialogOpen(false);
   };
 
   const handleEdit = (transaction: Transaction) => {
     setEditingTransaction(transaction);
-    form.reset(transaction);
+    form.reset({ ...transaction, amount: Math.abs(transaction.amount) });
     setIsDialogOpen(true);
   };
   
@@ -201,14 +211,14 @@ export function TransactionsClient() {
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-      <Tabs defaultValue="revenue">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'revenue' | 'expense')}>
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="revenue">Receitas</TabsTrigger>
             <TabsTrigger value="expense">Despesas</TabsTrigger>
           </TabsList>
           <DialogTrigger asChild>
-            <Button onClick={() => openNewTransactionDialog(form.getValues('type'))}>
+            <Button onClick={() => openNewTransactionDialog(activeTab)}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Adicionar Lançamento
             </Button>
@@ -256,7 +266,7 @@ export function TransactionsClient() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descrição</FormLabel>
+                  <FormLabel>Descrição (Opcional)</FormLabel>
                   <FormControl>
                     <Input placeholder="Ex: Pagamento de aluguel" {...field} />
                   </FormControl>
