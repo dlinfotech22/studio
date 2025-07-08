@@ -31,7 +31,7 @@ export default function LoginPage() {
       const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
       if (!storedUsers) {
         const defaultUsers: User[] = [
-          { id: '1', username: 'admin', password: 'senha123' },
+          { id: '1', name: 'Administrador', username: 'admin', password: 'senha123' },
         ];
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
       }
@@ -63,6 +63,7 @@ export default function LoginPage() {
       if (foundUser) {
         localStorage.setItem('auth-token', 'mock-token-string');
         localStorage.setItem('current-user', foundUser.username);
+        localStorage.setItem('current-user-name', foundUser.name);
         toast({
           title: 'Login bem-sucedido!',
           description: 'Redirecionando para o dashboard.',

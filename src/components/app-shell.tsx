@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('auth-token');
-    const user = localStorage.getItem('current-user');
+    const user = localStorage.getItem('current-user-name');
     setCurrentUser(user);
 
     if (!token && pathname !== '/login') {
@@ -58,6 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const handleLogout = () => {
     localStorage.removeItem('auth-token');
     localStorage.removeItem('current-user');
+    localStorage.removeItem('current-user-name');
     router.push('/login');
   };
 

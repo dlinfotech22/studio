@@ -55,6 +55,7 @@ import {
 import { Card, CardContent } from './ui/card';
 
 const userSchema = z.object({
+  name: z.string().min(1, 'O nome é obrigatório.'),
   username: z.string().min(1, 'O nome de usuário é obrigatório.'),
   password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.'),
 });
@@ -78,7 +79,7 @@ export function AccessManagementClient() {
         setUsers(JSON.parse(storedUsers));
       } else {
         const defaultUsers: User[] = [
-          { id: '1', username: 'admin', password: 'senha123' },
+          { id: '1', name: 'Administrador', username: 'admin', password: 'senha123' },
         ];
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
         setUsers(defaultUsers);
@@ -86,7 +87,7 @@ export function AccessManagementClient() {
     } catch (error) {
       console.error('Failed to access localStorage:', error);
       const defaultUsers: User[] = [
-        { id: '1', username: 'admin', password: 'senha123' },
+        { id: '1', name: 'Administrador', username: 'admin', password: 'senha123' },
       ];
       setUsers(defaultUsers);
     }
@@ -105,6 +106,7 @@ export function AccessManagementClient() {
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
     defaultValues: {
+      name: '',
       username: '',
       password: '',
     },
@@ -129,7 +131,7 @@ export function AccessManagementClient() {
       toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
     }
     setEditingUser(null);
-    form.reset({ username: '', password: '' });
+    form.reset({ name: '', username: '', password: '' });
     setIsDialogOpen(false);
   };
 
@@ -169,7 +171,7 @@ export function AccessManagementClient() {
 
   const openNewUserDialog = () => {
     setEditingUser(null);
-    form.reset({ username: '', password: '' });
+    form.reset({ name: '', username: '', password: '' });
     setIsDialogOpen(true);
   };
 
@@ -187,13 +189,15 @@ export function AccessManagementClient() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Nome Completo</TableHead>
                   <TableHead>Usuário</TableHead>
-                  <TableHead className='w-24 text-center'>Ações</TableHead>
+                  <TableHead className="w-24 text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id}>
+                    <TableCell>{user.name}</TableCell>
                     <TableCell className="font-medium">{user.username}</TableCell>
                     <TableCell className="text-center">
                       <DropdownMenu>
@@ -236,6 +240,19 @@ export function AccessManagementClient() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome Completo</FormLabel>
+                    <FormControl>
+                      <Input placeholder="ex: João da Silva" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="username"
