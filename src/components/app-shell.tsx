@@ -26,6 +26,14 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -161,44 +169,21 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter>
-          {currentUser && (
-            <>
-              <SidebarSeparator />
-              <div className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:py-2">
-                <User className="h-6 w-6 shrink-0" />
-                <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-                  <span className="text-sm font-semibold text-sidebar-foreground">
-                    {currentUser}
-                  </span>
-                  <span className="text-xs text-sidebar-foreground/70">
-                    Usuário
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-          <SidebarMenu>
-            <SidebarMenuItem>
+             <SidebarMenuItem>
               <Link href="/settings">
                 <SidebarMenuButton
                   tooltip="Configurações"
+                  className="h-12 text-base"
                   isActive={pathname === '/settings'}
                 >
-                  <Settings />
+                  <Settings className="h-7 w-7" />
                   <span>Configurações</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={handleLogout} tooltip="Sair">
-                <LogOut />
-                <span>Sair</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
           </SidebarMenu>
+        </SidebarContent>
+        <SidebarFooter>
           <div className="mt-auto p-2 text-center text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
             <p>Desenvolvido por: David Leonardo</p>
             <p>Versão 1.0</p>
@@ -206,9 +191,36 @@ export function AppShell({ children }: { children: ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6 md:hidden">
-          <SidebarTrigger />
-          <h1 className="text-lg font-semibold">Gestão Financeira</h1>
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
+            <SidebarTrigger className="md:hidden" />
+            <div className="ml-auto flex items-center gap-4">
+               <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-full"
+                  >
+                    <User className="h-5 w-5" />
+                    <span className="sr-only">Toggle user menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>{currentUser}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                   <DropdownMenuItem className="p-0">
+                    <Link href="/settings" className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5">
+                      <Settings className="h-4 w-4" />
+                      <span>Configurações</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </SidebarInset>
