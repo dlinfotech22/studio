@@ -10,7 +10,6 @@ import {
   Trash2,
   PlusCircle,
   MoreHorizontal,
-  Monitor,
   Moon,
   Sun,
   Image as ImageIcon,
@@ -568,12 +567,6 @@ function AppearanceSettings() {
             <RadioGroupItem value="dark" id="dark" />
             <Label htmlFor="dark" className="flex items-center gap-2">
               <Moon className="h-4 w-4" /> Escuro
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="system" id="system" />
-            <Label htmlFor="system" className="flex items-center gap-2">
-              <Monitor className="h-4 w-4" /> Sistema
             </Label>
           </div>
         </RadioGroup>
