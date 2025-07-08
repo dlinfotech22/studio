@@ -13,6 +13,8 @@ import {
 import { ptBR } from 'date-fns/locale';
 import { FileSpreadsheet, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -288,20 +290,83 @@ export function ReportsClient() {
   const profit = totalRevenue + totalExpenses;
 
   const handleExport = (formatType: 'Excel' | 'PDF') => {
-    if (formatType === 'PDF') {
-      toast({
-        title: 'Funcionalidade em desenvolvimento',
-        description: `A exportação para PDF ainda não foi implementada.`,
-      });
-      return;
-    }
-
     if (filteredTransactions.length === 0) {
       toast({
         title: 'Nenhum dado para exportar',
         description:
-          'Selecione um período com transações para gerar o arquivo Excel.',
+          'Selecione um período com transações para gerar o arquivo.',
         variant: 'destructive',
+      });
+      return;
+    }
+
+    if (formatType === 'PDF') {
+      const doc = new jsPDF();
+
+      const formatDateRange = () => {
+        if (!date?.from) return 'Nenhum período selecionado';
+        const from = format(date.from, 'dd/MM/yyyy', { locale: ptBR });
+        const to = date.to ? format(date.to, 'dd/MM/yyyy', { locale: ptBR }) : from;
+        return from === to ? from : `${from} - ${to}`;
+      };
+
+      doc.setFontSize(18);
+      doc.text('Relatório Financeiro', 14, 22);
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`Período: ${formatDateRange()}`, 14, 29);
+
+      const summaryData = [
+        ['Receita Total:', formatCurrency(totalRevenue)],
+        ['Despesa Total:', formatCurrency(totalExpenses)],
+        ['Lucro/Prejuízo:', formatCurrency(profit)],
+      ];
+
+      (doc as any).autoTable({
+        body: summaryData,
+        startY: 35,
+        theme: 'plain',
+        styles: { fontSize: 12 },
+        columnStyles: { 1: { halign: 'right' } },
+        didParseCell: (data: any) => {
+          if (data.column.index === 0) {
+            data.cell.styles.fontStyle = 'bold';
+          }
+          if (data.row.index === 0 && data.column.index === 1) data.cell.styles.textColor = '#16a34a'; // emerald-600
+          if (data.row.index === 1 && data.column.index === 1) data.cell.styles.textColor = '#dc2626'; // red-600
+          if (data.row.index === 2 && data.column.index === 1) data.cell.styles.textColor = profit >= 0 ? '#16a34a' : '#dc2626';
+        },
+      });
+
+      (doc as any).autoTable({
+        head: [['Data', 'Descrição', 'Categoria', 'Valor']],
+        body: filteredTransactions.map((t) => [
+          format(t.date, 'dd/MM/yyyy'),
+          t.description,
+          t.category,
+          formatCurrency(t.amount),
+        ]),
+        startY: (doc as any).lastAutoTable.finalY + 10,
+        headStyles: { fillColor: [41, 128, 185] }, // a blue color
+        columnStyles: { 3: { halign: 'right' } },
+        didParseCell: (data: any) => {
+          if (data.column.index === 3 && data.cell.section === 'body') {
+            const transaction = filteredTransactions[data.row.index];
+            data.cell.styles.textColor =
+              transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
+          }
+        },
+      });
+
+      const fileName = `relatorio_financeiro_${format(
+        new Date(),
+        'yyyy-MM-dd'
+      )}.pdf`;
+      doc.save(fileName);
+
+      toast({
+        title: 'Exportação Concluída',
+        description: `O arquivo ${fileName} foi gerado com sucesso.`,
       });
       return;
     }
