@@ -79,7 +79,7 @@ const initialTransactions: Transaction[] = [
 ];
 
 const transactionSchema = z.object({
-  description: z.string().min(3, 'A descrição deve ter no mínimo 3 caracteres.'),
+  description: z.string().optional(),
   amount: z.coerce.number().positive('O valor deve ser positivo.'),
   date: z.date(),
   category: z.string().min(1, 'Selecione uma categoria.'),
@@ -111,17 +111,18 @@ export function TransactionsClient() {
   const expenseCategories = ['Salários', 'Fornecedores', 'Água', 'Luz', 'Internet', 'Aluguel', 'Combustível', 'Outros'];
 
   const onSubmit = (data: TransactionFormValues) => {
+    const payload = { ...data, description: data.description || '' };
     if (editingTransaction) {
       setTransactions(
         transactions.map((t) =>
-          t.id === editingTransaction.id ? { ...editingTransaction, ...data } : t
+          t.id === editingTransaction.id ? { ...editingTransaction, ...payload } : t
         )
       );
       toast({ title: "Sucesso!", description: "Lançamento atualizado." });
     } else {
       setTransactions([
         ...transactions,
-        { id: new Date().toISOString(), ...data },
+        { id: new Date().toISOString(), ...payload },
       ]);
       toast({ title: "Sucesso!", description: "Lançamento adicionado." });
     }
