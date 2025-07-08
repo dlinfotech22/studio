@@ -74,7 +74,7 @@ export default function RootLayout({
               <SidebarMenu>
                 <SidebarMenuItem>
                   <Link href="/">
-                    <SidebarMenuButton tooltip="Dashboard" className="h-14 text-lg">
+                    <SidebarMenuButton tooltip="Dashboard" className="h-12 text-lg">
                       <LayoutDashboard className="h-7 w-7" />
                       <span className="text-lg">Dashboard</span>
                     </SidebarMenuButton>
@@ -82,7 +82,7 @@ export default function RootLayout({
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <Link href="/transactions">
-                    <SidebarMenuButton tooltip="Lançamentos" className="h-14 text-lg">
+                    <SidebarMenuButton tooltip="Lançamentos" className="h-12 text-lg">
                       <ArrowRightLeft className="h-7 w-7" />
                       <span className="text-lg">Lançamentos</span>
                     </SidebarMenuButton>
@@ -90,7 +90,7 @@ export default function RootLayout({
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <Link href="/reports">
-                    <SidebarMenuButton tooltip="Relatórios" className="h-14 text-lg">
+                    <SidebarMenuButton tooltip="Relatórios" className="h-12 text-lg">
                       <BarChart3 className="h-7 w-7" />
                       <span className="text-lg">Relatórios</span>
                     </SidebarMenuButton>
