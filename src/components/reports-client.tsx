@@ -327,10 +327,10 @@ export function ReportsClient() {
       };
 
       doc.setFontSize(18);
-      doc.text('Relatório Financeiro', 14, 22);
+      doc.text('Relatório Financeiro', 10, 22);
       doc.setFontSize(11);
       doc.setTextColor(100);
-      doc.text(`Período: ${formatDateRange()}`, 14, 29);
+      doc.text(`Período: ${formatDateRange()}`, 10, 29);
 
       const summaryData = [
         ['Receita Total:', formatCurrency(totalRevenue)],
