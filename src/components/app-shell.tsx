@@ -15,7 +15,6 @@ import {
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -119,16 +118,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </div>
         </SidebarHeader>
-        <SidebarContent className="pt-8">
+        <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
               <Link href="/">
                 <SidebarMenuButton
                   tooltip="Dashboard"
-                  className="h-12 text-base"
                   isActive={pathname === '/'}
                 >
-                  <LayoutDashboard className="h-7 w-7" />
+                  <LayoutDashboard />
                   <span>Dashboard</span>
                 </SidebarMenuButton>
               </Link>
@@ -137,10 +135,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/transactions">
                 <SidebarMenuButton
                   tooltip="Lançamentos"
-                  className="h-12 text-base"
                   isActive={pathname === '/transactions'}
                 >
-                  <ArrowRightLeft className="h-7 w-7" />
+                  <ArrowRightLeft />
                   <span>Lançamentos</span>
                 </SidebarMenuButton>
               </Link>
@@ -149,10 +146,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/reports">
                 <SidebarMenuButton
                   tooltip="Relatórios"
-                  className="h-12 text-base"
                   isActive={pathname === '/reports'}
                 >
-                  <BarChart3 className="h-7 w-7" />
+                  <BarChart3 />
                   <span>Relatórios</span>
                 </SidebarMenuButton>
               </Link>
@@ -161,10 +157,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/access-management">
                 <SidebarMenuButton
                   tooltip="Gestão de Acessos"
-                  className="h-12 text-base"
                   isActive={pathname === '/access-management'}
                 >
-                  <Users className="h-7 w-7" />
+                  <Users />
                   <span>Gestão de Acessos</span>
                 </SidebarMenuButton>
               </Link>
@@ -173,10 +168,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/settings">
                 <SidebarMenuButton
                   tooltip="Configurações"
-                  className="h-12 text-base"
                   isActive={pathname === '/settings'}
                 >
-                  <Settings className="h-7 w-7" />
+                  <Settings />
                   <span>Configurações</span>
                 </SidebarMenuButton>
               </Link>
