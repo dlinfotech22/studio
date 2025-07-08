@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DateRange } from 'react-day-picker';
 import {
   format,
@@ -43,16 +43,6 @@ import {
 } from './ui/table';
 import { type Transaction } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-
-// Mock data, in a real app this would come from an API
-const allTransactions: Transaction[] = Array.from({ length: 50 }, (_, i) => ({
-  id: `${i + 1}`,
-  date: subDays(new Date(), Math.floor(Math.random() * 365)),
-  description: `Transação ${i + 1}`,
-  amount: Math.random() * (i % 3 === 0 ? -1 : 1) * (500 + Math.random() * 2000),
-  type: i % 3 === 0 ? 'expense' : 'revenue',
-  category: i % 3 === 0 ? 'Fornecedores' : 'Prestação de Serviço',
-}));
 
 const MonthPicker = ({
   onSelect,
@@ -157,6 +147,21 @@ export function ReportsClient() {
     from: subDays(new Date(), 29),
     to: new Date(),
   });
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  useEffect(() => {
+    // Mock data, in a real app this would come from an API
+    const allTransactions: Transaction[] = Array.from({ length: 50 }, (_, i) => ({
+      id: `${i + 1}`,
+      date: subDays(new Date(), Math.floor(Math.random() * 365)),
+      description: `Transação ${i + 1}`,
+      amount: Math.random() * (i % 3 === 0 ? -1 : 1) * (500 + Math.random() * 2000),
+      type: i % 3 === 0 ? 'expense' : 'revenue',
+      category: i % 3 === 0 ? 'Fornecedores' : 'Prestação de Serviço',
+    }));
+    setTransactions(allTransactions);
+  }, []);
+
 
   const handleDaySelect = (selectedDay: Date | undefined) => {
     if (selectedDay) {
@@ -191,7 +196,7 @@ export function ReportsClient() {
     return format(dateRange.from, 'd LLL, y', { locale: ptBR });
   }
 
-  const filteredTransactions = allTransactions.filter((t) => {
+  const filteredTransactions = transactions.filter((t) => {
     if (!date?.from || !date?.to) return false;
     // Adjust 'to' date to include the entire day
     const toDate = new Date(date.to);
