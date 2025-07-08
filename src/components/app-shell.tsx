@@ -92,7 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader>
+        <SidebarHeader className="pt-4">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
