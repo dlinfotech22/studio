@@ -11,7 +11,7 @@ import {
   endOfYear,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { FileSpreadsheet, FileText } from 'lucide-react';
+import { FileSpreadsheet, FileText, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -38,6 +38,16 @@ import {
 import { type Transaction, type CompanyInfo } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const MonthPicker = ({ onSelect }: { onSelect: (date: Date) => void }) => {
   const [month, setMonth] = useState(new Date().getMonth());
@@ -142,6 +152,7 @@ function ReportsSkeleton() {
         <div className="flex items-center gap-2">
           <Skeleton className="h-10 w-[180px]" />
           <Skeleton className="h-10 w-[180px]" />
+          <Skeleton className="h-10 w-[180px]" />
         </div>
       </div>
       <Skeleton className="h-[250px] w-full" />
@@ -200,6 +211,7 @@ export function ReportsClient() {
   const [selectionMode, setSelectionMode] = useState<
     'period' | 'day' | 'month' | 'year' | undefined
   >();
+  const [isClearDataAlertOpen, setIsClearDataAlertOpen] = useState(false);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -608,6 +620,23 @@ export function ReportsClient() {
     });
   };
 
+  const handleClearOldData = () => {
+    const currentYear = new Date().getFullYear();
+    const transactionsToKeep = transactions.filter(
+      (t) => new Date(t.date).getFullYear() === currentYear
+    );
+    setTransactions(transactionsToKeep);
+    localStorage.setItem(
+      TRANSACTIONS_STORAGE_KEY,
+      JSON.stringify(transactionsToKeep)
+    );
+    toast({
+      title: 'Sucesso!',
+      description: 'Os dados de anos anteriores foram removidos.',
+    });
+    setIsClearDataAlertOpen(false);
+  };
+
   if (!isClient) {
     return <ReportsSkeleton />;
   }
@@ -623,7 +652,7 @@ export function ReportsClient() {
               <TabsTrigger value="month">Mês</TabsTrigger>
               <TabsTrigger value="year">Ano</TabsTrigger>
             </TabsList>
-            <div className="flex w-full items-center gap-2 md:w-auto">
+            <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
               <Button
                 variant="outline"
                 onClick={() => handleExport('Excel')}
@@ -638,6 +667,14 @@ export function ReportsClient() {
               >
                 <FileText className="mr-2 h-4 w-4" />
                 Gerar Relatório PDF
+              </Button>
+               <Button
+                variant="destructive"
+                onClick={() => setIsClearDataAlertOpen(true)}
+                className="w-full sm:w-auto"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Limpar Dados Antigos
               </Button>
             </div>
           </div>
@@ -775,6 +812,26 @@ export function ReportsClient() {
           </div>
         </CardContent>
       </Card>
+      <AlertDialog
+        open={isClearDataAlertOpen}
+        onOpenChange={setIsClearDataAlertOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação removerá permanentemente todos os lançamentos de anos
+              anteriores ao ano atual ({new Date().getFullYear()}). Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearOldData}>
+              Continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
