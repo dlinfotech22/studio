@@ -115,8 +115,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl text-center">Gestão de Empresa</CardTitle>
+          <CardDescription className="text-center">
             Entre com seu usuário e senha para acessar o painel.
           </CardDescription>
         </CardHeader>
