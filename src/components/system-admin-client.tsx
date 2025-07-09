@@ -306,9 +306,9 @@ export function SystemAdminClient() {
                     </div>
                      <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 mr-2">
+                          <span className="inline-flex items-center justify-center rounded-md text-sm font-medium h-8 w-8 mr-2 cursor-pointer hover:bg-accent hover:text-accent-foreground">
                             <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                          </span>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
                           <DropdownMenuItem onClick={() => openCompanyDialog(company)}>
