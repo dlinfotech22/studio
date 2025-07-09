@@ -512,7 +512,6 @@ export function SystemAdminClient() {
                                     onClick={() =>
                                       openUserDialog(user, company.document)
                                     }
-                                    disabled={user.id === currentUser?.id}
                                   >
                                     <Edit className="mr-2 h-4 w-4" /> Editar
                                   </DropdownMenuItem>

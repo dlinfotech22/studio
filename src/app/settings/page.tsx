@@ -82,6 +82,7 @@ import { capitalizeFirstLetter } from '@/lib/utils';
 
 const USERS_STORAGE_KEY = 'app-users';
 const COMPANIES_STORAGE_KEY = 'app-companies';
+const getCategoriesStorageKey = (id: string) => `app-categories-${id}`;
 
 // Schemas
 const profileSchema = z
@@ -107,12 +108,12 @@ const categorySchema = z.object({
 });
 
 // Default values
-const defaultCategories: Category[] = [
-  { id: 'cat-rev-1', name: 'Prestação de Serviço', type: 'revenue', companyId: 'default-001' },
-  { id: 'cat-rev-2', name: 'Venda de Produtos', type: 'revenue', companyId: 'default-001' },
-  { id: 'cat-exp-1', name: 'Salários', type: 'expense', companyId: 'default-001' },
-  { id: 'cat-exp-2', name: 'Fornecedores', type: 'expense', companyId: 'default-001' },
-  { id: 'cat-exp-3', name: 'Aluguel', type: 'expense', companyId: 'default-001' },
+const defaultCategories: Omit<Category, 'companyId' | 'id'>[] = [
+  { name: 'Prestação de Serviço', type: 'revenue' },
+  { name: 'Venda de Produtos', type: 'revenue' },
+  { name: 'Salários', type: 'expense' },
+  { name: 'Fornecedores', type: 'expense' },
+  { name: 'Aluguel', type: 'expense' },
 ];
 
 const defaultCompanyInfo: CompanyInfo = {
@@ -227,7 +228,6 @@ function CompanyProfile() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(defaultCompanyInfo);
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [isDocumentDisabled, setIsDocumentDisabled] = useState(true);
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
 
@@ -238,8 +238,6 @@ function CompanyProfile() {
     setIsCompanyAdmin(role === 'company_admin');
     setCompanyId(id);
     if (id) {
-      // The document field (company ID) can only be edited if it's the placeholder value.
-      setIsDocumentDisabled(true);
       try {
         const allCompanies: CompanyInfo[] = JSON.parse(localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]');
         const currentCompany = allCompanies.find(c => c.document === id);
@@ -256,35 +254,20 @@ function CompanyProfile() {
     resolver: zodResolver(companyInfoSchema),
     values: companyInfo,
   });
+  
+  useEffect(() => {
+    form.reset(companyInfo);
+  }, [companyInfo, form]);
 
   const onSubmit = (values: z.infer<typeof companyInfoSchema>) => {
     if (!companyId || (!isSystemAdmin && !isCompanyAdmin)) return;
 
     const allCompanies: CompanyInfo[] = JSON.parse(localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]');
 
-    // Prevent using a document ID that already exists
-    if (values.document !== companyId && allCompanies.some(c => c.document === values.document)) {
-        form.setError('document', { message: 'Este documento já está cadastrado.' });
-        return;
-    }
-
     const updatedInfo = { ...companyInfo, ...values, name: values.name.toUpperCase() };
     const updatedCompanies = allCompanies.map(c => c.document === companyId ? updatedInfo : c);
     
     localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(updatedCompanies));
-    
-    // If the document ID was changed, update it for the current session and user record
-    if (values.document !== companyId) {
-        localStorage.setItem('current-user-company-id', values.document);
-
-        const allUsers: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '[]'
-        );
-        const currentUsername = localStorage.getItem('current-user');
-        const updatedUsers = allUsers.map(u => u.username === currentUsername ? {...u, companyId: values.document} : u);
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-        setCompanyId(values.document);
-        setIsDocumentDisabled(true);
-    }
     
     setCompanyInfo(updatedInfo);
     toast({ title: 'Sucesso!', description: 'Informações da empresa salvas.' });
@@ -311,7 +294,7 @@ function CompanyProfile() {
         <CardTitle>Informações da Empresa</CardTitle>
         <CardDescription>
           {isSystemAdmin
-            ? 'Essas informações serão usadas nos relatórios.'
+            ? 'Como administrador do sistema, você pode alterar o nome e o logo da empresa.'
             : isCompanyAdmin 
             ? 'Como administrador da empresa, você pode alterar o logo.'
             : 'Somente administradores podem editar estas informações.'}
@@ -371,10 +354,10 @@ function CompanyProfile() {
                   <FormItem>
                     <FormLabel>CNPJ / CPF</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={!isSystemAdmin || isDocumentDisabled} />
+                      <Input {...field} disabled={true} />
                     </FormControl>
                     <FormDescription>
-                        O documento é o identificador único da empresa e não pode ser alterado após a configuração inicial.
+                        O documento é o identificador único da empresa e não pode ser alterado.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -410,8 +393,6 @@ function CategoryManagement() {
     }
   });
 
-  const getCategoriesStorageKey = (id: string) => `app-categories-${id}`;
-
   useEffect(() => {
     const id = localStorage.getItem('current-user-company-id');
     setCompanyId(id);
@@ -422,20 +403,30 @@ function CategoryManagement() {
         if (stored) {
           setCategories(JSON.parse(stored));
         } else {
-          const companyDefaultCategories = defaultCategories.map(c => ({...c, companyId: id}));
+          // If no categories exist for this company, create default ones
+          const companyDefaultCategories = defaultCategories.map((c, index) => ({
+            ...c, 
+            id: `${id}-cat-${index}`, 
+            companyId: id
+          }));
           setCategories(companyDefaultCategories);
           localStorage.setItem(storageKey, JSON.stringify(companyDefaultCategories));
         }
       } catch (e) {
-        console.error(e);
-        const companyDefaultCategories = defaultCategories.map(c => ({...c, companyId: id}));
+        console.error("Failed to load or set categories:", e);
+        // Fallback to default if there's an error
+        const companyDefaultCategories = defaultCategories.map((c, index) => ({
+            ...c, 
+            id: `${id}-cat-${index}`, 
+            companyId: id
+        }));
         setCategories(companyDefaultCategories);
       }
     }
   }, []);
 
   useEffect(() => {
-    if (companyId && categories.length > 0) {
+    if (companyId) {
       localStorage.setItem(getCategoriesStorageKey(companyId), JSON.stringify(categories));
     }
   }, [categories, companyId]);
@@ -447,16 +438,16 @@ function CategoryManagement() {
     if (editingCategory) {
       setCategories(
         categories.map((c) =>
-          c.id === editingCategory.id ? { ...c, ...payload } : c
+          c.id === editingCategory.id ? { ...c, ...payload, name: capitalizeFirstLetter(payload.name) } : c
         )
       );
       toast({ title: 'Sucesso!', description: 'Categoria atualizada.' });
     } else {
-      setCategories([...categories, { id: new Date().toISOString(), ...payload }]);
+      setCategories([...categories, { id: new Date().toISOString(), ...payload, name: capitalizeFirstLetter(payload.name) }]);
       toast({ title: 'Sucesso!', description: 'Categoria adicionada.' });
     }
     setEditingCategory(null);
-    form.reset({ name: '', type: 'revenue' });
+    form.reset({ name: '', type: activeTab });
     setIsDialogOpen(false);
   };
 
@@ -689,10 +680,13 @@ function AppearanceSettings() {
 
 export default function SettingsPage() {
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
+  const [hasCompany, setHasCompany] = useState(false);
 
   useEffect(() => {
     const role = localStorage.getItem('current-user-role');
+    const companyId = localStorage.getItem('current-user-company-id');
     setIsSystemAdmin(role === 'system_admin');
+    setHasCompany(!!companyId);
   }, []);
 
   return (
@@ -700,16 +694,14 @@ export default function SettingsPage() {
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">
-          {isSystemAdmin
-            ? 'Gerencie as configurações da sua conta e aparência do sistema.'
-            : 'Gerencie as configurações da sua conta, empresa e aparência do sistema.'}
+          Gerencie as configurações da sua conta e aparência do sistema.
         </p>
       </header>
 
       <Tabs defaultValue="profile" className="w-full">
         <TabsList>
           <TabsTrigger value="profile">Perfil</TabsTrigger>
-          {!isSystemAdmin && (
+          {hasCompany && (
             <>
               <TabsTrigger value="company">Empresa</TabsTrigger>
               <TabsTrigger value="categories">Categorias</TabsTrigger>
@@ -720,7 +712,7 @@ export default function SettingsPage() {
         <TabsContent value="profile" className="mt-6">
           <UserProfile />
         </TabsContent>
-        {!isSystemAdmin && (
+        {hasCompany && (
           <>
             <TabsContent value="company" className="mt-6">
               <CompanyProfile />

@@ -83,6 +83,9 @@ const transactionSchema = z.object({
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
 
+const getTransactionsStorageKey = (id: string) => `app-transactions-${id}`;
+const getCategoriesStorageKey = (id: string) => `app-categories-${id}`;
+
 export function TransactionsClient() {
   const { toast } = useToast();
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
@@ -99,9 +102,6 @@ export function TransactionsClient() {
   const [amountFilter, setAmountFilter] = useState('');
   const [dateFilter, setDateFilter] = useState<Date | undefined>();
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
-
-  const getTransactionsStorageKey = (id: string) => `app-transactions-${id}`;
-  const getCategoriesStorageKey = (id: string) => `app-categories-${id}`;
 
   useEffect(() => {
     const id = localStorage.getItem('current-user-company-id');
@@ -124,7 +124,7 @@ export function TransactionsClient() {
   }, []);
 
   useEffect(() => {
-    if (companyId && allTransactions.length) {
+    if (companyId) {
       localStorage.setItem(getTransactionsStorageKey(companyId), JSON.stringify(allTransactions));
     }
   }, [allTransactions, companyId]);
@@ -166,7 +166,7 @@ export function TransactionsClient() {
       });
     }
 
-    setFilteredTransactions(transactionsToDisplay);
+    setFilteredTransactions(transactionsToDisplay.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
   }, [allTransactions, searchTerm, amountFilter, dateFilter]);
 
 
@@ -190,7 +190,7 @@ export function TransactionsClient() {
   const onSubmit = (data: TransactionFormValues) => {
     if (!companyId) return;
 
-    const amount = data.type === 'expense' ? -Math.abs(data.amount) : data.amount;
+    const amount = data.type === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount);
     const payload = { ...data, companyId, amount, description: data.description || data.category };
 
     if (editingTransaction) {
@@ -222,6 +222,7 @@ export function TransactionsClient() {
   const handleEdit = (transaction: Transaction) => {
     setEditingTransaction(transaction);
     form.reset({ ...transaction, date: new Date(transaction.date), amount: Math.abs(transaction.amount) });
+    setActiveTab(transaction.type);
     setIsDialogOpen(true);
   };
   
@@ -356,12 +357,10 @@ export function TransactionsClient() {
             <TabsTrigger value="revenue">Receitas</TabsTrigger>
             <TabsTrigger value="expense">Despesas</TabsTrigger>
           </TabsList>
-          <DialogTrigger asChild>
-            <Button onClick={() => openNewTransactionDialog(activeTab)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Adicionar Lançamento
-            </Button>
-          </DialogTrigger>
+          <Button onClick={() => openNewTransactionDialog(activeTab)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Lançamento
+          </Button>
         </div>
         <TabsContent value="revenue" className="mt-4">
           {renderTable(revenue, 'revenue')}
@@ -385,7 +384,7 @@ export function TransactionsClient() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo de Lançamento</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={(value) => { field.onChange(value); form.setValue('category', ''); }} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo" />

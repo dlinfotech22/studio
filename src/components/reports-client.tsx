@@ -199,6 +199,7 @@ function ReportsSkeleton() {
 }
 
 const COMPANIES_STORAGE_KEY = 'app-companies';
+const getTransactionsStorageKey = (id: string) => `app-transactions-${id}`;
 
 export function ReportsClient() {
   const { toast } = useToast();
@@ -213,8 +214,6 @@ export function ReportsClient() {
   >();
   const [isClearDataAlertOpen, setIsClearDataAlertOpen] = useState(false);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
-
-  const getTransactionsStorageKey = (id: string) => `app-transactions-${id}`;
 
   useEffect(() => {
     const id = localStorage.getItem('current-user-company-id');
@@ -326,11 +325,11 @@ export function ReportsClient() {
 
   const totalRevenue = filteredTransactions
     .filter((t) => t.type === 'revenue')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
   const totalExpenses = filteredTransactions
     .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const profit = totalRevenue + totalExpenses;
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const profit = totalRevenue - totalExpenses;
 
   const handleExport = (formatType: 'Excel' | 'PDF') => {
     if (filteredTransactions.length === 0) {
@@ -444,8 +443,8 @@ export function ReportsClient() {
           .sort((a, b) => a.date.getTime() - b.date.getTime())
           .map((d) => [
             format(d.date, 'dd/MM/yyyy'),
-            d.revenue,
-            d.expense,
+            Math.abs(d.revenue),
+            Math.abs(d.expense),
             d.revenue + d.expense,
           ]);
 
@@ -500,8 +499,8 @@ export function ReportsClient() {
           .sort((a, b) => a.date.getTime() - b.date.getTime())
           .map((m) => [
             format(m.date, 'MMMM/yyyy', { locale: ptBR }),
-            m.revenue,
-            m.expense,
+            Math.abs(m.revenue),
+            Math.abs(m.expense),
             m.revenue + m.expense,
           ]);
 
@@ -756,7 +755,7 @@ export function ReportsClient() {
                 Despesa Total
               </p>
               <p className="text-2xl font-bold text-red-600">
-                {formatCurrency(Math.abs(totalExpenses))}
+                {formatCurrency(totalExpenses)}
               </p>
             </div>
             <div className="rounded-lg border bg-card p-4">
@@ -793,7 +792,9 @@ export function ReportsClient() {
               </TableHeader>
               <TableBody>
                 {filteredTransactions.length > 0 ? (
-                  filteredTransactions.map((t) => (
+                  filteredTransactions
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((t) => (
                     <TableRow key={t.id}>
                       <TableCell>{format(new Date(t.date), 'dd/MM/yyyy')}</TableCell>
                       <TableCell className="font-medium">
