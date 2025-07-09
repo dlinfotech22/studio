@@ -19,6 +19,7 @@ import { capitalizeFirstLetter } from '@/lib/utils';
 
 const USERS_STORAGE_KEY = 'app-users';
 const COMPANIES_STORAGE_KEY = 'app-companies';
+const SYSTEM_ADMIN_USERNAME = 'davidleonardo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,29 +31,47 @@ export default function LoginPage() {
   // Ensure default admin user and company exist in localStorage on client side
   useEffect(() => {
     try {
-      const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-      if (!storedUsers) {
+      // Initialize companies if not present
+      let allCompanies: CompanyInfo[] = JSON.parse(
+        localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]'
+      );
+      const defaultCompanyExists = allCompanies.some(
+        (c) => c.document === 'default-001'
+      );
+      if (!defaultCompanyExists) {
         const defaultCompany: CompanyInfo = {
           document: 'default-001',
           name: 'Minha Empresa (Padrão)',
           logo: '',
         };
+        allCompanies.push(defaultCompany);
         localStorage.setItem(
           COMPANIES_STORAGE_KEY,
-          JSON.stringify([defaultCompany])
+          JSON.stringify(allCompanies)
         );
+      }
 
-        const defaultUsers: User[] = [
-          {
-            id: '1',
-            name: 'DAVID MACHADO LEONARDO',
-            username: 'davidleonardo',
-            password: '162534',
-            companyId: defaultCompany.document,
-            role: 'system_admin',
-          },
-        ];
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
+      // Initialize users and check for system admin
+      let allUsers: User[] = JSON.parse(
+        localStorage.getItem(USERS_STORAGE_KEY) || '[]'
+      );
+      const systemAdminExists = allUsers.some(
+        (u) => u.role === 'system_admin' && u.username === SYSTEM_ADMIN_USERNAME
+      );
+
+      if (!systemAdminExists) {
+        const systemAdmin: User = {
+          id: '1',
+          name: 'DAVID MACHADO LEONARDO',
+          username: SYSTEM_ADMIN_USERNAME,
+          password: '162534',
+          companyId: 'default-001',
+          role: 'system_admin',
+        };
+        // Remove any other potential system admins and add the correct one.
+        const otherUsers = allUsers.filter((u) => u.role !== 'system_admin');
+        const updatedUsers = [...otherUsers, systemAdmin];
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
       }
     } catch (error) {
       console.error(
