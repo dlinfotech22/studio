@@ -265,7 +265,7 @@ function CompanyProfile() {
         return;
     }
 
-    const updatedInfo = { ...companyInfo, ...values };
+    const updatedInfo = { ...companyInfo, ...values, name: values.name.toUpperCase() };
     const updatedCompanies = allCompanies.map(c => c.document === companyId ? updatedInfo : c);
     
     localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(updatedCompanies));
@@ -349,7 +349,7 @@ function CompanyProfile() {
                       <Input
                         {...field}
                         onChange={(e) =>
-                          field.onChange(capitalizeFirstLetter(e.target.value))
+                          field.onChange(e.target.value.toUpperCase())
                         }
                         disabled={!isSystemAdmin}
                       />

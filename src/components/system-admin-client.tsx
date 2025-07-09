@@ -145,7 +145,7 @@ export function SystemAdminClient() {
     if (editingCompany) {
       // Edit logic
       const updatedCompanies = companies.map(c =>
-        c.document === editingCompany.document ? { ...c, name: data.name } : c
+        c.document === editingCompany.document ? { ...c, name: data.name.toUpperCase() } : c
       );
       setCompanies(updatedCompanies);
       localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(updatedCompanies));
@@ -162,7 +162,7 @@ export function SystemAdminClient() {
       }
 
       const newCompany: CompanyInfo = {
-        name: data.name,
+        name: data.name.toUpperCase(),
         document: data.document,
         logo: '',
       };
@@ -424,16 +424,11 @@ export function SystemAdminClient() {
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 mr-2"
-                      asChild
+                    <span
+                      className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'h-8 w-8 mr-2')}
                     >
-                      <span>
                         <MoreHorizontal className="h-4 w-4" />
-                      </span>
-                    </Button>
+                    </span>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
                     <DropdownMenuItem onClick={() => openCompanyDialog(company)}>
@@ -546,7 +541,7 @@ export function SystemAdminClient() {
           </DialogHeader>
           <Form {...companyForm}>
             <form onSubmit={companyForm.handleSubmit(handleCompanySubmit)} className="space-y-4">
-              <FormField control={companyForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nome da Empresa</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={companyForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nome da Empresa</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={companyForm.control} name="document" render={({ field }) => (<FormItem><FormLabel>Documento (CNPJ/CPF)</FormLabel><FormControl><Input {...field} disabled={!!editingCompany} /></FormControl><FormMessage /></FormItem>)} />
               {!editingCompany && (
                 <>
