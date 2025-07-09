@@ -227,9 +227,12 @@ function CompanyProfile() {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(defaultCompanyInfo);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [isDocumentDisabled, setIsDocumentDisabled] = useState(true);
+  const [isSystemAdmin, setIsSystemAdmin] = useState(false);
 
   useEffect(() => {
     const id = localStorage.getItem('current-user-company-id');
+    const username = localStorage.getItem('current-user');
+    setIsSystemAdmin(username === 'admin');
     setCompanyId(id);
     if (id) {
       // The document field (company ID) can only be edited if it's the placeholder value.
@@ -252,7 +255,7 @@ function CompanyProfile() {
   });
 
   const onSubmit = (values: z.infer<typeof companyInfoSchema>) => {
-    if (!companyId) return;
+    if (!companyId || !isSystemAdmin) return;
 
     const allCompanies: CompanyInfo[] = JSON.parse(localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]');
 
@@ -285,6 +288,7 @@ function CompanyProfile() {
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isSystemAdmin) return;
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -302,7 +306,9 @@ function CompanyProfile() {
       <CardHeader>
         <CardTitle>Informações da Empresa</CardTitle>
         <CardDescription>
-          Essas informações serão usadas nos relatórios.
+          {isSystemAdmin
+            ? 'Essas informações serão usadas nos relatórios.'
+            : 'Somente o administrador do sistema pode editar estas informações.'}
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -319,6 +325,7 @@ function CompanyProfile() {
                 type="button"
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={!isSystemAdmin}
               >
                 Carregar Logo
               </Button>
@@ -328,6 +335,7 @@ function CompanyProfile() {
                 className="hidden"
                 accept="image/png, image/jpeg"
                 onChange={handleLogoChange}
+                disabled={!isSystemAdmin}
               />
             </div>
             <div className="max-w-md space-y-4">
@@ -343,6 +351,7 @@ function CompanyProfile() {
                         onChange={(e) =>
                           field.onChange(capitalizeFirstLetter(e.target.value))
                         }
+                        disabled={!isSystemAdmin}
                       />
                     </FormControl>
                     <FormMessage />
@@ -356,7 +365,7 @@ function CompanyProfile() {
                   <FormItem>
                     <FormLabel>CNPJ / CPF</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={isDocumentDisabled} />
+                      <Input {...field} disabled={!isSystemAdmin || isDocumentDisabled} />
                     </FormControl>
                     <FormDescription>
                         O documento é o identificador único da empresa e não pode ser alterado após a configuração inicial.
@@ -368,7 +377,7 @@ function CompanyProfile() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit">Salvar Informações</Button>
+            <Button type="submit" disabled={!isSystemAdmin}>Salvar Informações</Button>
           </CardFooter>
         </form>
       </Form>
