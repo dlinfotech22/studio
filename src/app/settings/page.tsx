@@ -542,7 +542,14 @@ function CategoryManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'revenue' | 'expense')} className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => {
+              setActiveTab(v as 'revenue' | 'expense');
+              setSearchTerm('');
+            }}
+            className="w-full"
+          >
             <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center md:justify-between">
               <TabsList>
                 <TabsTrigger value="revenue">Receitas</TabsTrigger>
