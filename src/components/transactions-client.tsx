@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { format } from 'date-fns';
+import { format, getMonth, getYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   CalendarIcon,
@@ -103,7 +103,8 @@ type TransactionFormValues = z.infer<typeof transactionSchema>;
 
 export function TransactionsClient() {
   const { toast } = useToast();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -119,7 +120,7 @@ export function TransactionsClient() {
   useEffect(() => {
     try {
       const storedTransactions = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
-      setTransactions(storedTransactions ? JSON.parse(storedTransactions, (key, value) => key === 'date' ? new Date(value) : value) : initialTransactions);
+      setAllTransactions(storedTransactions ? JSON.parse(storedTransactions, (key, value) => key === 'date' ? new Date(value) : value) : initialTransactions);
 
       const storedCategories = localStorage.getItem(CATEGORIES_STORAGE_KEY);
       const categories = storedCategories ? JSON.parse(storedCategories) : defaultCategories;
@@ -129,16 +130,57 @@ export function TransactionsClient() {
       }
     } catch (error) {
       console.error("Failed to load data from localStorage", error);
-      setTransactions(initialTransactions);
+      setAllTransactions(initialTransactions);
       setAllCategories(defaultCategories);
     }
   }, []);
 
   useEffect(() => {
-    if (transactions.length) {
-      localStorage.setItem(TRANSACTIONS_STORAGE_KEY, JSON.stringify(transactions));
+    if (allTransactions.length) {
+      localStorage.setItem(TRANSACTIONS_STORAGE_KEY, JSON.stringify(allTransactions));
     }
-  }, [transactions]);
+  }, [allTransactions]);
+
+  useEffect(() => {
+    const hasActiveFilter = searchTerm || amountFilter || dateFilter;
+
+    let transactionsToDisplay = allTransactions;
+
+    if (hasActiveFilter) {
+      transactionsToDisplay = allTransactions.filter(t => {
+        const searchTermLower = searchTerm.toLowerCase();
+        const searchMatch =
+          searchTerm === '' ||
+          t.description.toLowerCase().includes(searchTermLower) ||
+          t.category.toLowerCase().includes(searchTermLower);
+
+        const amountValue = parseFloat(amountFilter);
+        const amountMatch =
+          amountFilter === '' ||
+          isNaN(amountValue) ||
+          Math.abs(t.amount) === amountValue;
+
+        const dateMatch =
+          !dateFilter ||
+          format(new Date(t.date), 'yyyy-MM-dd') ===
+            format(dateFilter, 'yyyy-MM-dd');
+        
+        return searchMatch && amountMatch && dateMatch;
+      });
+    } else {
+      // Default view: only show transactions from the current month
+      const now = new Date();
+      const currentMonth = getMonth(now);
+      const currentYear = getYear(now);
+      transactionsToDisplay = allTransactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        return getMonth(transactionDate) === currentMonth && getYear(transactionDate) === currentYear;
+      });
+    }
+
+    setFilteredTransactions(transactionsToDisplay);
+  }, [allTransactions, searchTerm, amountFilter, dateFilter]);
+
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
@@ -149,28 +191,6 @@ export function TransactionsClient() {
       type: 'revenue',
     },
   });
-
-  const filteredTransactions = transactions.filter(t => {
-      const searchTermLower = searchTerm.toLowerCase();
-
-      const searchMatch =
-        searchTerm === '' ||
-        t.description.toLowerCase().includes(searchTermLower) ||
-        t.category.toLowerCase().includes(searchTermLower);
-
-      const amountValue = parseFloat(amountFilter);
-      const amountMatch =
-        amountFilter === '' ||
-        isNaN(amountValue) ||
-        Math.abs(t.amount) === amountValue;
-
-      const dateMatch =
-        !dateFilter ||
-        format(new Date(t.date), 'yyyy-MM-dd') ===
-          format(dateFilter, 'yyyy-MM-dd');
-
-      return searchMatch && amountMatch && dateMatch;
-    });
 
   const revenue = filteredTransactions.filter((t) => t.type === 'revenue');
   const expenses = filteredTransactions.filter((t) => t.type === 'expense');
@@ -184,29 +204,29 @@ export function TransactionsClient() {
     const payload = { ...data, amount, description: data.description || data.category };
 
     if (editingTransaction) {
-      setTransactions(
-        transactions.map((t) =>
+      setAllTransactions(
+        allTransactions.map((t) =>
           t.id === editingTransaction.id ? { ...t, ...payload } : t
         )
       );
       toast({ title: "Sucesso!", description: "Lançamento atualizado." });
-      setEditingTransaction(null);
-      form.reset();
-      setIsDialogOpen(false);
     } else {
-      setTransactions([
-        ...transactions,
+      setAllTransactions([
+        ...allTransactions,
         { id: new Date().toISOString(), ...payload },
       ]);
       toast({ title: "Sucesso!", description: "Lançamento adicionado." });
-      form.reset({
-        description: '',
-        amount: 0,
-        date: new Date(),
-        type: data.type,
-        category: '',
-      });
     }
+    
+    setEditingTransaction(null);
+    form.reset({
+      description: '',
+      amount: 0,
+      date: new Date(),
+      type: data.type,
+      category: '',
+    });
+    setIsDialogOpen(false);
   };
 
   const handleEdit = (transaction: Transaction) => {
@@ -216,7 +236,7 @@ export function TransactionsClient() {
   };
   
   const handleDelete = (id: string) => {
-    setTransactions(transactions.filter(t => t.id !== id));
+    setAllTransactions(allTransactions.filter(t => t.id !== id));
     toast({ title: "Sucesso!", description: "Lançamento removido.", variant: 'destructive' });
   };
 
