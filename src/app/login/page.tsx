@@ -51,27 +51,28 @@ export default function LoginPage() {
         );
       }
 
-      // Initialize users and check for system admin
+      // Initialize users and ensure the system admin is always correct.
       let allUsers: User[] = JSON.parse(
         localStorage.getItem(USERS_STORAGE_KEY) || '[]'
       );
-      const systemAdminExists = allUsers.some(
-        (u) => u.role === 'system_admin' && u.username === SYSTEM_ADMIN_USERNAME
+
+      // Define the single, correct system admin user object.
+      const systemAdmin: User = {
+        id: '1',
+        name: 'DAVID MACHADO LEONARDO',
+        username: SYSTEM_ADMIN_USERNAME,
+        password: '162534',
+        role: 'system_admin',
+      };
+
+      // Filter out any existing user record for the system admin to prevent duplicates or corrupted data.
+      const otherUsers = allUsers.filter(
+        (u) => u.username !== SYSTEM_ADMIN_USERNAME
       );
 
-      if (!systemAdminExists) {
-        const systemAdmin: User = {
-          id: '1',
-          name: 'DAVID MACHADO LEONARDO',
-          username: SYSTEM_ADMIN_USERNAME,
-          password: '162534',
-          role: 'system_admin',
-        };
-        // Remove any other potential system admins and add the correct one.
-        const otherUsers = allUsers.filter((u) => u.role !== 'system_admin');
-        const updatedUsers = [...otherUsers, systemAdmin];
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-      }
+      // Add the one true system admin to the list of users, ensuring it's always correctly configured.
+      const updatedUsers = [...otherUsers, systemAdmin];
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
     } catch (error) {
       console.error(
         'Failed to initialize default data in localStorage:',
