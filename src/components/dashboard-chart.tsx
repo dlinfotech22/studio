@@ -9,15 +9,6 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 
-const chartData = [
-  { month: 'Jan', revenue: 18600, expenses: 8000 },
-  { month: 'Fev', revenue: 30500, expenses: 19800 },
-  { month: 'Mar', revenue: 23700, expenses: 12000 },
-  { month: 'Abr', revenue: 7300, expenses: 20000 },
-  { month: 'Mai', revenue: 20900, expenses: 10800 },
-  { month: 'Jun', revenue: 21400, expenses: 11400 },
-];
-
 const chartConfig = {
   revenue: {
     label: 'Receita',
@@ -25,14 +16,22 @@ const chartConfig = {
   },
   expenses: {
     label: 'Despesa',
-    color: 'hsl(var(--accent))',
+    color: 'hsl(var(--destructive))',
   },
 } satisfies ChartConfig;
 
-export function DashboardChart() {
+export function DashboardChart({ data }: { data: any[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex h-[350px] w-full items-center justify-center text-muted-foreground">
+        <p>Não há dados suficientes para exibir o gráfico.</p>
+      </div>
+    );
+  }
+
   return (
     <ChartContainer config={chartConfig} className="h-[350px] w-full">
-      <BarChart accessibilityLayer data={chartData}>
+      <BarChart accessibilityLayer data={data}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis
           dataKey="month"
@@ -50,14 +49,20 @@ export function DashboardChart() {
         />
         <Tooltip
           cursor={{ fill: 'hsl(var(--accent) / 0.2)' }}
-          content={<ChartTooltipContent
-            formatter={(value, name) => (
-              <div className="flex flex-col">
-                <span className="text-xs capitalize text-muted-foreground">{name}</span>
-                <span className="font-bold">{formatCurrency(value as number)}</span>
-              </div>
-            )}
-           />}
+          content={
+            <ChartTooltipContent
+              formatter={(value, name) => (
+                <div className="flex flex-col">
+                  <span className="text-xs capitalize text-muted-foreground">
+                    {name}
+                  </span>
+                  <span className="font-bold">
+                    {formatCurrency(value as number)}
+                  </span>
+                </div>
+              )}
+            />
+          }
         />
         <Bar
           dataKey="revenue"
