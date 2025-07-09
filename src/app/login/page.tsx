@@ -31,7 +31,7 @@ export default function LoginPage() {
       const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
       if (!storedUsers) {
         const defaultUsers: User[] = [
-          { id: '1', name: 'Administrador', username: 'admin', password: 'senha123' },
+          { id: '1', name: 'ADMINISTRADOR', username: 'admin', password: 'senha123' },
         ];
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
       }
@@ -57,7 +57,7 @@ export default function LoginPage() {
       }
 
       const foundUser = users.find(
-        (user) => user.username === username && user.password === password
+        (user) => user.username.toLowerCase() === username.toLowerCase() && user.password === password
       );
 
       if (foundUser) {

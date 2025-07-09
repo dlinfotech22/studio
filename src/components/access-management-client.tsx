@@ -79,7 +79,7 @@ export function AccessManagementClient() {
         setUsers(JSON.parse(storedUsers));
       } else {
         const defaultUsers: User[] = [
-          { id: '1', name: 'Administrador', username: 'admin', password: 'senha123' },
+          { id: '1', name: 'ADMINISTRADOR', username: 'admin', password: 'senha123' },
         ];
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
         setUsers(defaultUsers);
@@ -87,7 +87,7 @@ export function AccessManagementClient() {
     } catch (error) {
       console.error('Failed to access localStorage:', error);
       const defaultUsers: User[] = [
-        { id: '1', name: 'Administrador', username: 'admin', password: 'senha123' },
+        { id: '1', name: 'ADMINISTRADOR', username: 'admin', password: 'senha123' },
       ];
       setUsers(defaultUsers);
     }
@@ -113,13 +113,31 @@ export function AccessManagementClient() {
   });
 
   const onSubmit = (data: UserFormValues) => {
+    const payload = { ...data, username: data.username.toLowerCase() };
     if (editingUser) {
+      if (editingUser.username !== payload.username) {
+        const existingUser = users.find(
+          (u) =>
+            u.username.toLowerCase() === payload.username.toLowerCase() &&
+            u.id !== editingUser.id
+        );
+        if (existingUser) {
+          form.setError('username', {
+            type: 'manual',
+            message: 'Este nome de usuário já existe.',
+          });
+          return;
+        }
+      }
+
       setUsers(
-        users.map((u) => (u.id === editingUser.id ? { ...u, ...data } : u))
+        users.map((u) => (u.id === editingUser.id ? { ...u, ...payload } : u))
       );
       toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
     } else {
-      const existingUser = users.find((u) => u.username === data.username);
+      const existingUser = users.find(
+        (u) => u.username.toLowerCase() === payload.username.toLowerCase()
+      );
       if (existingUser) {
         form.setError('username', {
           type: 'manual',
@@ -127,7 +145,7 @@ export function AccessManagementClient() {
         });
         return;
       }
-      setUsers([...users, { id: new Date().toISOString(), ...data }]);
+      setUsers([...users, { id: new Date().toISOString(), ...payload }]);
       toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
     }
     setEditingUser(null);
@@ -162,7 +180,6 @@ export function AccessManagementClient() {
       toast({
         title: 'Sucesso!',
         description: 'Usuário removido.',
-        variant: 'destructive',
       });
     }
     setIsDeleteAlertOpen(false);
@@ -207,7 +224,7 @@ export function AccessManagementClient() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(user)}>
+                          <DropdownMenuItem onClick={() => handleEdit(user)} disabled={user.username === 'admin'}>
                             <Edit className="mr-2 h-4 w-4" /> Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -251,6 +268,7 @@ export function AccessManagementClient() {
                         placeholder="ex: João da Silva"
                         {...field}
                         value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         className="uppercase"
                       />
                     </FormControl>
@@ -269,6 +287,7 @@ export function AccessManagementClient() {
                         placeholder="ex: joao.silva"
                         {...field}
                         value={field.value || ''}
+                        disabled={editingUser?.username === 'admin'}
                       />
                     </FormControl>
                     <FormMessage />
