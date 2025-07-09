@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 import { type Transaction, type Category } from '@/lib/types';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, capitalizeFirstLetter } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -417,7 +417,13 @@ export function TransactionsClient() {
                 <FormItem>
                   <FormLabel>Descrição (Opcional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Pagamento de aluguel" {...field} />
+                    <Input
+                      placeholder="Ex: Pagamento de aluguel"
+                      {...field}
+                      onChange={(e) =>
+                        field.onChange(capitalizeFirstLetter(e.target.value))
+                      }
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

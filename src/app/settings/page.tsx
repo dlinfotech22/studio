@@ -76,6 +76,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { capitalizeFirstLetter } from '@/lib/utils';
 
 const USERS_STORAGE_KEY = 'app-users';
 const CATEGORIES_STORAGE_KEY = 'app-categories';
@@ -302,7 +303,12 @@ function CompanyProfile() {
                   <FormItem>
                     <FormLabel>Nome da Empresa</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(capitalizeFirstLetter(e.target.value))
+                        }
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -488,7 +494,14 @@ function CategoryManagement() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Nome da Categoria</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(capitalizeFirstLetter(e.target.value))
+                        }
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
