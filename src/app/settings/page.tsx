@@ -181,11 +181,14 @@ function UserProfile() {
       await updateDoc(userRef, { password: values.newPassword });
       toast({ title: 'Sucesso!', description: 'Sua senha foi alterada.' });
       form.reset();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update password:', error);
       toast({
         title: 'Erro!',
-        description: 'Não foi possível alterar a senha.',
+        description:
+          error.code === 'permission-denied'
+            ? 'Permissão negada para alterar a senha.'
+            : 'Não foi possível alterar a senha.',
         variant: 'destructive',
       });
     }
@@ -305,11 +308,14 @@ function CompanyProfile() {
       setCompanyInfo(updatedInfo);
       toast({ title: 'Sucesso!', description: 'Informações da empresa salvas.' });
       form.reset(updatedInfo);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save company info:', error);
       toast({
         title: 'Erro!',
-        description: 'Não foi possível salvar as informações.',
+        description:
+          error.code === 'permission-denied'
+            ? 'Permissão negada para salvar informações da empresa.'
+            : 'Não foi possível salvar as informações.',
         variant: 'destructive',
       });
     }
@@ -501,11 +507,14 @@ function CategoryManagement() {
       setEditingCategory(null);
       form.reset({ name: '', type: activeTab });
       setIsDialogOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save category:', error);
       toast({
         title: 'Erro!',
-        description: 'Não foi possível salvar a categoria.',
+        description:
+          error.code === 'permission-denied'
+            ? 'Permissão negada para salvar a categoria.'
+            : 'Não foi possível salvar a categoria.',
         variant: 'destructive',
       });
     }
@@ -528,11 +537,14 @@ function CategoryManagement() {
         await deleteDoc(doc(db, 'categories', categoryToDelete.id));
         setCategories(categories.filter((c) => c.id !== categoryToDelete.id));
         toast({ title: 'Sucesso!', description: 'Categoria removida.' });
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to delete category:', error);
         toast({
           title: 'Erro!',
-          description: 'Não foi possível remover a categoria.',
+          description:
+            error.code === 'permission-denied'
+              ? 'Permissão negada para remover a categoria.'
+              : 'Não foi possível remover a categoria.',
           variant: 'destructive',
         });
       }

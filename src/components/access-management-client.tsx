@@ -201,11 +201,14 @@ export function AccessManagementClient() {
       setEditingUser(null);
       form.reset({ name: '', username: '', password: '', role: 'user' });
       setIsDialogOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save user:', error);
       toast({
         title: 'Erro!',
-        description: 'Não foi possível salvar o usuário.',
+        description:
+          error.code === 'permission-denied'
+            ? 'Permissão negada para salvar o usuário.'
+            : 'Não foi possível salvar o usuário.',
         variant: 'destructive',
       });
     }
@@ -247,11 +250,14 @@ export function AccessManagementClient() {
             title: 'Sucesso!',
             description: 'Usuário removido.',
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to delete user:', error);
           toast({
             title: 'Erro!',
-            description: 'Não foi possível remover o usuário.',
+            description:
+              error.code === 'permission-denied'
+                ? 'Permissão negada para remover o usuário.'
+                : 'Não foi possível remover o usuário.',
             variant: 'destructive',
           });
         }

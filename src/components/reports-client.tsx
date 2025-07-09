@@ -614,9 +614,16 @@ export function ReportsClient() {
           title: 'Sucesso!',
           description: `${oldTransactionsCount} lançamento(s) de anos anteriores foram removidos.`,
         });
-      } catch (error) {
+      } catch (error: any) {
          console.error('Failed to clear old data:', error);
-         toast({ title: 'Erro!', description: 'Não foi possível limpar os dados antigos.', variant: 'destructive'});
+         toast({
+          title: 'Erro!',
+          description:
+            error.code === 'permission-denied'
+              ? 'Permissão negada para limpar os dados.'
+              : 'Não foi possível limpar os dados antigos.',
+          variant: 'destructive',
+        });
       }
     } else {
        toast({ title: 'Nenhum dado antigo', description: 'Não há lançamentos de anos anteriores para remover.'});

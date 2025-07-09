@@ -51,12 +51,21 @@ export default function LoginPage() {
           // Use a predictable ID for the system admin for simplicity
           await setDoc(doc(db, 'users', 'system_admin_user'), systemAdmin);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to initialize default data in Firestore:', error);
+        if (error.code === 'permission-denied') {
+          toast({
+            title: 'Erro de Configuração do Firebase',
+            description:
+              'Falha ao criar usuário admin. Verifique suas regras de segurança do Firestore.',
+            variant: 'destructive',
+            duration: 10000,
+          });
+        }
       }
     };
     initializeAdmin();
-  }, []);
+  }, [toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,11 +108,15 @@ export default function LoginPage() {
         });
         setIsLoading(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      let description = 'Não foi possível autenticar. Tente novamente mais tarde.';
+      if (error.code === 'permission-denied') {
+        description = 'Permissão negada. Verifique as regras de segurança do Firestore.';
+      }
       toast({
         title: 'Erro no servidor',
-        description: 'Não foi possível autenticar. Tente novamente mais tarde.',
+        description: description,
         variant: 'destructive',
       });
       setIsLoading(false);

@@ -187,9 +187,16 @@ export function SystemAdminClient() {
       setIsCompanyDialogOpen(false);
       setEditingCompany(null);
       companyForm.reset();
-    } catch (error) {
+    } catch (error: any) {
        console.error("Failed to save company", error);
-       toast({ title: 'Erro!', description: 'Não foi possível salvar a empresa.', variant: 'destructive' });
+       toast({
+        title: 'Erro!',
+        description:
+          error.code === 'permission-denied'
+            ? 'Permissão negada para salvar a empresa.'
+            : 'Não foi possível salvar a empresa.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -241,9 +248,16 @@ export function SystemAdminClient() {
       setIsUserDialogOpen(false);
       setEditingUser(null);
       userForm.reset();
-    } catch(error) {
+    } catch(error: any) {
        console.error("Failed to save user", error);
-       toast({ title: 'Erro!', description: 'Não foi possível salvar o usuário.', variant: 'destructive' });
+       toast({
+        title: 'Erro!',
+        description:
+          error.code === 'permission-denied'
+            ? 'Permissão negada para salvar o usuário.'
+            : 'Não foi possível salvar o usuário.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -292,9 +306,16 @@ export function SystemAdminClient() {
         setUsers(users.filter(u => u.companyId !== companyToDelete.document));
 
         toast({ title: 'Sucesso!', description: `A empresa ${companyToDelete.name} e todos os seus dados foram removidos.` });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to delete company and its data", error);
-        toast({ title: 'Erro!', description: 'Não foi possível remover a empresa.', variant: 'destructive' });
+        toast({
+          title: 'Erro!',
+          description:
+            error.code === 'permission-denied'
+              ? 'Permissão negada para remover a empresa.'
+              : 'Não foi possível remover a empresa.',
+          variant: 'destructive',
+        });
     } finally {
         setIsDeleteCompanyAlertOpen(false);
         setCompanyToDelete(null);
@@ -307,9 +328,16 @@ export function SystemAdminClient() {
         await deleteDoc(doc(db, 'users', userToDelete.id));
         setUsers(users.filter(u => u.id !== userToDelete.id));
         toast({ title: 'Sucesso!', description: 'Usuário removido.' });
-     } catch (error) {
+     } catch (error: any) {
         console.error("Failed to delete user", error);
-        toast({ title: 'Erro!', description: 'Não foi possível remover o usuário.', variant: 'destructive' });
+        toast({
+          title: 'Erro!',
+          description:
+            error.code === 'permission-denied'
+              ? 'Permissão negada para remover o usuário.'
+              : 'Não foi possível remover o usuário.',
+          variant: 'destructive',
+        });
      } finally {
         setIsDeleteUserAlertOpen(false);
         setUserToDelete(null);

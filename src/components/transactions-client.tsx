@@ -221,9 +221,16 @@ export function TransactionsClient() {
         setEditingTransaction(null);
         form.reset({ description: '', amount: 0, date: new Date(), type: data.type, category: '' });
         setIsDialogOpen(false);
-    } catch(error) {
+    } catch(error: any) {
         console.error("Failed to save transaction", error);
-        toast({ title: 'Erro!', description: 'Não foi possível salvar o lançamento.', variant: 'destructive'});
+        toast({
+          title: 'Erro!',
+          description:
+            error.code === 'permission-denied'
+              ? 'Permissão negada para salvar.'
+              : 'Não foi possível salvar o lançamento.',
+          variant: 'destructive',
+        });
     }
   };
 
@@ -239,9 +246,16 @@ export function TransactionsClient() {
         await deleteDoc(doc(db, 'transactions', id));
         setAllTransactions(allTransactions.filter(t => t.id !== id));
         toast({ title: "Sucesso!", description: "Lançamento removido." });
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to delete transaction", error);
-        toast({ title: 'Erro!', description: 'Não foi possível remover o lançamento.', variant: 'destructive'});
+        toast({
+          title: 'Erro!',
+          description:
+            error.code === 'permission-denied'
+              ? 'Permissão negada para remover.'
+              : 'Não foi possível remover o lançamento.',
+          variant: 'destructive',
+        });
       }
   };
 
