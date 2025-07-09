@@ -10,8 +10,9 @@ import {
   Trash2,
   MoreHorizontal,
   Building,
+  Users,
 } from 'lucide-react';
-import { type User, type CompanyInfo, type Transaction, type Category } from '@/lib/types';
+import { type User, type CompanyInfo } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -246,7 +247,7 @@ export function SystemAdminClient() {
     setActiveCompanyId(companyId);
     setEditingUser(user);
     if (user) {
-      userForm.reset({ name: user.name, username: user.username, password: '', role: user.role === 'system_admin' ? 'company_admin' : user.role });
+      userForm.reset({ name: user.name, username: user.username, password: '', role: user.role});
     } else {
       userForm.reset({ name: '', username: '', password: '', role: 'user' });
     }
@@ -284,6 +285,8 @@ export function SystemAdminClient() {
       setUserToDelete(null);
   };
 
+  const systemAdmins = users.filter((u) => u.role === 'system_admin');
+
   return (
     <>
       <div className="flex justify-end">
@@ -292,38 +295,100 @@ export function SystemAdminClient() {
           Adicionar Nova Empresa
         </Button>
       </div>
-      <Accordion type="single" collapsible className="w-full">
-        {companies.map(company => (
+      <Accordion
+        type="single"
+        collapsible
+        className="w-full"
+        defaultValue="system-admins"
+      >
+        <AccordionItem value="system-admins">
+          <AccordionTrigger>
+            <div className="flex items-center gap-4">
+              <Users className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="font-semibold">Administradores do Sistema</p>
+                <p className="text-sm text-muted-foreground font-normal">
+                  Usuários com acesso total ao sistema.
+                </p>
+              </div>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="bg-muted/40 p-4 rounded-md">
+            <div className="rounded-md border bg-background">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome Completo</TableHead>
+                    <TableHead>Usuário</TableHead>
+                    <TableHead>Nível</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {systemAdmins.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>{user.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {user.username}
+                      </TableCell>
+                      <TableCell>ADMINISTRADOR DO SISTEMA</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+        {companies.map((company) => (
           <AccordionItem value={company.document} key={company.document}>
             <AccordionTrigger>
-                <div className="flex justify-between items-center w-full">
-                    <div className="flex items-center gap-4">
-                        <Building className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                            <p className="font-semibold">{company.name}</p>
-                            <p className="text-sm text-muted-foreground font-normal">{company.document}</p>
-                        </div>
-                    </div>
-                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <span className="inline-flex items-center justify-center rounded-md text-sm font-medium h-8 w-8 mr-2 cursor-pointer hover:bg-accent hover:text-accent-foreground">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </span>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem onClick={() => openCompanyDialog(company)}>
-                            <Edit className="mr-2 h-4 w-4" /> Editar Empresa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setCompanyToDelete(company); setIsDeleteCompanyAlertOpen(true); }} className="text-red-500" disabled={company.document === 'default-001'}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Deletar Empresa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+              <div className="flex justify-between items-center w-full">
+                <div className="flex items-center gap-4">
+                  <Building className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-semibold">{company.name}</p>
+                    <p className="text-sm text-muted-foreground font-normal">
+                      {company.document}
+                    </p>
+                  </div>
                 </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 mr-2"
+                      asChild
+                    >
+                      <span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => openCompanyDialog(company)}>
+                      <Edit className="mr-2 h-4 w-4" /> Editar Empresa
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setCompanyToDelete(company);
+                        setIsDeleteCompanyAlertOpen(true);
+                      }}
+                      className="text-red-500"
+                      disabled={company.document === 'default-001'}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Deletar Empresa
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </AccordionTrigger>
             <AccordionContent className="bg-muted/40 p-4 rounded-md">
               <div className="flex justify-end mb-4">
-                <Button variant="outline" size="sm" onClick={() => openUserDialog(null, company.document)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openUserDialog(null, company.document)}
+                >
                   <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Usuário
                 </Button>
               </div>
@@ -338,38 +403,61 @@ export function SystemAdminClient() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.filter(u => u.companyId === company.document).length > 0 ? (
-                      users.filter(u => u.companyId === company.document).map(user => (
-                      <TableRow key={user.id}>
-                        <TableCell>{user.name}</TableCell>
-                        <TableCell className="font-medium">{user.username}</TableCell>
-                        <TableCell>
-                            {user.role === 'system_admin' && 'ADMINISTRADOR DO SISTEMA'}
-                            {user.role === 'company_admin' && 'Admin. da Empresa'}
-                            {user.role === 'user' && 'Usuário'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openUserDialog(user, company.document)} disabled={user.id === currentUser?.id}>
-                                <Edit className="mr-2 h-4 w-4" /> Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {setUserToDelete(user); setIsDeleteUserAlertOpen(true);}} className="text-red-500" disabled={user.id === currentUser?.id}>
-                                <Trash2 className="mr-2 h-4 w-4" /> Deletar
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                      ))
+                    {users.filter((u) => u.companyId === company.document)
+                      .length > 0 ? (
+                      users
+                        .filter((u) => u.companyId === company.document)
+                        .map((user) => (
+                          <TableRow key={user.id}>
+                            <TableCell>{user.name}</TableCell>
+                            <TableCell className="font-medium">
+                              {user.username}
+                            </TableCell>
+                            <TableCell>
+                              {user.role === 'company_admin' &&
+                                'Admin. da Empresa'}
+                              {user.role === 'user' && 'Usuário'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      openUserDialog(user, company.document)
+                                    }
+                                    disabled={user.id === currentUser?.id}
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" /> Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setUserToDelete(user);
+                                      setIsDeleteUserAlertOpen(true);
+                                    }}
+                                    className="text-red-500"
+                                    disabled={user.id === currentUser?.id}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" /> Deletar
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">Nenhum usuário encontrado para esta empresa.</TableCell>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                          Nenhum usuário encontrado para esta empresa.
+                        </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
