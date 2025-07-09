@@ -209,15 +209,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{currentUser}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="p-0">
-                  <Link
-                    href="/settings"
-                    className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5"
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span>Configurações</span>
-                  </Link>
-                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="cursor-pointer"
