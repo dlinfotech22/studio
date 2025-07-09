@@ -13,6 +13,7 @@ import {
   Moon,
   Sun,
   Image as ImageIcon,
+  Search,
 } from 'lucide-react';
 import {
   Card,
@@ -276,7 +277,8 @@ function CompanyProfile() {
     if (values.document !== companyId) {
         localStorage.setItem('current-user-company-id', values.document);
 
-        const allUsers: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '[]');
+        const allUsers: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '[]'
+        );
         const currentUsername = localStorage.getItem('current-user');
         const updatedUsers = allUsers.map(u => u.username === currentUsername ? {...u, companyId: values.document} : u);
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
@@ -397,9 +399,15 @@ function CategoryManagement() {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
   
   const form = useForm<z.infer<typeof categorySchema>>({
     resolver: zodResolver(categorySchema),
+    defaultValues: {
+      name: '',
+      type: 'revenue',
+    }
   });
 
   const getCategoriesStorageKey = (id: string) => `app-categories-${id}`;
@@ -479,7 +487,7 @@ function CategoryManagement() {
   };
   
   const renderCategoryTable = (type: 'revenue' | 'expense') => {
-    const data = categories.filter((c) => c.type === type);
+    const data = categories.filter((c) => c.type === type && c.name.toLowerCase().includes(searchTerm.toLowerCase()));
     return (
       <div className="rounded-md border">
         <Table>
@@ -534,25 +542,32 @@ function CategoryManagement() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="revenue" className="w-full">
-            <TabsList>
-              <TabsTrigger value="revenue">Receitas</TabsTrigger>
-              <TabsTrigger value="expense">Despesas</TabsTrigger>
-            </TabsList>
-            <TabsContent value="revenue" className="mt-4">
-              <div className="flex justify-end mb-4">
-                  <Button onClick={() => openNewDialog('revenue')}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Nova Categoria
-                  </Button>
-              </div>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'revenue' | 'expense')} className="w-full">
+            <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center md:justify-between">
+              <TabsList>
+                <TabsTrigger value="revenue">Receitas</TabsTrigger>
+                <TabsTrigger value="expense">Despesas</TabsTrigger>
+              </TabsList>
+              <div className="flex items-center gap-2">
+                 <div className="relative w-full md:w-auto">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                       placeholder="Pesquisar..."
+                       value={searchTerm}
+                       onChange={(e) => setSearchTerm(e.target.value)}
+                       className="pl-8 w-full md:w-[250px]"
+                    />
+                 </div>
+                 <Button onClick={() => openNewDialog(activeTab)}>
+                   <PlusCircle className="mr-2 h-4 w-4" /> Nova Categoria
+                 </Button>
+               </div>
+            </div>
+            
+            <TabsContent value="revenue" className="mt-0">
               {renderCategoryTable('revenue')}
             </TabsContent>
-            <TabsContent value="expense" className="mt-4">
-            <div className="flex justify-end mb-4">
-                  <Button onClick={() => openNewDialog('expense')}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Nova Categoria
-                  </Button>
-              </div>
+            <TabsContent value="expense" className="mt-0">
               {renderCategoryTable('expense')}
             </TabsContent>
           </Tabs>
