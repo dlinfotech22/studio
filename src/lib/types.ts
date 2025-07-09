@@ -1,6 +1,8 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export type Transaction = {
   id: string;
-  date: Date;
+  date: Date | Timestamp;
   description: string;
   amount: number;
   type: 'revenue' | 'expense';
@@ -25,7 +27,8 @@ export type Category = {
 };
 
 export type CompanyInfo = {
+  id: string; // Document ID from firestore
   name: string;
-  document: string; // This is the companyId
-  logo?: string; // base64 data URI
+  document: string; // This is the unique identifier (CNPJ/CPF)
+  logo?: string; // public URL from Firebase Storage
 };

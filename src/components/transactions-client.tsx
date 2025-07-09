@@ -7,6 +7,17 @@ import { z } from 'zod';
 import { format, getMonth, getYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  Timestamp,
+} from 'firebase/firestore';
+import {
   CalendarIcon,
   PlusCircle,
   Edit,
@@ -39,7 +50,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
@@ -72,6 +82,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import { db } from '@/lib/firebase';
 
 const transactionSchema = z.object({
   description: z.string().optional(),
@@ -82,9 +93,6 @@ const transactionSchema = z.object({
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
-
-const getTransactionsStorageKey = (id: string) => `app-transactions-${id}`;
-const getCategoriesStorageKey = (id: string) => `app-categories-${id}`;
 
 export function TransactionsClient() {
   const { toast } = useToast();
@@ -97,41 +105,51 @@ export function TransactionsClient() {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
-  // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [amountFilter, setAmountFilter] = useState('');
   const [dateFilter, setDateFilter] = useState<Date | undefined>();
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
 
   useEffect(() => {
+    const fetchData = async (id: string) => {
+      try {
+        const transactionsRef = collection(db, 'transactions');
+        const qTransactions = query(transactionsRef, where('companyId', '==', id));
+        const transactionSnapshot = await getDocs(qTransactions);
+        const transactions = transactionSnapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                date: (data.date as Timestamp).toDate(),
+            } as Transaction;
+        });
+        setAllTransactions(transactions);
+
+        const categoriesRef = collection(db, 'categories');
+        const qCategories = query(categoriesRef, where('companyId', '==', id));
+        const categorySnapshot = await getDocs(qCategories);
+        const categories = categorySnapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as Category)
+        );
+        setAllCategories(categories);
+
+      } catch (error) {
+        console.error("Failed to load data from Firestore", error);
+        setAllTransactions([]);
+        setAllCategories([]);
+      }
+    };
+    
     const id = sessionStorage.getItem('current-user-company-id');
     setCompanyId(id);
-    if (!id) return;
-
-    try {
-      const transactionsKey = getTransactionsStorageKey(id);
-      const storedTransactions = localStorage.getItem(transactionsKey);
-      setAllTransactions(storedTransactions ? JSON.parse(storedTransactions, (key, value) => key === 'date' ? new Date(value) : value) : []);
-
-      const categoriesKey = getCategoriesStorageKey(id);
-      const storedCategories = localStorage.getItem(categoriesKey);
-      setAllCategories(storedCategories ? JSON.parse(storedCategories) : []);
-    } catch (error) {
-      console.error("Failed to load data from localStorage", error);
-      setAllTransactions([]);
-      setAllCategories([]);
+    if (id) {
+        fetchData(id);
     }
   }, []);
-
-  useEffect(() => {
-    if (companyId) {
-      localStorage.setItem(getTransactionsStorageKey(companyId), JSON.stringify(allTransactions));
-    }
-  }, [allTransactions, companyId]);
-
+  
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
-
     let transactionsToDisplay = allTransactions;
 
     if (hasActiveFilter) {
@@ -150,34 +168,26 @@ export function TransactionsClient() {
 
         const dateMatch =
           !dateFilter ||
-          format(new Date(t.date), 'yyyy-MM-dd') ===
-            format(dateFilter, 'yyyy-MM-dd');
+          format(new Date(t.date as Date), 'yyyy-MM-dd') === format(dateFilter, 'yyyy-MM-dd');
         
         return searchMatch && amountMatch && dateMatch;
       });
     } else {
-      // Default view: only show transactions from the current month
       const now = new Date();
       const currentMonth = getMonth(now);
       const currentYear = getYear(now);
       transactionsToDisplay = allTransactions.filter(t => {
-        const transactionDate = new Date(t.date);
+        const transactionDate = new Date(t.date as Date);
         return getMonth(transactionDate) === currentMonth && getYear(transactionDate) === currentYear;
       });
     }
 
-    setFilteredTransactions(transactionsToDisplay.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    setFilteredTransactions(transactionsToDisplay.sort((a, b) => new Date(b.date as Date).getTime() - new Date(a.date as Date).getTime()));
   }, [allTransactions, searchTerm, amountFilter, dateFilter]);
-
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
-    defaultValues: {
-      description: '',
-      amount: 0,
-      date: new Date(),
-      type: 'revenue',
-    },
+    defaultValues: { description: '', amount: 0, date: new Date(), type: 'revenue' },
   });
 
   const revenue = filteredTransactions.filter((t) => t.type === 'revenue');
@@ -186,60 +196,58 @@ export function TransactionsClient() {
   const revenueCategories = allCategories.filter(c => c.type === 'revenue').map(c => c.name);
   const expenseCategories = allCategories.filter(c => c.type === 'expense').map(c => c.name);
 
-
-  const onSubmit = (data: TransactionFormValues) => {
+  const onSubmit = async (data: TransactionFormValues) => {
     if (!companyId) return;
 
     const amount = data.type === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount);
-    const payload = { ...data, companyId, amount, description: data.description || data.category };
+    const description = data.description || data.category;
+    const payload = { ...data, companyId, amount, description, date: Timestamp.fromDate(data.date) };
 
-    if (editingTransaction) {
-      setAllTransactions(
-        allTransactions.map((t) =>
-          t.id === editingTransaction.id ? { ...t, ...payload } : t
-        )
-      );
-      toast({ title: "Sucesso!", description: "Lançamento atualizado." });
-    } else {
-      setAllTransactions([
-        ...allTransactions,
-        { id: new Date().toISOString(), ...payload },
-      ]);
-      toast({ title: "Sucesso!", description: "Lançamento adicionado." });
+    try {
+        if (editingTransaction) {
+            const transactionRef = doc(db, 'transactions', editingTransaction.id);
+            await updateDoc(transactionRef, payload);
+            setAllTransactions(
+                allTransactions.map((t) =>
+                    t.id === editingTransaction.id ? { ...t, ...data, amount, description } : t
+                )
+            );
+            toast({ title: "Sucesso!", description: "Lançamento atualizado." });
+        } else {
+            const docRef = await addDoc(collection(db, 'transactions'), payload);
+            setAllTransactions([ ...allTransactions, { id: docRef.id, ...data, amount, description }]);
+            toast({ title: "Sucesso!", description: "Lançamento adicionado." });
+        }
+        setEditingTransaction(null);
+        form.reset({ description: '', amount: 0, date: new Date(), type: data.type, category: '' });
+        setIsDialogOpen(false);
+    } catch(error) {
+        console.error("Failed to save transaction", error);
+        toast({ title: 'Erro!', description: 'Não foi possível salvar o lançamento.', variant: 'destructive'});
     }
-    
-    setEditingTransaction(null);
-    form.reset({
-      description: '',
-      amount: 0,
-      date: new Date(),
-      type: data.type,
-      category: '',
-    });
-    setIsDialogOpen(false);
   };
 
   const handleEdit = (transaction: Transaction) => {
     setEditingTransaction(transaction);
-    form.reset({ ...transaction, date: new Date(transaction.date), amount: Math.abs(transaction.amount) });
+    form.reset({ ...transaction, date: new Date(transaction.date as Date), amount: Math.abs(transaction.amount) });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
   };
   
-  const handleDelete = (id: string) => {
-    setAllTransactions(allTransactions.filter(t => t.id !== id));
-    toast({ title: "Sucesso!", description: "Lançamento removido.", variant: 'destructive' });
+  const handleDelete = async (id: string) => {
+      try {
+        await deleteDoc(doc(db, 'transactions', id));
+        setAllTransactions(allTransactions.filter(t => t.id !== id));
+        toast({ title: "Sucesso!", description: "Lançamento removido." });
+      } catch (error) {
+        console.error("Failed to delete transaction", error);
+        toast({ title: 'Erro!', description: 'Não foi possível remover o lançamento.', variant: 'destructive'});
+      }
   };
 
   const openNewTransactionDialog = (type: 'revenue' | 'expense') => {
     setEditingTransaction(null);
-    form.reset({
-      description: '',
-      amount: 0,
-      date: new Date(),
-      type: type,
-      category: '',
-    });
+    form.reset({ description: '', amount: 0, date: new Date(), type: type, category: '' });
     setIsDialogOpen(true);
   };
   
@@ -269,7 +277,7 @@ export function TransactionsClient() {
               <TableCell className={cn("text-right font-mono", type === 'revenue' ? 'text-emerald-600' : 'text-red-600')}>
                 {formatCurrency(item.amount)}
               </TableCell>
-              <TableCell className="text-right">{format(new Date(item.date), 'dd/MM/yyyy')}</TableCell>
+              <TableCell className="text-right">{format(new Date(item.date as Date), 'dd/MM/yyyy')}</TableCell>
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

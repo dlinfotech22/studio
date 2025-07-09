@@ -5,6 +5,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+} from 'firebase/firestore';
+import {
   PlusCircle,
   Edit,
   Trash2,
@@ -66,12 +77,7 @@ import {
   AccordionTrigger,
 } from './ui/accordion';
 import { cn } from '@/lib/utils';
-
-const USERS_STORAGE_KEY = 'app-users';
-const COMPANIES_STORAGE_KEY = 'app-companies';
-const getTransactionsStorageKey = (id: string) => `app-transactions-${id}`;
-const getCategoriesStorageKey = (id: string) => `app-categories-${id}`;
-
+import { db } from '@/lib/firebase';
 
 const companySchema = z.object({
   name: z.string().min(1, 'Nome da empresa é obrigatório.'),
@@ -100,7 +106,6 @@ export function SystemAdminClient() {
   const [companies, setCompanies] = useState<CompanyInfo[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // Dialog states
   const [isCompanyDialogOpen, setIsCompanyDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyInfo | null>(null);
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
@@ -112,29 +117,28 @@ export function SystemAdminClient() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   useEffect(() => {
-    try {
-      const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-      const storedCompanies = localStorage.getItem(COMPANIES_STORAGE_KEY);
-      const currentUsername = sessionStorage.getItem('current-user');
+    const fetchData = async () => {
+      try {
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const allUsers = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+        setUsers(allUsers);
 
-      const allUsers = storedUsers ? JSON.parse(storedUsers) : [];
-      setUsers(allUsers);
-      setCompanies(storedCompanies ? JSON.parse(storedCompanies) : []);
-      setCurrentUser(allUsers.find((u: User) => u.username === currentUsername) || null);
-    } catch (error) {
-      console.error('Failed to load data from localStorage', error);
-    }
+        const companiesSnapshot = await getDocs(collection(db, 'companies'));
+        const allCompanies = companiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CompanyInfo));
+        setCompanies(allCompanies);
+
+        const currentUsername = sessionStorage.getItem('current-user');
+        setCurrentUser(allUsers.find((u: User) => u.username === currentUsername) || null);
+      } catch (error) {
+        console.error('Failed to load data from Firestore', error);
+      }
+    };
+    fetchData();
   }, []);
 
   const companyForm = useForm<CompanyFormValues>({
     resolver: zodResolver(newCompanySchema),
-    defaultValues: {
-      name: '',
-      document: '',
-      adminName: '',
-      adminUsername: '',
-      adminPassword: '',
-    },
+    defaultValues: { name: '', document: '', adminName: '', adminUsername: '', adminPassword: '' },
   });
 
   const userForm = useForm<UserFormValues>({
@@ -142,150 +146,107 @@ export function SystemAdminClient() {
     defaultValues: { name: '', username: '', password: '', role: 'user' },
   });
 
-  const handleCompanySubmit = (data: CompanyFormValues) => {
-    if (editingCompany) {
-      // Edit logic
-      const updatedCompanies = companies.map(c =>
-        c.document === editingCompany.document ? { ...c, name: data.name.toUpperCase() } : c
-      );
-      setCompanies(updatedCompanies);
-      localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(updatedCompanies));
-      toast({ title: 'Sucesso!', description: 'Empresa atualizada.' });
-    } else {
-      // Add logic
-      if (companies.some(c => c.document === data.document)) {
-        companyForm.setError('document', { message: 'Este documento já está em uso.' });
-        return;
-      }
-      if (users.some(u => u.username.toLowerCase() === data.adminUsername.toLowerCase())) {
-        companyForm.setError('adminUsername', { message: 'Este nome de usuário já está em uso.' });
-        return;
-      }
-
-      const newCompany: CompanyInfo = {
-        name: data.name.toUpperCase(),
-        document: data.document,
-        logo: '',
-      };
-      const newAdmin: User = {
-        id: new Date().toISOString(),
-        name: data.adminName.toUpperCase(),
-        username: data.adminUsername.toLowerCase(),
-        password: data.adminPassword,
-        companyId: newCompany.document,
-        role: 'company_admin',
-      };
-
-      const updatedCompanies = [...companies, newCompany];
-      const updatedUsers = [...users, newAdmin];
-      setCompanies(updatedCompanies);
-      setUsers(updatedUsers);
-      localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(updatedCompanies));
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-      toast({ title: 'Sucesso!', description: 'Empresa e administrador criados.' });
-    }
-    setIsCompanyDialogOpen(false);
-    setEditingCompany(null);
-  };
-  
-  const handleUserSubmit = (data: UserFormValues) => {
-    if (editingUser?.role !== 'system_admin' && !activeCompanyId) return;
-
-    if (editingUser) {
-      let updatedUser: User;
-
-      if (editingUser.role === 'system_admin') {
-        updatedUser = {
-          ...editingUser,
-          name: editingUser.name, // Ensure name is not changed
-          username: editingUser.username, // Ensure username is not changed
-          ...(data.password && { password: data.password }),
-        };
+  const handleCompanySubmit = async (data: CompanyFormValues) => {
+    try {
+      if (editingCompany) {
+        const companyRef = doc(db, 'companies', editingCompany.id);
+        await updateDoc(companyRef, { name: data.name.toUpperCase() });
+        setCompanies(companies.map(c => c.id === editingCompany.id ? { ...c, name: data.name.toUpperCase() } : c));
+        toast({ title: 'Sucesso!', description: 'Empresa atualizada.' });
       } else {
-        const submittedData = {
-          ...data,
-          username: data.username.toLowerCase(),
-          name: data.name.toUpperCase(),
-        };
-
-        if (
-          editingUser.username.toLowerCase() !==
-          submittedData.username.toLowerCase()
-        ) {
-          if (
-            users.some(
-              (u) =>
-                u.username.toLowerCase() ===
-                  submittedData.username.toLowerCase() && u.id !== editingUser.id
-            )
-          ) {
-            userForm.setError('username', {
-              message: 'Este nome de usuário já existe.',
-            });
+        const companiesRef = collection(db, 'companies');
+        const qCompany = query(companiesRef, where('document', '==', data.document));
+        if (!(await getDocs(qCompany)).empty) {
+            companyForm.setError('document', { message: 'Este documento já está em uso.' });
             return;
-          }
         }
 
-        updatedUser = {
-          ...editingUser,
-          name: submittedData.name,
-          username: submittedData.username,
-          role: submittedData.role as 'company_admin' | 'user',
-          ...(submittedData.password && { password: submittedData.password }),
+        const usersRef = collection(db, 'users');
+        const qUser = query(usersRef, where('username', '==', data.adminUsername.toLowerCase()));
+         if (!(await getDocs(qUser)).empty) {
+            companyForm.setError('adminUsername', { message: 'Este nome de usuário já está em uso.' });
+            return;
+        }
+
+        const newCompany: Omit<CompanyInfo, 'id'> = { name: data.name.toUpperCase(), document: data.document, logo: '' };
+        const companyDocRef = await addDoc(companiesRef, newCompany);
+
+        const newAdmin: Omit<User, 'id'> = {
+            name: data.adminName.toUpperCase(),
+            username: data.adminUsername.toLowerCase(),
+            password: data.adminPassword,
+            companyId: newCompany.document,
+            role: 'company_admin',
         };
-      }
+        const userDocRef = await addDoc(usersRef, newAdmin);
 
-      const updatedUsers = users.map((u) =>
-        u.id === editingUser.id ? updatedUser : u
-      );
-      setUsers(updatedUsers);
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-      toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
-    } else {
-      // Logic for creating a new user (this is only for company users, so it's fine)
-      if (!activeCompanyId) return;
-      const submittedData = {
-        ...data,
-        username: data.username.toLowerCase(),
-        name: data.name.toUpperCase(),
-      };
-      if (!submittedData.password) {
-        userForm.setError('password', {
-          type: 'manual',
-          message: 'A senha é obrigatória para novos usuários.',
-        });
-        return;
+        setCompanies([...companies, { id: companyDocRef.id, ...newCompany }]);
+        setUsers([...users, { id: userDocRef.id, ...newAdmin }]);
+        toast({ title: 'Sucesso!', description: 'Empresa e administrador criados.' });
       }
-      if (
-        users.some(
-          (u) => u.username.toLowerCase() === submittedData.username.toLowerCase()
-        )
-      ) {
-        userForm.setError('username', {
-          type: 'manual',
-          message: 'Este nome de usuário já existe.',
-        });
-        return;
-      }
-      const newUser: User = {
-        id: new Date().toISOString(),
-        name: submittedData.name,
-        username: submittedData.username,
-        password: submittedData.password,
-        companyId: activeCompanyId,
-        role: submittedData.role as 'company_admin' | 'user',
-      };
-      const updatedUsers = [...users, newUser];
-      setUsers(updatedUsers);
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-      toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
+      setIsCompanyDialogOpen(false);
+      setEditingCompany(null);
+      companyForm.reset();
+    } catch (error) {
+       console.error("Failed to save company", error);
+       toast({ title: 'Erro!', description: 'Não foi possível salvar a empresa.', variant: 'destructive' });
     }
-
-    setIsUserDialogOpen(false);
-    setEditingUser(null);
-    userForm.reset();
   };
-  
+
+  const handleUserSubmit = async (data: UserFormValues) => {
+    if (editingUser?.role !== 'system_admin' && !activeCompanyId) return;
+
+    try {
+      if (editingUser) {
+         let updatedUser: Partial<User> = {};
+        if (editingUser.role === 'system_admin') {
+             updatedUser = { ...(data.password && { password: data.password }) };
+        } else {
+            const submittedData = { ...data, username: data.username.toLowerCase(), name: data.name.toUpperCase() };
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('username', '==', submittedData.username));
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty && snapshot.docs[0].id !== editingUser.id) {
+                userForm.setError('username', { message: 'Este nome de usuário já existe.' });
+                return;
+            }
+            updatedUser = {
+                name: submittedData.name,
+                username: submittedData.username,
+                role: submittedData.role as 'company_admin' | 'user',
+                ...(submittedData.password && { password: submittedData.password }),
+            };
+        }
+        await updateDoc(doc(db, 'users', editingUser.id), updatedUser);
+        setUsers(users.map(u => u.id === editingUser.id ? { ...u, ...updatedUser } : u));
+        toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
+      } else {
+        if (!activeCompanyId) return;
+        const submittedData = { ...data, username: data.username.toLowerCase(), name: data.name.toUpperCase() };
+        if (!submittedData.password) {
+            userForm.setError('password', { message: 'A senha é obrigatória.' });
+            return;
+        }
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('username', '==', submittedData.username));
+        if (!(await getDocs(q)).empty) {
+            userForm.setError('username', { message: 'Este nome de usuário já existe.' });
+            return;
+        }
+        const newUser: Omit<User, 'id'> = { ...submittedData, companyId: activeCompanyId, password: submittedData.password };
+        const docRef = await addDoc(usersRef, newUser);
+        setUsers([...users, { id: docRef.id, ...newUser }]);
+        toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
+      }
+      setIsUserDialogOpen(false);
+      setEditingUser(null);
+      userForm.reset();
+    } catch(error) {
+       console.error("Failed to save user", error);
+       toast({ title: 'Erro!', description: 'Não foi possível salvar o usuário.', variant: 'destructive' });
+    }
+  };
+
   const openCompanyDialog = (company: CompanyInfo | null) => {
     setEditingCompany(company);
     if (company) {
@@ -300,52 +261,59 @@ export function SystemAdminClient() {
     setActiveCompanyId(companyId || null);
     setEditingUser(user);
     if (user) {
-      const isSystemAdmin = user.role === 'system_admin';
-      userForm.reset({ 
-        name: user.name, 
-        username: user.username, 
-        password: '', 
-        role: user.role
-      });
-      if(isSystemAdmin) {
-        userForm.getValues('name') && userForm.setValue('name', user.name, { shouldValidate: true });
-        userForm.getValues('username') && userForm.setValue('username', user.username, { shouldValidate: true });
-      }
+      userForm.reset({ name: user.name, username: user.username, password: '', role: user.role });
     } else {
       userForm.reset({ name: '', username: '', password: '', role: 'user' });
     }
     setIsUserDialogOpen(true);
   };
 
-  const confirmDeleteCompany = () => {
+  const confirmDeleteCompany = async () => {
     if (!companyToDelete) return;
+    try {
+        const batch = writeBatch(db);
+        batch.delete(doc(db, "companies", companyToDelete.id));
 
-    const updatedCompanies = companies.filter(c => c.document !== companyToDelete.document);
-    const updatedUsers = users.filter(u => u.companyId !== companyToDelete.document);
+        const usersQuery = query(collection(db, "users"), where("companyId", "==", companyToDelete.document));
+        const usersSnapshot = await getDocs(usersQuery);
+        usersSnapshot.forEach(doc => batch.delete(doc.ref));
 
-    setCompanies(updatedCompanies);
-    setUsers(updatedUsers);
+        const transactionsQuery = query(collection(db, "transactions"), where("companyId", "==", companyToDelete.document));
+        const transactionsSnapshot = await getDocs(transactionsQuery);
+        transactionsSnapshot.forEach(doc => batch.delete(doc.ref));
+        
+        const categoriesQuery = query(collection(db, "categories"), where("companyId", "==", companyToDelete.document));
+        const categoriesSnapshot = await getDocs(categoriesQuery);
+        categoriesSnapshot.forEach(doc => batch.delete(doc.ref));
+        
+        await batch.commit();
 
-    localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(updatedCompanies));
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-    localStorage.removeItem(getTransactionsStorageKey(companyToDelete.document));
-    localStorage.removeItem(getCategoriesStorageKey(companyToDelete.document));
+        setCompanies(companies.filter(c => c.id !== companyToDelete.id));
+        setUsers(users.filter(u => u.companyId !== companyToDelete.document));
 
-    toast({ title: 'Sucesso!', description: `A empresa ${companyToDelete.name} e todos os seus dados foram removidos.` });
-    setIsDeleteCompanyAlertOpen(false);
-    setCompanyToDelete(null);
+        toast({ title: 'Sucesso!', description: `A empresa ${companyToDelete.name} e todos os seus dados foram removidos.` });
+    } catch (error) {
+        console.error("Failed to delete company and its data", error);
+        toast({ title: 'Erro!', description: 'Não foi possível remover a empresa.', variant: 'destructive' });
+    } finally {
+        setIsDeleteCompanyAlertOpen(false);
+        setCompanyToDelete(null);
+    }
   };
 
-  const confirmDeleteUser = () => {
+  const confirmDeleteUser = async () => {
      if (!userToDelete) return;
-
-      const updatedUsers = users.filter(u => u.id !== userToDelete.id);
-      setUsers(updatedUsers);
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-      
-      toast({ title: 'Sucesso!', description: 'Usuário removido.' });
-      setIsDeleteUserAlertOpen(false);
-      setUserToDelete(null);
+     try {
+        await deleteDoc(doc(db, 'users', userToDelete.id));
+        setUsers(users.filter(u => u.id !== userToDelete.id));
+        toast({ title: 'Sucesso!', description: 'Usuário removido.' });
+     } catch (error) {
+        console.error("Failed to delete user", error);
+        toast({ title: 'Erro!', description: 'Não foi possível remover o usuário.', variant: 'destructive' });
+     } finally {
+        setIsDeleteUserAlertOpen(false);
+        setUserToDelete(null);
+     }
   };
 
   const systemAdmins = users.filter((u) => u.role === 'system_admin');
@@ -358,12 +326,7 @@ export function SystemAdminClient() {
           Adicionar Nova Empresa
         </Button>
       </div>
-      <Accordion
-        type="single"
-        collapsible
-        className="w-full"
-        defaultValue="system-admins"
-      >
+      <Accordion type="single" collapsible className="w-full" defaultValue="system-admins">
         <AccordionItem value="system-admins">
           <AccordionTrigger>
             <div className="flex items-center gap-4">
@@ -391,25 +354,17 @@ export function SystemAdminClient() {
                   {systemAdmins.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>{user.name}</TableCell>
-                      <TableCell className="font-medium">
-                        {user.username}
-                      </TableCell>
+                      <TableCell className="font-medium">{user.username}</TableCell>
                       <TableCell>ADMINISTRADOR DO SISTEMA</TableCell>
                       <TableCell className="text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                            >
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => openUserDialog(user, user.companyId)}
-                            >
+                            <DropdownMenuItem onClick={() => openUserDialog(user, user.companyId)}>
                               <Edit className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -430,16 +385,12 @@ export function SystemAdminClient() {
                   <Building className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <p className="font-semibold">{company.name}</p>
-                    <p className="text-sm text-muted-foreground font-normal">
-                      {company.document}
-                    </p>
+                    <p className="text-sm text-muted-foreground font-normal">{company.document}</p>
                   </div>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <span
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'h-8 w-8 mr-2')}
-                    >
+                    <span className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'h-8 w-8 mr-2')}>
                         <MoreHorizontal className="h-4 w-4" />
                     </span>
                   </DropdownMenuTrigger>
@@ -448,10 +399,7 @@ export function SystemAdminClient() {
                       <Edit className="mr-2 h-4 w-4" /> Editar Empresa
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() => {
-                        setCompanyToDelete(company);
-                        setIsDeleteCompanyAlertOpen(true);
-                      }}
+                      onClick={() => { setCompanyToDelete(company); setIsDeleteCompanyAlertOpen(true); }}
                       className="text-red-500"
                     >
                       <Trash2 className="mr-2 h-4 w-4" /> Deletar Empresa
@@ -462,11 +410,7 @@ export function SystemAdminClient() {
             </AccordionTrigger>
             <AccordionContent className="bg-muted/40 p-4 rounded-md">
               <div className="flex justify-end mb-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openUserDialog(null, company.document)}
-                >
+                <Button variant="outline" size="sm" onClick={() => openUserDialog(null, company.document)}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Usuário
                 </Button>
               </div>
@@ -481,45 +425,30 @@ export function SystemAdminClient() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.filter((u) => u.companyId === company.document)
-                      .length > 0 ? (
+                    {users.filter((u) => u.companyId === company.document).length > 0 ? (
                       users
                         .filter((u) => u.companyId === company.document)
                         .map((user) => (
                           <TableRow key={user.id}>
                             <TableCell>{user.name}</TableCell>
-                            <TableCell className="font-medium">
-                              {user.username}
-                            </TableCell>
+                            <TableCell className="font-medium">{user.username}</TableCell>
                             <TableCell>
-                              {user.role === 'company_admin' &&
-                                'Admin. da Empresa'}
+                              {user.role === 'company_admin' && 'Admin. da Empresa'}
                               {user.role === 'user' && 'Usuário'}
                             </TableCell>
                             <TableCell className="text-center">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                  >
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      openUserDialog(user, company.document)
-                                    }
-                                  >
+                                  <DropdownMenuItem onClick={() => openUserDialog(user, company.document)}>
                                     <Edit className="mr-2 h-4 w-4" /> Editar
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onClick={() => {
-                                      setUserToDelete(user);
-                                      setIsDeleteUserAlertOpen(true);
-                                    }}
+                                    onClick={() => { setUserToDelete(user); setIsDeleteUserAlertOpen(true); }}
                                     className="text-red-500"
                                     disabled={user.id === currentUser?.id}
                                   >
@@ -545,7 +474,6 @@ export function SystemAdminClient() {
         ))}
       </Accordion>
 
-      {/* Company Dialog */}
       <Dialog open={isCompanyDialogOpen} onOpenChange={setIsCompanyDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -572,8 +500,7 @@ export function SystemAdminClient() {
         </DialogContent>
       </Dialog>
       
-      {/* User Dialog */}
-       <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+      <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingUser ? 'Editar' : 'Adicionar'} Usuário</DialogTitle>
@@ -593,7 +520,6 @@ export function SystemAdminClient() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Company Alert */}
       <AlertDialog open={isDeleteCompanyAlertOpen} onOpenChange={setIsDeleteCompanyAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -607,7 +533,6 @@ export function SystemAdminClient() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete User Alert */}
       <AlertDialog open={isDeleteUserAlertOpen} onOpenChange={setIsDeleteUserAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

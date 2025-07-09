@@ -2,6 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  setDoc,
+} from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -14,11 +22,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { type User, type CompanyInfo } from '@/lib/types';
-import { capitalizeFirstLetter } from '@/lib/utils';
+import { type User } from '@/lib/types';
+import { db } from '@/lib/firebase';
 
-const USERS_STORAGE_KEY = 'app-users';
-const COMPANIES_STORAGE_KEY = 'app-companies';
 const SYSTEM_ADMIN_USERNAME = 'davidleonardo';
 
 export default function LoginPage() {
@@ -28,63 +34,48 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Ensure default admin user and company exist in localStorage on client side
   useEffect(() => {
-    try {
-      // Initialize users and ensure the system admin is always correct.
-      let allUsers: User[] = JSON.parse(
-        localStorage.getItem(USERS_STORAGE_KEY) || '[]'
-      );
+    const initializeAdmin = async () => {
+      try {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('username', '==', SYSTEM_ADMIN_USERNAME));
+        const querySnapshot = await getDocs(q);
 
-      // Define the single, correct system admin user object.
-      const systemAdmin: User = {
-        id: '1',
-        name: 'DAVID MACHADO LEONARDO',
-        username: SYSTEM_ADMIN_USERNAME,
-        password: '162534',
-        role: 'system_admin',
-      };
-
-      // Filter out any existing user record for the system admin to prevent duplicates or corrupted data.
-      // And also remove any potential companyId from the system admin
-      const otherUsers = allUsers.filter(
-        (u) => u.username !== SYSTEM_ADMIN_USERNAME
-      );
-
-      // Add the one true system admin to the list of users, ensuring it's always correctly configured.
-      const updatedUsers = [...otherUsers, systemAdmin];
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-    } catch (error) {
-      console.error(
-        'Failed to initialize default data in localStorage:',
-        error
-      );
-    }
+        if (querySnapshot.empty) {
+          const systemAdmin: Omit<User, 'id'> = {
+            name: 'DAVID MACHADO LEONARDO',
+            username: SYSTEM_ADMIN_USERNAME,
+            password: '162534',
+            role: 'system_admin',
+          };
+          // Use a predictable ID for the system admin for simplicity
+          await setDoc(doc(db, 'users', 'system_admin_user'), systemAdmin);
+        }
+      } catch (error) {
+        console.error('Failed to initialize default data in Firestore:', error);
+      }
+    };
+    initializeAdmin();
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Mock authentication
-    setTimeout(() => {
-      let users: User[] = [];
-      try {
-        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-        if (storedUsers) {
-          users = JSON.parse(storedUsers);
-        }
-      } catch (error) {
-        console.error('Failed to read users from localStorage:', error);
-      }
-
-      const foundUser = users.find(
-        (user) =>
-          user.username.toLowerCase() === username.toLowerCase() &&
-          user.password === password
+    try {
+      const usersRef = collection(db, 'users');
+      const q = query(
+        usersRef,
+        where('username', '==', username.toLowerCase()),
+        where('password', '==', password)
       );
 
-      if (foundUser) {
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        const foundUser = { id: userDoc.id, ...userDoc.data() } as User;
+
         sessionStorage.setItem('auth-token', 'mock-token-string');
         sessionStorage.setItem('current-user', foundUser.username);
         sessionStorage.setItem('current-user-name', foundUser.name);
@@ -108,7 +99,15 @@ export default function LoginPage() {
         });
         setIsLoading(false);
       }
-    }, 1000);
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: 'Erro no servidor',
+        description: 'Não foi possível autenticar. Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+    }
   };
 
   return (

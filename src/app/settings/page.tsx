@@ -6,6 +6,24 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from 'next-themes';
 import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc,
+  getDoc,
+  addDoc,
+  deleteDoc,
+  writeBatch,
+  Timestamp,
+} from 'firebase/firestore';
+import {
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from 'firebase/storage';
+import {
   Edit,
   Trash2,
   PlusCircle,
@@ -79,10 +97,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { capitalizeFirstLetter } from '@/lib/utils';
-
-const USERS_STORAGE_KEY = 'app-users';
-const COMPANIES_STORAGE_KEY = 'app-companies';
-const getCategoriesStorageKey = (id: string) => `app-categories-${id}`;
+import { db, storage } from '@/lib/firebase';
 
 // Schemas
 const profileSchema = z
@@ -117,6 +132,7 @@ const defaultCategories: Omit<Category, 'companyId' | 'id'>[] = [
 ];
 
 const defaultCompanyInfo: CompanyInfo = {
+  id: '',
   name: '',
   document: '',
   logo: '',
@@ -128,14 +144,19 @@ function UserProfile() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const username = sessionStorage.getItem('current-user');
-    if (username) {
-      const users: User[] = JSON.parse(
-        localStorage.getItem(USERS_STORAGE_KEY) || '[]'
-      );
-      const user = users.find((u) => u.username === username);
-      setCurrentUser(user || null);
-    }
+    const fetchUser = async () => {
+      const username = sessionStorage.getItem('current-user');
+      if (username) {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('username', '==', username));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          const userDoc = querySnapshot.docs[0];
+          setCurrentUser({ id: userDoc.id, ...userDoc.data() } as User);
+        }
+      }
+    };
+    fetchUser();
   }, []);
 
   const form = useForm<z.infer<typeof profileSchema>>({
@@ -147,7 +168,7 @@ function UserProfile() {
     },
   });
 
-  const onSubmit = (values: z.infer<typeof profileSchema>) => {
+  const onSubmit = async (values: z.infer<typeof profileSchema>) => {
     if (!currentUser) return;
 
     if (values.currentPassword !== currentUser.password) {
@@ -155,16 +176,19 @@ function UserProfile() {
       return;
     }
 
-    const users: User[] = JSON.parse(
-      localStorage.getItem(USERS_STORAGE_KEY) || '[]'
-    );
-    const updatedUsers = users.map((u) =>
-      u.id === currentUser.id ? { ...u, password: values.newPassword } : u
-    );
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-
-    toast({ title: 'Sucesso!', description: 'Sua senha foi alterada.' });
-    form.reset();
+    try {
+      const userRef = doc(db, 'users', currentUser.id);
+      await updateDoc(userRef, { password: values.newPassword });
+      toast({ title: 'Sucesso!', description: 'Sua senha foi alterada.' });
+      form.reset();
+    } catch (error) {
+      console.error('Failed to update password:', error);
+      toast({
+        title: 'Erro!',
+        description: 'Não foi possível alterar a senha.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -230,23 +254,31 @@ function CompanyProfile() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
+    const fetchCompanyInfo = async (id: string) => {
+      try {
+        const companiesRef = collection(db, 'companies');
+        const q = query(companiesRef, where('document', '==', id));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const companyDoc = querySnapshot.docs[0];
+          setCompanyInfo({ id: companyDoc.id, ...companyDoc.data() } as CompanyInfo);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
     const id = sessionStorage.getItem('current-user-company-id');
     const role = sessionStorage.getItem('current-user-role');
     setIsSystemAdmin(role === 'system_admin');
     setIsCompanyAdmin(role === 'company_admin');
     setCompanyId(id);
     if (id) {
-      try {
-        const allCompanies: CompanyInfo[] = JSON.parse(localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]');
-        const currentCompany = allCompanies.find(c => c.document === id);
-        if (currentCompany) {
-          setCompanyInfo(currentCompany);
-        }
-      } catch (e) {
-        console.error(e);
-      }
+      fetchCompanyInfo(id);
     }
   }, []);
 
@@ -254,37 +286,57 @@ function CompanyProfile() {
     resolver: zodResolver(companyInfoSchema),
     values: companyInfo,
   });
-  
+
   useEffect(() => {
     form.reset(companyInfo);
   }, [companyInfo, form]);
 
-  const onSubmit = (values: z.infer<typeof companyInfoSchema>) => {
+  const onSubmit = async (values: z.infer<typeof companyInfoSchema>) => {
     if (!companyId || (!isSystemAdmin && !isCompanyAdmin)) return;
 
-    const allCompanies: CompanyInfo[] = JSON.parse(localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]');
+    try {
+      const updatedInfo = { ...companyInfo, ...values, name: values.name.toUpperCase() };
+      const companyRef = doc(db, 'companies', updatedInfo.id);
+      await updateDoc(companyRef, {
+        name: updatedInfo.name,
+        logo: updatedInfo.logo,
+      });
 
-    const updatedInfo = { ...companyInfo, ...values, name: values.name.toUpperCase() };
-    const updatedCompanies = allCompanies.map(c => c.document === companyId ? updatedInfo : c);
-    
-    localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(updatedCompanies));
-    
-    setCompanyInfo(updatedInfo);
-    toast({ title: 'Sucesso!', description: 'Informações da empresa salvas.' });
-    form.reset(updatedInfo);
+      setCompanyInfo(updatedInfo);
+      toast({ title: 'Sucesso!', description: 'Informações da empresa salvas.' });
+      form.reset(updatedInfo);
+    } catch (error) {
+      console.error('Failed to save company info:', error);
+      toast({
+        title: 'Erro!',
+        description: 'Não foi possível salvar as informações.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isSystemAdmin && !isCompanyAdmin) return;
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if ((!isSystemAdmin && !isCompanyAdmin) || !companyId) return;
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        form.setValue('logo', result);
-        setCompanyInfo(prev => ({...prev, logo: result}));
-      };
-      reader.readAsDataURL(file);
+      setIsUploading(true);
+      try {
+        const logoStorageRef = storageRef(storage, `logos/${companyId}/${file.name}`);
+        await uploadBytes(logoStorageRef, file);
+        const downloadURL = await getDownloadURL(logoStorageRef);
+        form.setValue('logo', downloadURL);
+        setCompanyInfo((prev) => ({ ...prev, logo: downloadURL }));
+        toast({ title: 'Sucesso!', description: 'Logo carregado. Clique em salvar para aplicar.' });
+      } catch (error) {
+        console.error('Failed to upload logo:', error);
+        toast({
+          title: 'Erro de Upload!',
+          description: 'Não foi possível carregar o logo.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -295,7 +347,7 @@ function CompanyProfile() {
         <CardDescription>
           {isSystemAdmin
             ? 'Como administrador do sistema, você pode alterar o nome e o logo da empresa.'
-            : isCompanyAdmin 
+            : isCompanyAdmin
             ? 'Como administrador da empresa, você pode alterar o logo.'
             : 'Somente administradores podem editar estas informações.'}
         </CardDescription>
@@ -314,9 +366,9 @@ function CompanyProfile() {
                 type="button"
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={!isSystemAdmin && !isCompanyAdmin}
+                disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}
               >
-                Carregar Logo
+                {isUploading ? 'Carregando...' : 'Carregar Logo'}
               </Button>
               <Input
                 type="file"
@@ -324,7 +376,7 @@ function CompanyProfile() {
                 className="hidden"
                 accept="image/png, image/jpeg"
                 onChange={handleLogoChange}
-                disabled={!isSystemAdmin && !isCompanyAdmin}
+                disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}
               />
             </div>
             <div className="max-w-md space-y-4">
@@ -337,9 +389,7 @@ function CompanyProfile() {
                     <FormControl>
                       <Input
                         {...field}
-                        onChange={(e) =>
-                          field.onChange(e.target.value.toUpperCase())
-                        }
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         disabled={!isSystemAdmin}
                       />
                     </FormControl>
@@ -357,7 +407,7 @@ function CompanyProfile() {
                       <Input {...field} disabled={true} />
                     </FormControl>
                     <FormDescription>
-                        O documento é o identificador único da empresa e não pode ser alterado.
+                      O documento é o identificador único da empresa e não pode ser alterado.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -366,7 +416,7 @@ function CompanyProfile() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={!isSystemAdmin && !isCompanyAdmin}>Salvar Informações</Button>
+            <Button type="submit" disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}>Salvar Informações</Button>
           </CardFooter>
         </form>
       </Form>
@@ -384,71 +434,81 @@ function CategoryManagement() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
-  
+
   const form = useForm<z.infer<typeof categorySchema>>({
     resolver: zodResolver(categorySchema),
     defaultValues: {
       name: '',
       type: 'revenue',
-    }
+    },
   });
 
   useEffect(() => {
+    const fetchCategories = async (id: string) => {
+      try {
+        const categoriesRef = collection(db, 'categories');
+        const q = query(categoriesRef, where('companyId', '==', id));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          // If no categories exist, create default ones
+          const batch = writeBatch(db);
+          const companyDefaultCategories = defaultCategories.map((c) => {
+            const newDocRef = doc(collection(db, 'categories'));
+            const newCategory = { ...c, companyId: id };
+            batch.set(newDocRef, newCategory);
+            return { id: newDocRef.id, ...newCategory };
+          });
+          await batch.commit();
+          setCategories(companyDefaultCategories);
+        } else {
+          const fetchedCategories = querySnapshot.docs.map(
+            (doc) => ({ id: doc.id, ...doc.data() } as Category)
+          );
+          setCategories(fetchedCategories);
+        }
+      } catch (e) {
+        console.error('Failed to load or set categories:', e);
+      }
+    };
+
     const id = sessionStorage.getItem('current-user-company-id');
     setCompanyId(id);
     if (id) {
-      try {
-        const storageKey = getCategoriesStorageKey(id);
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-          setCategories(JSON.parse(stored));
-        } else {
-          // If no categories exist for this company, create default ones
-          const companyDefaultCategories = defaultCategories.map((c, index) => ({
-            ...c, 
-            id: `${id}-cat-${index}`, 
-            companyId: id
-          }));
-          setCategories(companyDefaultCategories);
-          localStorage.setItem(storageKey, JSON.stringify(companyDefaultCategories));
-        }
-      } catch (e) {
-        console.error("Failed to load or set categories:", e);
-        // Fallback to default if there's an error
-        const companyDefaultCategories = defaultCategories.map((c, index) => ({
-            ...c, 
-            id: `${id}-cat-${index}`, 
-            companyId: id
-        }));
-        setCategories(companyDefaultCategories);
-      }
+      fetchCategories(id);
     }
   }, []);
 
-  useEffect(() => {
-    if (companyId) {
-      localStorage.setItem(getCategoriesStorageKey(companyId), JSON.stringify(categories));
-    }
-  }, [categories, companyId]);
-
-  const onSubmit = (values: z.infer<typeof categorySchema>) => {
+  const onSubmit = async (values: z.infer<typeof categorySchema>) => {
     if (!companyId) return;
-    const payload = {...values, companyId};
+    const payload = { ...values, companyId, name: capitalizeFirstLetter(values.name) };
 
-    if (editingCategory) {
-      setCategories(
-        categories.map((c) =>
-          c.id === editingCategory.id ? { ...c, ...payload, name: capitalizeFirstLetter(payload.name) } : c
-        )
-      );
-      toast({ title: 'Sucesso!', description: 'Categoria atualizada.' });
-    } else {
-      setCategories([...categories, { id: new Date().toISOString(), ...payload, name: capitalizeFirstLetter(payload.name) }]);
-      toast({ title: 'Sucesso!', description: 'Categoria adicionada.' });
+    try {
+      if (editingCategory) {
+        const categoryRef = doc(db, 'categories', editingCategory.id);
+        await updateDoc(categoryRef, { name: payload.name, type: payload.type });
+        setCategories(
+          categories.map((c) =>
+            c.id === editingCategory.id ? { ...editingCategory, ...payload } : c
+          )
+        );
+        toast({ title: 'Sucesso!', description: 'Categoria atualizada.' });
+      } else {
+        const docRef = await addDoc(collection(db, 'categories'), payload);
+        setCategories([...categories, { id: docRef.id, ...payload }]);
+        toast({ title: 'Sucesso!', description: 'Categoria adicionada.' });
+      }
+      setEditingCategory(null);
+      form.reset({ name: '', type: activeTab });
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to save category:', error);
+      toast({
+        title: 'Erro!',
+        description: 'Não foi possível salvar a categoria.',
+        variant: 'destructive',
+      });
     }
-    setEditingCategory(null);
-    form.reset({ name: '', type: activeTab });
-    setIsDialogOpen(false);
   };
 
   const handleEdit = (category: Category) => {
@@ -456,16 +516,26 @@ function CategoryManagement() {
     form.reset(category);
     setIsDialogOpen(true);
   };
-  
+
   const handleDelete = (category: Category) => {
     setCategoryToDelete(category);
     setIsDeleteAlertOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (categoryToDelete) {
-      setCategories(categories.filter((c) => c.id !== categoryToDelete.id));
-      toast({ title: 'Sucesso!', description: 'Categoria removida.' });
+      try {
+        await deleteDoc(doc(db, 'categories', categoryToDelete.id));
+        setCategories(categories.filter((c) => c.id !== categoryToDelete.id));
+        toast({ title: 'Sucesso!', description: 'Categoria removida.' });
+      } catch (error) {
+        console.error('Failed to delete category:', error);
+        toast({
+          title: 'Erro!',
+          description: 'Não foi possível remover a categoria.',
+          variant: 'destructive',
+        });
+      }
     }
     setIsDeleteAlertOpen(false);
     setCategoryToDelete(null);
@@ -476,9 +546,13 @@ function CategoryManagement() {
     form.reset({ name: '', type });
     setIsDialogOpen(true);
   };
-  
+
   const renderCategoryTable = (type: 'revenue' | 'expense') => {
-    const data = categories.filter((c) => c.type === type && c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const data = categories.filter(
+      (c) =>
+        c.type === type &&
+        c.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
     return (
       <div className="rounded-md border">
         <Table>
@@ -489,33 +563,38 @@ function CategoryManagement() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.length > 0 ? data.map((cat) => (
-              <TableRow key={cat.id}>
-                <TableCell>{cat.name}</TableCell>
-                <TableCell className="text-center">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => handleEdit(cat)}>
-                        <Edit className="mr-2 h-4 w-4" /> Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(cat)} className="text-red-500">
-                        <Trash2 className="mr-2 h-4 w-4" /> Deletar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {data.length > 0 ? (
+              data.map((cat) => (
+                <TableRow key={cat.id}>
+                  <TableCell>{cat.name}</TableCell>
+                  <TableCell className="text-center">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => handleEdit(cat)}>
+                          <Edit className="mr-2 h-4 w-4" /> Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(cat)}
+                          className="text-red-500"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Deletar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={2} className="h-24 text-center">
+                  Nenhuma categoria encontrada.
                 </TableCell>
               </TableRow>
-            )) : (
-                <TableRow>
-                    <TableCell colSpan={2} className="h-24 text-center">
-                        Nenhuma categoria encontrada.
-                    </TableCell>
-                </TableRow>
             )}
           </TableBody>
         </Table>
@@ -547,21 +626,21 @@ function CategoryManagement() {
                 <TabsTrigger value="expense">Despesas</TabsTrigger>
               </TabsList>
               <div className="flex items-center gap-2">
-                 <div className="relative w-full md:w-auto">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                       placeholder="Pesquisar..."
-                       value={searchTerm}
-                       onChange={(e) => setSearchTerm(e.target.value)}
-                       className="pl-8 w-full md:w-[250px]"
-                    />
-                 </div>
-                 <Button onClick={() => openNewDialog(activeTab)}>
-                   <PlusCircle className="mr-2 h-4 w-4" /> Nova Categoria
-                 </Button>
-               </div>
+                <div className="relative w-full md:w-auto">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Pesquisar..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8 w-full md:w-[250px]"
+                  />
+                </div>
+                <Button onClick={() => openNewDialog(activeTab)}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Nova Categoria
+                </Button>
+              </div>
             </div>
-            
+
             <TabsContent value="revenue" className="mt-0">
               {renderCategoryTable('revenue')}
             </TabsContent>
@@ -574,7 +653,9 @@ function CategoryManagement() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingCategory ? 'Editar' : 'Nova'} Categoria</DialogTitle>
+            <DialogTitle>
+              {editingCategory ? 'Editar' : 'Nova'} Categoria
+            </DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -602,7 +683,11 @@ function CategoryManagement() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipo</FormLabel>
-                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4">
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      className="flex gap-4"
+                    >
                       <FormItem className="flex items-center space-x-2">
                         <FormControl>
                           <RadioGroupItem value="revenue" />
@@ -621,14 +706,21 @@ function CategoryManagement() {
                 )}
               />
               <DialogFooter>
-                <DialogClose asChild><Button variant="ghost">Cancelar</Button></DialogClose>
-                <Button type="submit">{editingCategory ? 'Salvar' : 'Adicionar'}</Button>
+                <DialogClose asChild>
+                  <Button variant="ghost">Cancelar</Button>
+                </DialogClose>
+                <Button type="submit">
+                  {editingCategory ? 'Salvar' : 'Adicionar'}
+                </Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+      <AlertDialog
+        open={isDeleteAlertOpen}
+        onOpenChange={setIsDeleteAlertOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
@@ -638,7 +730,9 @@ function CategoryManagement() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Continuar</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete}>
+              Continuar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -658,7 +752,11 @@ function AppearanceSettings() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <RadioGroup value={theme} onValueChange={setTheme} className="space-y-2">
+        <RadioGroup
+          value={theme}
+          onValueChange={setTheme}
+          className="space-y-2"
+        >
           <Label>Tema</Label>
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="light" id="light" />

@@ -4,8 +4,17 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+} from 'firebase/firestore';
 import { PlusCircle, Edit, Trash2, MoreHorizontal } from 'lucide-react';
-
 import { type User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,7 +31,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
@@ -55,6 +63,7 @@ import {
 import { Card, CardContent } from './ui/card';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { db } from '@/lib/firebase';
 
 const userSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -69,8 +78,6 @@ const userSchema = z.object({
 
 type UserFormValues = z.infer<typeof userSchema>;
 
-const USERS_STORAGE_KEY = 'app-users';
-
 export function AccessManagementClient() {
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
@@ -82,23 +89,34 @@ export function AccessManagementClient() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const currentCompanyId = sessionStorage.getItem('current-user-company-id');
-    setCompanyId(currentCompanyId);
-    const currentUsername = sessionStorage.getItem('current-user');
-
-    if (currentCompanyId) {
+    const fetchUsers = async (currentCompanyId: string) => {
       try {
-        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-        if (storedUsers) {
-          const allUsers: User[] = JSON.parse(storedUsers);
-          setUsers(allUsers.filter((u) => u.companyId === currentCompanyId));
-          setCurrentUser(
-            allUsers.find((u) => u.username === currentUsername) || null
-          );
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('companyId', '==', currentCompanyId));
+        const querySnapshot = await getDocs(q);
+        const companyUsers = querySnapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as User)
+        );
+        setUsers(companyUsers);
+
+        const currentUsername = sessionStorage.getItem('current-user');
+        const qCurrentUser = query(usersRef, where('username', '==', currentUsername));
+        const currentUserSnapshot = await getDocs(qCurrentUser);
+        if (!currentUserSnapshot.empty) {
+          setCurrentUser({
+            id: currentUserSnapshot.docs[0].id,
+            ...currentUserSnapshot.docs[0].data(),
+          } as User);
         }
       } catch (error) {
-        console.error('Failed to access localStorage:', error);
+        console.error('Failed to fetch users:', error);
       }
+    };
+
+    const currentCompanyId = sessionStorage.getItem('current-user-company-id');
+    if (currentCompanyId) {
+      setCompanyId(currentCompanyId);
+      fetchUsers(currentCompanyId);
     }
   }, []);
 
@@ -112,12 +130,8 @@ export function AccessManagementClient() {
     },
   });
 
-  const onSubmit = (data: UserFormValues) => {
+  const onSubmit = async (data: UserFormValues) => {
     if (!companyId) return;
-
-    const allUsers: User[] = JSON.parse(
-      localStorage.getItem(USERS_STORAGE_KEY) || '[]'
-    );
 
     const submittedData = {
       ...data,
@@ -125,53 +139,19 @@ export function AccessManagementClient() {
       name: data.name.toUpperCase(),
     };
 
-    if (editingUser) {
-      // Logic for editing a user
-      if (
-        editingUser.username.toLowerCase() !==
-        submittedData.username.toLowerCase()
-      ) {
-        const existingUser = allUsers.find(
-          (u) =>
-            u.username.toLowerCase() ===
-              submittedData.username.toLowerCase() && u.id !== editingUser.id
-        );
-        if (existingUser) {
-          form.setError('username', {
-            type: 'manual',
-            message: 'Este nome de usuário já existe.',
-          });
-          return;
-        }
-      }
-
-      const payload: User = {
-        ...editingUser,
-        name: submittedData.name,
-        username: submittedData.username,
-        role: submittedData.role,
-        ...(submittedData.password && { password: submittedData.password }),
-      };
-
-      const updatedAllUsers = allUsers.map((u) =>
-        u.id === editingUser.id ? payload : u
+    try {
+      const usersRef = collection(db, 'users');
+      // Check for existing username
+      const q = query(
+        usersRef,
+        where('username', '==', submittedData.username)
       );
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedAllUsers));
-      setUsers(updatedAllUsers.filter((u) => u.companyId === companyId));
-      toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
-    } else {
-      // Logic for creating a new user
-      if (!submittedData.password) {
-        form.setError('password', {
-          type: 'manual',
-          message: 'A senha é obrigatória para novos usuários.',
-        });
-        return;
-      }
+      const querySnapshot = await getDocs(q);
+      const existingUser =
+        !querySnapshot.empty && querySnapshot.docs[0].id !== editingUser?.id
+          ? querySnapshot.docs[0]
+          : null;
 
-      const existingUser = allUsers.find(
-        (u) => u.username.toLowerCase() === submittedData.username.toLowerCase()
-      );
       if (existingUser) {
         form.setError('username', {
           type: 'manual',
@@ -180,24 +160,55 @@ export function AccessManagementClient() {
         return;
       }
 
-      const newUser: User = {
-        id: new Date().toISOString(),
-        name: submittedData.name,
-        username: submittedData.username,
-        password: submittedData.password,
-        companyId: companyId,
-        role: submittedData.role,
-      };
+      if (editingUser) {
+        const userRef = doc(db, 'users', editingUser.id);
+        const payload: Partial<User> = {
+          name: submittedData.name,
+          username: submittedData.username,
+          role: submittedData.role,
+        };
+        if (submittedData.password) {
+          payload.password = submittedData.password;
+        }
+        await updateDoc(userRef, payload);
 
-      const updatedAllUsers = [...allUsers, newUser];
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedAllUsers));
-      setUsers(updatedAllUsers.filter((u) => u.companyId === companyId));
-      toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
+        setUsers(
+          users.map((u) =>
+            u.id === editingUser.id ? { ...u, ...payload } : u
+          )
+        );
+        toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
+      } else {
+        if (!submittedData.password) {
+          form.setError('password', {
+            type: 'manual',
+            message: 'A senha é obrigatória para novos usuários.',
+          });
+          return;
+        }
+        const newUserPayload: Omit<User, 'id'> = {
+          name: submittedData.name,
+          username: submittedData.username,
+          password: submittedData.password,
+          companyId: companyId,
+          role: submittedData.role,
+        };
+        const docRef = await addDoc(collection(db, 'users'), newUserPayload);
+        setUsers([...users, { id: docRef.id, ...newUserPayload }]);
+        toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
+      }
+
+      setEditingUser(null);
+      form.reset({ name: '', username: '', password: '', role: 'user' });
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to save user:', error);
+      toast({
+        title: 'Erro!',
+        description: 'Não foi possível salvar o usuário.',
+        variant: 'destructive',
+      });
     }
-
-    setEditingUser(null);
-    form.reset({ name: '', username: '', password: '', role: 'user' });
-    setIsDialogOpen(false);
   };
 
   const handleEdit = (user: User) => {
@@ -216,7 +227,7 @@ export function AccessManagementClient() {
     setIsDeleteAlertOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (userToDelete && companyId) {
       if (
         userToDelete.role === 'system_admin' ||
@@ -229,21 +240,21 @@ export function AccessManagementClient() {
           variant: 'destructive',
         });
       } else {
-        const allUsers: User[] = JSON.parse(
-          localStorage.getItem(USERS_STORAGE_KEY) || '[]'
-        );
-        const updatedAllUsers = allUsers.filter(
-          (u) => u.id !== userToDelete.id
-        );
-        localStorage.setItem(
-          USERS_STORAGE_KEY,
-          JSON.stringify(updatedAllUsers)
-        );
-        setUsers(updatedAllUsers.filter((u) => u.companyId === companyId));
-        toast({
-          title: 'Sucesso!',
-          description: 'Usuário removido.',
-        });
+        try {
+          await deleteDoc(doc(db, 'users', userToDelete.id));
+          setUsers(users.filter((u) => u.id !== userToDelete.id));
+          toast({
+            title: 'Sucesso!',
+            description: 'Usuário removido.',
+          });
+        } catch (error) {
+          console.error('Failed to delete user:', error);
+          toast({
+            title: 'Erro!',
+            description: 'Não foi possível remover o usuário.',
+            variant: 'destructive',
+          });
+        }
       }
     }
     setIsDeleteAlertOpen(false);

@@ -2,6 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import {
+  collection,
+  query,
+  where,
+  getDocs,
+  Timestamp,
+} from 'firebase/firestore';
+import {
   Card,
   CardContent,
   CardDescription,
@@ -22,8 +29,7 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Skeleton } from './ui/skeleton';
-
-const getTransactionsStorageKey = (id: string) => `app-transactions-${id}`;
+import { db } from '@/lib/firebase';
 
 export function CompanyDashboard() {
   const [kpis, setKpis] = useState<any[]>([]);
@@ -38,124 +44,128 @@ export function CompanyDashboard() {
       return;
     }
 
-    try {
-      const storageKey = getTransactionsStorageKey(companyId);
-      const storedTransactions = localStorage.getItem(storageKey);
-      const allTransactions: Transaction[] = storedTransactions
-        ? JSON.parse(storedTransactions, (key, value) =>
-            key === 'date' ? new Date(value) : value
-          )
-        : [];
+    const fetchData = async () => {
+      try {
+        const transactionsRef = collection(db, 'transactions');
+        const q = query(transactionsRef, where('companyId', '==', companyId));
+        const querySnapshot = await getDocs(q);
+        const allTransactions = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            date: (data.date as Timestamp).toDate(),
+          } as Transaction;
+        });
 
-      if (allTransactions.length > 0) {
-        setHasData(true);
-      }
+        if (allTransactions.length > 0) {
+          setHasData(true);
+        }
 
-      const now = new Date();
+        const now = new Date();
 
-      const calculateMetrics = (transactions: Transaction[]) => {
-        const revenue = transactions
+        const calculateMetrics = (transactions: Transaction[]) => {
+          const revenue = transactions
+            .filter((t) => t.type === 'revenue')
+            .reduce((acc, t) => acc + Math.abs(t.amount), 0);
+          const expenses = transactions
+            .filter((t) => t.type === 'expense')
+            .reduce((acc, t) => acc + Math.abs(t.amount), 0);
+          return { revenue, expenses, profit: revenue - expenses };
+        };
+
+        const currentMonthStart = startOfMonth(now);
+        const currentMonthEnd = endOfMonth(now);
+        const currentMonthTransactions = allTransactions.filter(
+          (t) => new Date(t.date) >= currentMonthStart && new Date(t.date) <= currentMonthEnd
+        );
+        const currentMonthMetrics = calculateMetrics(currentMonthTransactions);
+
+        const prevMonth = subMonths(now, 1);
+        const prevMonthStart = startOfMonth(prevMonth);
+        const prevMonthEnd = endOfMonth(prevMonth);
+        const prevMonthTransactions = allTransactions.filter(
+          (t) => new Date(t.date) >= prevMonthStart && new Date(t.date) <= prevMonthEnd
+        );
+        const prevMonthMetrics = calculateMetrics(prevMonthTransactions);
+
+        const currentYearStart = startOfYear(now);
+        const currentYearEnd = endOfYear(now);
+        const annualTransactions = allTransactions.filter(
+          (t) => new Date(t.date) >= currentYearStart && new Date(t.date) <= currentYearEnd
+        );
+        const annualRevenue = annualTransactions
           .filter((t) => t.type === 'revenue')
           .reduce((acc, t) => acc + Math.abs(t.amount), 0);
-        const expenses = transactions
-          .filter((t) => t.type === 'expense')
-          .reduce((acc, t) => acc + Math.abs(t.amount), 0);
-        return { revenue, expenses, profit: revenue - expenses };
-      };
 
-      // --- Monthly Metrics ---
-      const currentMonthStart = startOfMonth(now);
-      const currentMonthEnd = endOfMonth(now);
-      const currentMonthTransactions = allTransactions.filter(
-        (t) => new Date(t.date) >= currentMonthStart && new Date(t.date) <= currentMonthEnd
-      );
-      const currentMonthMetrics = calculateMetrics(currentMonthTransactions);
-
-      const prevMonth = subMonths(now, 1);
-      const prevMonthStart = startOfMonth(prevMonth);
-      const prevMonthEnd = endOfMonth(prevMonth);
-      const prevMonthTransactions = allTransactions.filter(
-        (t) => new Date(t.date) >= prevMonthStart && new Date(t.date) <= prevMonthEnd
-      );
-      const prevMonthMetrics = calculateMetrics(prevMonthTransactions);
-
-      // --- Annual Metrics ---
-      const currentYearStart = startOfYear(now);
-      const currentYearEnd = endOfYear(now);
-      const annualTransactions = allTransactions.filter(
-        (t) => new Date(t.date) >= currentYearStart && new Date(t.date) <= currentYearEnd
-      );
-      const annualRevenue = annualTransactions
-        .filter((t) => t.type === 'revenue')
-        .reduce((acc, t) => acc + Math.abs(t.amount), 0);
-
-      const prevYear = subMonths(now, 12);
-      const prevYearStart = startOfYear(prevYear);
-      const prevYearEnd = endOfYear(prevYear);
-      const prevAnnualTransactions = allTransactions.filter(
-        (t) => new Date(t.date) >= prevYearStart && new Date(t.date) <= prevYearEnd
-      );
-      const prevAnnualRevenue = prevAnnualTransactions
-        .filter((t) => t.type === 'revenue')
-        .reduce((acc, t) => acc + Math.abs(t.amount), 0);
-
-      const newKpis = [
-        {
-          title: 'Faturamento Mensal',
-          value: currentMonthMetrics.revenue,
-          previousValue: prevMonthMetrics.revenue,
-          icon: TrendingUp,
-          iconColor: 'text-emerald-500',
-        },
-        {
-          title: 'Despesas Mensais',
-          value: currentMonthMetrics.expenses,
-          previousValue: prevMonthMetrics.expenses,
-          icon: TrendingDown,
-          iconColor: 'text-red-500',
-          invertComparison: true, // Lower is better
-        },
-        {
-          title: 'Lucro Mensal',
-          value: currentMonthMetrics.profit,
-          previousValue: prevMonthMetrics.profit,
-          icon: DollarSign,
-          iconColor: 'text-primary',
-        },
-        {
-          title: 'Faturamento Anual',
-          value: annualRevenue,
-          previousValue: prevAnnualRevenue,
-          icon: TrendingUp,
-          iconColor: 'text-emerald-500',
-        },
-      ];
-      setKpis(newKpis);
-
-      // Calculate Chart Data (last 6 months)
-      const last6MonthsData: any[] = [];
-      for (let i = 5; i >= 0; i--) {
-        const date = subMonths(now, i);
-        const monthStart = startOfMonth(date);
-        const monthEnd = endOfMonth(date);
-
-        const monthTransactions = allTransactions.filter(
-          (t) => new Date(t.date) >= monthStart && new Date(t.date) <= monthEnd
+        const prevYear = subMonths(now, 12);
+        const prevYearStart = startOfYear(prevYear);
+        const prevYearEnd = endOfYear(prevYear);
+        const prevAnnualTransactions = allTransactions.filter(
+          (t) => new Date(t.date) >= prevYearStart && new Date(t.date) <= prevYearEnd
         );
-        const { revenue, expenses } = calculateMetrics(monthTransactions);
+        const prevAnnualRevenue = prevAnnualTransactions
+          .filter((t) => t.type === 'revenue')
+          .reduce((acc, t) => acc + Math.abs(t.amount), 0);
 
-        last6MonthsData.push({
-          month: formatDate(date, 'MMM', { locale: ptBR }),
-          revenue: revenue,
-          expenses: expenses,
-        });
+        const newKpis = [
+          {
+            title: 'Faturamento Mensal',
+            value: currentMonthMetrics.revenue,
+            previousValue: prevMonthMetrics.revenue,
+            icon: TrendingUp,
+            iconColor: 'text-emerald-500',
+          },
+          {
+            title: 'Despesas Mensais',
+            value: currentMonthMetrics.expenses,
+            previousValue: prevMonthMetrics.expenses,
+            icon: TrendingDown,
+            iconColor: 'text-red-500',
+            invertComparison: true,
+          },
+          {
+            title: 'Lucro Mensal',
+            value: currentMonthMetrics.profit,
+            previousValue: prevMonthMetrics.profit,
+            icon: DollarSign,
+            iconColor: 'text-primary',
+          },
+          {
+            title: 'Faturamento Anual',
+            value: annualRevenue,
+            previousValue: prevAnnualRevenue,
+            icon: TrendingUp,
+            iconColor: 'text-emerald-500',
+          },
+        ];
+        setKpis(newKpis);
+
+        const last6MonthsData: any[] = [];
+        for (let i = 5; i >= 0; i--) {
+          const date = subMonths(now, i);
+          const monthStart = startOfMonth(date);
+          const monthEnd = endOfMonth(date);
+
+          const monthTransactions = allTransactions.filter(
+            (t) => new Date(t.date) >= monthStart && new Date(t.date) <= monthEnd
+          );
+          const { revenue, expenses } = calculateMetrics(monthTransactions);
+
+          last6MonthsData.push({
+            month: formatDate(date, 'MMM', { locale: ptBR }),
+            revenue: revenue,
+            expenses: expenses,
+          });
+        }
+        setChartData(last6MonthsData);
+      } catch (error) {
+        console.error('Failed to process dashboard data', error);
+      } finally {
+        setIsLoading(false);
       }
-      setChartData(last6MonthsData);
-    } catch (error) {
-      console.error('Failed to process dashboard data', error);
-    } finally {
-      setIsLoading(false);
-    }
+    };
+    fetchData();
   }, []);
 
   if (isLoading) {

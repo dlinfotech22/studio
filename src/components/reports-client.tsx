@@ -9,7 +9,17 @@ import {
   endOfMonth,
   startOfYear,
   endOfYear,
+  getYear,
 } from 'date-fns';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  Timestamp,
+  writeBatch,
+  doc,
+} from 'firebase/firestore';
 import { ptBR } from 'date-fns/locale';
 import { FileSpreadsheet, FileText, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -48,6 +58,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { db } from '@/lib/firebase';
 
 const MonthPicker = ({ onSelect }: { onSelect: (date: Date) => void }) => {
   const [month, setMonth] = useState(new Date().getMonth());
@@ -198,9 +209,6 @@ function ReportsSkeleton() {
   );
 }
 
-const COMPANIES_STORAGE_KEY = 'app-companies';
-const getTransactionsStorageKey = (id: string) => `app-transactions-${id}`;
-
 export function ReportsClient() {
   const { toast } = useToast();
   const [date, setDate] = useState<DateRange | undefined>(undefined);
@@ -217,6 +225,35 @@ export function ReportsClient() {
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const fetchData = async (id: string) => {
+      try {
+        const transactionsRef = collection(db, 'transactions');
+        const qTransactions = query(transactionsRef, where('companyId', '==', id));
+        const transactionSnapshot = await getDocs(qTransactions);
+        const allTransactions = transactionSnapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                date: (data.date as Timestamp).toDate(),
+            } as Transaction;
+        });
+        setTransactions(allTransactions);
+
+        const companiesRef = collection(db, 'companies');
+        const qCompanies = query(companiesRef, where('document', '==', id));
+        const companySnapshot = await getDocs(qCompanies);
+        if (!companySnapshot.empty) {
+            const companyDoc = companySnapshot.docs[0];
+            setCompanyInfo({ id: companyDoc.id, ...companyDoc.data() } as CompanyInfo);
+        }
+      } catch (error) {
+        console.error('Failed to load data from Firestore', error);
+      } finally {
+        setIsClient(true);
+      }
+    };
+    
     const id = sessionStorage.getItem('current-user-company-id');
     const role = sessionStorage.getItem('current-user-role');
     setCompanyId(id);
@@ -225,26 +262,7 @@ export function ReportsClient() {
       setIsClient(true);
       return;
     }
-
-    try {
-      const storageKey = getTransactionsStorageKey(id);
-      const storedTransactions = localStorage.getItem(storageKey);
-      const allTransactions = storedTransactions
-        ? JSON.parse(storedTransactions, (key, value) =>
-            key === 'date' ? new Date(value) : value
-          )
-        : [];
-      setTransactions(allTransactions);
-
-      const storedCompanies = localStorage.getItem(COMPANIES_STORAGE_KEY);
-      if (storedCompanies) {
-        const allCompanies: CompanyInfo[] = JSON.parse(storedCompanies);
-        setCompanyInfo(allCompanies.find(c => c.document === id) || null);
-      }
-    } catch (error) {
-      console.error('Failed to load data from localStorage', error);
-    }
-    setIsClient(true);
+    fetchData(id);
   }, []);
 
   useEffect(() => {
@@ -350,225 +368,44 @@ export function ReportsClient() {
       let startY = 15;
       const leftMargin = 14;
 
-      // Add company info header
       let logoRenderedSuccessfully = false;
       if (companyInfo?.logo) {
         try {
-          const imgProps = doc.getImageProperties(companyInfo.logo);
-          const aspectRatio = imgProps.width / imgProps.height;
-          const imgWidth = 20;
-          const imgHeight = imgWidth / aspectRatio;
-          doc.addImage(companyInfo.logo, undefined, leftMargin, startY, imgWidth, imgHeight);
-          logoRenderedSuccessfully = true;
+          // Note: Adding images from URL might be blocked by CORS in some environments.
+          // A server-side proxy or fetching the image as a blob might be needed.
+          const img = new Image();
+          img.crossOrigin = "Anonymous";
+          img.src = companyInfo.logo;
+          img.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0);
+              const dataUrl = canvas.toDataURL('image/png');
+
+              const imgProps = doc.getImageProperties(dataUrl);
+              const aspectRatio = imgProps.width / imgProps.height;
+              const imgWidth = 20;
+              const imgHeight = imgWidth / aspectRatio;
+              doc.addImage(dataUrl, 'PNG', leftMargin, startY, imgWidth, imgHeight);
+              logoRenderedSuccessfully = true;
+              generatePdfContent(doc, startY, leftMargin, logoRenderedSuccessfully);
+          };
+          img.onerror = () => {
+             generatePdfContent(doc, startY, leftMargin, false);
+          }
         } catch (e) {
           console.error("Error adding logo to PDF", e);
+          generatePdfContent(doc, startY, leftMargin, false);
         }
-      }
-
-      const textXOffset = logoRenderedSuccessfully ? 25 : 0;
-      if (companyInfo?.name) {
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(companyInfo.name, leftMargin + textXOffset, startY + 6);
-      }
-      if (companyInfo?.document) {
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text(companyInfo.document, leftMargin + textXOffset, startY + 12);
-      }
-      
-      startY += logoRenderedSuccessfully ? 28 : 20;
-
-      // Report Title
-      const formatDateRange = () => {
-        if (!date?.from) return 'Nenhum período selecionado';
-        const from = format(date.from, 'dd/MM/yyyy');
-        const to = date.to ? format(date.to, 'dd/MM/yyyy') : from;
-        return from === to ? `do dia ${from}` : `de ${from} a ${to}`;
-      };
-      
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Relatório Financeiro', leftMargin, startY);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100);
-      doc.text(`Período ${formatDateRange()}`, leftMargin, startY + 6);
-      startY += 12;
-
-
-      const summaryData = [
-        ['Receita Total:', formatCurrency(totalRevenue)],
-        ['Despesa Total:', formatCurrency(totalExpenses)],
-        ['Lucro/Prejuízo:', formatCurrency(profit)],
-      ];
-
-      (doc as any).autoTable({
-        body: summaryData,
-        startY,
-        theme: 'plain',
-        styles: { fontSize: 12 },
-        columnStyles: { 1: { halign: 'right' } },
-        didParseCell: (data: any) => {
-          if (data.column.index === 0) {
-            data.cell.styles.fontStyle = 'bold';
-          }
-          if (data.row.index === 0 && data.column.index === 1) data.cell.styles.textColor = '#16a34a'; // emerald-600
-          if (data.row.index === 1 && data.column.index === 1) data.cell.styles.textColor = '#dc2626'; // red-600
-          if (data.row.index === 2 && data.column.index === 1) data.cell.styles.textColor = profit >= 0 ? '#16a34a' : '#dc2626';
-        },
-      });
-      startY = (doc as any).lastAutoTable.finalY + 10;
-
-      let tableBody: any[][] = [];
-      let tableHead: string[][] = [];
-      let autoTableOptions: any = {};
-
-      if (selectionMode === 'month' && date?.from) {
-        tableHead = [['Data', 'Receitas', 'Despesas', 'Saldo']];
-        const dailyData = filteredTransactions.reduce(
-          (acc, t) => {
-            const day = format(new Date(t.date), 'yyyy-MM-dd');
-            if (!acc[day]) {
-              acc[day] = { revenue: 0, expense: 0, date: new Date(t.date) };
-            }
-            if (t.type === 'revenue') {
-              acc[day].revenue += t.amount;
-            } else {
-              acc[day].expense += t.amount;
-            }
-            return acc;
-          },
-          {} as Record<string, { revenue: number; expense: number; date: Date }>
-        );
-
-        tableBody = Object.values(dailyData)
-          .sort((a, b) => a.date.getTime() - b.date.getTime())
-          .map((d) => [
-            format(d.date, 'dd/MM/yyyy'),
-            Math.abs(d.revenue),
-            Math.abs(d.expense),
-            d.revenue + d.expense,
-          ]);
-
-        autoTableOptions = {
-          head: tableHead,
-          body: tableBody,
-          startY,
-          headStyles: { fillColor: [41, 128, 185], halign: 'center' },
-          columnStyles: {
-            0: { halign: 'center' },
-            1: { halign: 'right' },
-            2: { halign: 'right' },
-            3: { halign: 'right' },
-          },
-          didParseCell: (data: any) => {
-            if (data.cell.section === 'head') {
-               if (data.column.index > 0) data.cell.styles.halign = 'right';
-            }
-            if (data.cell.section === 'body' && data.column.index > 0) {
-              data.cell.text = [formatCurrency(data.cell.raw)];
-              if (data.column.index === 1) data.cell.styles.textColor = '#16a34a';
-              if (data.column.index === 2) data.cell.styles.textColor = '#dc2626';
-              if (data.column.index === 3) {
-                data.cell.styles.textColor = data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
-              }
-            }
-          },
-        };
-      } else if (selectionMode === 'year' && date?.from) {
-        tableHead = [['Mês', 'Receitas', 'Despesas', 'Saldo']];
-        const monthlyData = filteredTransactions.reduce(
-          (acc, t) => {
-            const monthKey = format(new Date(t.date), 'yyyy-MM');
-            if (!acc[monthKey]) {
-              acc[monthKey] = {
-                revenue: 0,
-                expense: 0,
-                date: startOfMonth(new Date(t.date)),
-              };
-            }
-            if (t.type === 'revenue') {
-              acc[monthKey].revenue += t.amount;
-            } else {
-              acc[monthKey].expense += t.amount;
-            }
-            return acc;
-          },
-          {} as Record<string, { revenue: number; expense: number; date: Date }>
-        );
-
-        tableBody = Object.values(monthlyData)
-          .sort((a, b) => a.date.getTime() - b.date.getTime())
-          .map((m) => [
-            format(m.date, 'MMMM/yyyy', { locale: ptBR }),
-            Math.abs(m.revenue),
-            Math.abs(m.expense),
-            m.revenue + m.expense,
-          ]);
-
-        autoTableOptions = {
-          head: tableHead,
-          body: tableBody,
-          startY,
-          headStyles: { fillColor: [41, 128, 185], halign: 'center' },
-          columnStyles: {
-             0: { halign: 'left' },
-            1: { halign: 'right' },
-            2: { halign: 'right' },
-            3: { halign: 'right' },
-          },
-          didParseCell: (data: any) => {
-             if (data.cell.section === 'head') {
-               if (data.column.index > 0) data.cell.styles.halign = 'right';
-            }
-            if (data.cell.section === 'body' && data.column.index > 0) {
-              data.cell.text = [formatCurrency(data.cell.raw)];
-              if (data.column.index === 1) data.cell.styles.textColor = '#16a34a';
-              if (data.column.index === 2) data.cell.styles.textColor = '#dc2626';
-              if (data.column.index === 3) {
-                data.cell.styles.textColor = data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
-              }
-            }
-          },
-        };
       } else {
-        autoTableOptions = {
-          head: [['Data', 'Descrição', 'Categoria', 'Valor']],
-          body: filteredTransactions.map((t) => [
-            format(new Date(t.date), 'dd/MM/yyyy'),
-            t.description,
-            t.category,
-            formatCurrency(t.amount),
-          ]),
-          startY,
-          headStyles: { fillColor: [41, 128, 185] }, // a blue color
-          columnStyles: { 3: { halign: 'right' } },
-          didParseCell: (data: any) => {
-            if (data.column.index === 3 && data.cell.section === 'body') {
-              const transaction = filteredTransactions[data.row.index];
-              data.cell.styles.textColor =
-                transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
-            }
-          },
-        };
+        generatePdfContent(doc, startY, leftMargin, false);
       }
-
-      (doc as any).autoTable(autoTableOptions);
-
-      const fileName = `relatorio_financeiro_${format(
-        new Date(),
-        'yyyy-MM-dd'
-      )}.pdf`;
-      doc.save(fileName);
-
-      toast({
-        title: 'Exportação Concluída',
-        description: `O arquivo ${fileName} foi gerado com sucesso.`,
-      });
       return;
     }
 
+    // Excel Export
     const dataToExport = filteredTransactions.map((t) => ({
       Data: format(new Date(t.date), 'dd/MM/yyyy'),
       Descrição: t.description,
@@ -633,21 +470,158 @@ export function ReportsClient() {
     });
   };
 
-  const handleClearOldData = () => {
+  const generatePdfContent = (doc: jsPDF, startY: number, leftMargin: number, logoRendered: boolean) => {
+      const textXOffset = logoRendered ? 25 : 0;
+      if (companyInfo?.name) {
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(companyInfo.name, leftMargin + textXOffset, startY + 6);
+      }
+      if (companyInfo?.document) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(companyInfo.document, leftMargin + textXOffset, startY + 12);
+      }
+      
+      startY += logoRendered ? 28 : 20;
+
+      const formatDateRange = () => {
+        if (!date?.from) return 'Nenhum período selecionado';
+        const from = format(date.from, 'dd/MM/yyyy');
+        const to = date.to ? format(date.to, 'dd/MM/yyyy') : from;
+        return from === to ? `do dia ${from}` : `de ${from} a ${to}`;
+      };
+      
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Relatório Financeiro', leftMargin, startY);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.text(`Período ${formatDateRange()}`, leftMargin, startY + 6);
+      startY += 12;
+
+
+      const summaryData = [
+        ['Receita Total:', formatCurrency(totalRevenue)],
+        ['Despesa Total:', formatCurrency(totalExpenses)],
+        ['Lucro/Prejuízo:', formatCurrency(profit)],
+      ];
+
+      (doc as any).autoTable({
+        body: summaryData,
+        startY,
+        theme: 'plain',
+        styles: { fontSize: 12 },
+        columnStyles: { 1: { halign: 'right' } },
+        didParseCell: (data: any) => {
+          if (data.column.index === 0) data.cell.styles.fontStyle = 'bold';
+          if (data.row.index === 0 && data.column.index === 1) data.cell.styles.textColor = '#16a34a';
+          if (data.row.index === 1 && data.column.index === 1) data.cell.styles.textColor = '#dc2626';
+          if (data.row.index === 2 && data.column.index === 1) data.cell.styles.textColor = profit >= 0 ? '#16a34a' : '#dc2626';
+        },
+      });
+      startY = (doc as any).lastAutoTable.finalY + 10;
+
+      let autoTableOptions: any;
+      if (selectionMode === 'month' || selectionMode === 'year') {
+         const timeUnit = selectionMode === 'month' ? 'yyyy-MM-dd' : 'yyyy-MM';
+         const headerLabel = selectionMode === 'month' ? 'Data' : 'Mês';
+         const tableHead = [[headerLabel, 'Receitas', 'Despesas', 'Saldo']];
+         const dataMap = filteredTransactions.reduce((acc, t) => {
+            const key = format(new Date(t.date), timeUnit);
+            if (!acc[key]) {
+               acc[key] = { revenue: 0, expense: 0, date: new Date(t.date) };
+            }
+            if (t.type === 'revenue') acc[key].revenue += t.amount;
+            else acc[key].expense += t.amount;
+            return acc;
+         }, {} as Record<string, { revenue: number; expense: number; date: Date }>);
+         
+         const tableBody = Object.values(dataMap)
+          .sort((a,b) => a.date.getTime() - b.date.getTime())
+          .map(d => [
+              selectionMode === 'month' ? format(d.date, 'dd/MM/yyyy') : format(d.date, 'MMMM/yyyy', {locale: ptBR}),
+              Math.abs(d.revenue),
+              Math.abs(d.expense),
+              d.revenue + d.expense
+          ]);
+        
+        autoTableOptions = {
+          head: tableHead,
+          body: tableBody,
+          startY,
+          headStyles: { fillColor: [41, 128, 185], halign: 'center' },
+          columnStyles: { 0: { halign: 'left' }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }},
+          didParseCell: (data: any) => {
+             if (data.cell.section === 'head' && data.column.index > 0) data.cell.styles.halign = 'right';
+             if (data.cell.section === 'body' && data.column.index > 0) {
+              data.cell.text = [formatCurrency(data.cell.raw)];
+              if (data.column.index === 1) data.cell.styles.textColor = '#16a34a';
+              if (data.column.index === 2) data.cell.styles.textColor = '#dc2626';
+              if (data.column.index === 3) data.cell.styles.textColor = data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
+             }
+          }
+        };
+      } else {
+        autoTableOptions = {
+          head: [['Data', 'Descrição', 'Categoria', 'Valor']],
+          body: filteredTransactions.map((t) => [
+            format(new Date(t.date), 'dd/MM/yyyy'),
+            t.description,
+            t.category,
+            formatCurrency(t.amount),
+          ]),
+          startY,
+          headStyles: { fillColor: [41, 128, 185] },
+          columnStyles: { 3: { halign: 'right' } },
+          didParseCell: (data: any) => {
+            if (data.column.index === 3 && data.cell.section === 'body') {
+              const transaction = filteredTransactions[data.row.index];
+              data.cell.styles.textColor =
+                transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
+            }
+          },
+        };
+      }
+
+      (doc as any).autoTable(autoTableOptions);
+      const fileName = `relatorio_financeiro_${format(new Date(),'yyyy-MM-dd')}.pdf`;
+      doc.save(fileName);
+      toast({ title: 'Exportação Concluída', description: `O arquivo ${fileName} foi gerado com sucesso.`});
+  }
+
+  const handleClearOldData = async () => {
     if (!companyId) return;
     const currentYear = new Date().getFullYear();
-    const transactionsToKeep = transactions.filter(
-      (t) => new Date(t.date).getFullYear() === currentYear
+    const batch = writeBatch(db);
+    let oldTransactionsCount = 0;
+
+    const transactionsToDelete = transactions.filter(
+      (t) => getYear(new Date(t.date)) < currentYear
     );
-    setTransactions(transactionsToKeep);
-    localStorage.setItem(
-      getTransactionsStorageKey(companyId),
-      JSON.stringify(transactionsToKeep)
-    );
-    toast({
-      title: 'Sucesso!',
-      description: 'Os dados de anos anteriores foram removidos.',
+
+    transactionsToDelete.forEach((t) => {
+      batch.delete(doc(db, 'transactions', t.id));
+      oldTransactionsCount++;
     });
+
+    if (oldTransactionsCount > 0) {
+      try {
+        await batch.commit();
+        setTransactions(transactions.filter(t => getYear(new Date(t.date)) >= currentYear));
+        toast({
+          title: 'Sucesso!',
+          description: `${oldTransactionsCount} lançamento(s) de anos anteriores foram removidos.`,
+        });
+      } catch (error) {
+         console.error('Failed to clear old data:', error);
+         toast({ title: 'Erro!', description: 'Não foi possível limpar os dados antigos.', variant: 'destructive'});
+      }
+    } else {
+       toast({ title: 'Nenhum dado antigo', description: 'Não há lançamentos de anos anteriores para remover.'});
+    }
+    
     setIsClearDataAlertOpen(false);
   };
 
@@ -798,10 +772,10 @@ export function ReportsClient() {
               <TableBody>
                 {filteredTransactions.length > 0 ? (
                   filteredTransactions
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .sort((a, b) => new Date(b.date as Date).getTime() - new Date(a.date as Date).getTime())
                   .map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>{format(new Date(t.date), 'dd/MM/yyyy')}</TableCell>
+                      <TableCell>{format(new Date(t.date as Date), 'dd/MM/yyyy')}</TableCell>
                       <TableCell className="font-medium">
                         {t.description}
                       </TableCell>
