@@ -113,7 +113,7 @@ export function AccessManagementClient() {
   });
 
   const onSubmit = (data: UserFormValues) => {
-    const payload = { ...data, username: data.username.toLowerCase() };
+    const payload = { ...data, username: data.username.toLowerCase(), name: data.name.toUpperCase() };
     if (editingUser) {
       if (editingUser.username !== payload.username) {
         const existingUser = users.find(
@@ -224,7 +224,7 @@ export function AccessManagementClient() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(user)} disabled={user.username === 'admin'}>
+                          <DropdownMenuItem onClick={() => handleEdit(user)}>
                             <Edit className="mr-2 h-4 w-4" /> Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem
