@@ -53,9 +53,9 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { Card, CardContent } from './ui/card';
+import { Label } from './ui/label';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 
-// The schema now allows an empty string for the password, or a string of at least 6 characters.
-// This allows the password field to be optional during edits.
 const userSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
   username: z.string().min(1, 'O nome de usuário é obrigatório.'),
@@ -64,6 +64,7 @@ const userSchema = z.object({
     .min(6, 'A senha deve ter pelo menos 6 caracteres.')
     .or(z.literal(''))
     .optional(),
+  role: z.enum(['admin', 'user']),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -78,10 +79,12 @@ export function AccessManagementClient() {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
     const currentCompanyId = localStorage.getItem('current-user-company-id');
     setCompanyId(currentCompanyId);
+    const currentUsername = localStorage.getItem('current-user');
 
     if (currentCompanyId) {
       try {
@@ -89,6 +92,9 @@ export function AccessManagementClient() {
         if (storedUsers) {
           const allUsers: User[] = JSON.parse(storedUsers);
           setUsers(allUsers.filter((u) => u.companyId === currentCompanyId));
+          setCurrentUser(
+            allUsers.find((u) => u.username === currentUsername) || null
+          );
         }
       } catch (error) {
         console.error('Failed to access localStorage:', error);
@@ -102,6 +108,7 @@ export function AccessManagementClient() {
       name: '',
       username: '',
       password: '',
+      role: 'user',
     },
   });
 
@@ -115,7 +122,7 @@ export function AccessManagementClient() {
     const submittedData = {
       ...data,
       username: data.username.toLowerCase(),
-      name: data.name.toUpperCase(),
+      name: data.name,
     };
 
     if (editingUser) {
@@ -138,10 +145,11 @@ export function AccessManagementClient() {
         }
       }
 
-      const payload = {
+      const payload: User = {
         ...editingUser,
         name: submittedData.name,
         username: submittedData.username,
+        role: submittedData.role,
         // Only update password if a new one was provided
         ...(submittedData.password && { password: submittedData.password }),
       };
@@ -179,6 +187,7 @@ export function AccessManagementClient() {
         username: submittedData.username,
         password: submittedData.password,
         companyId: companyId,
+        role: submittedData.role,
       };
 
       const updatedAllUsers = [...allUsers, newUser];
@@ -188,7 +197,7 @@ export function AccessManagementClient() {
     }
 
     setEditingUser(null);
-    form.reset({ name: '', username: '', password: '' });
+    form.reset({ name: '', username: '', password: '', role: 'user' });
     setIsDialogOpen(false);
   };
 
@@ -199,6 +208,7 @@ export function AccessManagementClient() {
       name: user.name,
       username: user.username,
       password: '',
+      role: user.role,
     });
     setIsDialogOpen(true);
   };
@@ -210,18 +220,27 @@ export function AccessManagementClient() {
 
   const handleConfirmDelete = () => {
     if (userToDelete && companyId) {
-      if (userToDelete.username === 'admin') {
+      if (
+        userToDelete.username === 'admin' ||
+        userToDelete.id === currentUser?.id
+      ) {
         toast({
           title: 'Ação não permitida',
-          description: 'O usuário admin não pode ser removido.',
+          description:
+            'O usuário "admin" do sistema e o seu próprio usuário não podem ser removidos.',
           variant: 'destructive',
         });
       } else {
         const allUsers: User[] = JSON.parse(
           localStorage.getItem(USERS_STORAGE_KEY) || '[]'
         );
-        const updatedAllUsers = allUsers.filter((u) => u.id !== userToDelete.id);
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedAllUsers));
+        const updatedAllUsers = allUsers.filter(
+          (u) => u.id !== userToDelete.id
+        );
+        localStorage.setItem(
+          USERS_STORAGE_KEY,
+          JSON.stringify(updatedAllUsers)
+        );
         setUsers(updatedAllUsers.filter((u) => u.companyId === companyId));
         toast({
           title: 'Sucesso!',
@@ -235,7 +254,7 @@ export function AccessManagementClient() {
 
   const openNewUserDialog = () => {
     setEditingUser(null);
-    form.reset({ name: '', username: '', password: '' });
+    form.reset({ name: '', username: '', password: '', role: 'user' });
     setIsDialogOpen(true);
   };
 
@@ -255,6 +274,7 @@ export function AccessManagementClient() {
                 <TableRow>
                   <TableHead>Nome Completo</TableHead>
                   <TableHead>Usuário</TableHead>
+                  <TableHead>Nível</TableHead>
                   <TableHead className="w-24 text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -262,11 +282,20 @@ export function AccessManagementClient() {
                 {users.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>{user.name}</TableCell>
-                    <TableCell className="font-medium">{user.username}</TableCell>
+                    <TableCell className="font-medium">
+                      {user.username}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {user.role === 'admin' ? 'Administrador' : 'Usuário'}
+                    </TableCell>
                     <TableCell className="text-center">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -277,7 +306,10 @@ export function AccessManagementClient() {
                           <DropdownMenuItem
                             onClick={() => handleDelete(user)}
                             className="text-red-500"
-                            disabled={user.username === 'admin'}
+                            disabled={
+                              user.username === 'admin' ||
+                              user.id === currentUser?.id
+                            }
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Deletar
                           </DropdownMenuItem>
@@ -315,10 +347,6 @@ export function AccessManagementClient() {
                         placeholder="ex: João da Silva"
                         {...field}
                         value={field.value || ''}
-                        onChange={(e) =>
-                          field.onChange(e.target.value.toUpperCase())
-                        }
-                        className="uppercase"
                       />
                     </FormControl>
                     <FormMessage />
@@ -336,7 +364,9 @@ export function AccessManagementClient() {
                         placeholder="ex: joao.silva"
                         {...field}
                         value={field.value || ''}
-                        disabled={editingUser?.username === 'admin'}
+                        disabled={
+                          editingUser?.username === 'admin'
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -360,6 +390,36 @@ export function AccessManagementClient() {
                         {...field}
                         value={field.value || ''}
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nível de Acesso</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        className="flex gap-4"
+                        disabled={
+                          editingUser?.username === 'admin' ||
+                          editingUser?.id === currentUser?.id
+                        }
+                      >
+                        <FormItem className="flex items-center space-x-2">
+                          <RadioGroupItem value="user" />
+                          <Label>Usuário</Label>
+                        </FormItem>
+                        <FormItem className="flex items-center space-x-2">
+                          <RadioGroupItem value="admin" />
+                          <Label>Administrador</Label>
+                        </FormItem>
+                      </RadioGroup>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

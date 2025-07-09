@@ -12,8 +12,8 @@ export default function AccessManagementPage() {
 
   useEffect(() => {
     try {
-      const username = localStorage.getItem('current-user');
-      if (username === 'admin') {
+      const userRole = localStorage.getItem('current-user-role');
+      if (userRole === 'admin') {
         setIsAuthorized(true);
       } else {
         router.replace('/');

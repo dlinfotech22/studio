@@ -48,6 +48,7 @@ export default function LoginPage() {
             username: 'admin',
             password: 'senha123',
             companyId: defaultCompany.document,
+            role: 'admin',
           },
         ];
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
@@ -87,6 +88,7 @@ export default function LoginPage() {
         localStorage.setItem('current-user', foundUser.username);
         localStorage.setItem('current-user-name', foundUser.name);
         localStorage.setItem('current-user-company-id', foundUser.companyId);
+        localStorage.setItem('current-user-role', foundUser.role);
         toast({
           title: 'Login bem-sucedido!',
           description: 'Redirecionando para o dashboard.',

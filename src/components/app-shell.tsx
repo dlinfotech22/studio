@@ -40,16 +40,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
-  const [currentUserUsername, setCurrentUserUsername] = useState<string | null>(
-    null
-  );
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('auth-token');
     const user = localStorage.getItem('current-user-name');
-    const username = localStorage.getItem('current-user');
+    const role = localStorage.getItem('current-user-role');
     setCurrentUser(user);
-    setCurrentUserUsername(username);
+    setCurrentUserRole(role);
 
     if (!token && pathname !== '/login') {
       router.push('/login');
@@ -64,6 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     localStorage.removeItem('auth-token');
     localStorage.removeItem('current-user');
     localStorage.removeItem('current-user-name');
+    localStorage.removeItem('current-user-role');
     router.push('/login');
   };
 
@@ -160,7 +159,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
-            {currentUserUsername === 'admin' && (
+            {currentUserRole === 'admin' && (
               <SidebarMenuItem>
                 <Link href="/access-management">
                   <SidebarMenuButton

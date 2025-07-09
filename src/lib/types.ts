@@ -14,6 +14,7 @@ export type User = {
   username: string;
   password: string;
   companyId: string;
+  role: 'admin' | 'user';
 };
 
 export type Category = {
