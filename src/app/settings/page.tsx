@@ -231,8 +231,8 @@ function CompanyProfile() {
 
   useEffect(() => {
     const id = localStorage.getItem('current-user-company-id');
-    const username = localStorage.getItem('current-user');
-    setIsSystemAdmin(username === 'admin');
+    const role = localStorage.getItem('current-user-role');
+    setIsSystemAdmin(role === 'system_admin');
     setCompanyId(id);
     if (id) {
       // The document field (company ID) can only be edited if it's the placeholder value.

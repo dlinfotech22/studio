@@ -64,7 +64,7 @@ const userSchema = z.object({
     .min(6, 'A senha deve ter pelo menos 6 caracteres.')
     .or(z.literal(''))
     .optional(),
-  role: z.enum(['admin', 'user']),
+  role: z.enum(['company_admin', 'user']),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -122,7 +122,7 @@ export function AccessManagementClient() {
     const submittedData = {
       ...data,
       username: data.username.toLowerCase(),
-      name: data.name,
+      name: data.name.toUpperCase(),
     };
 
     if (editingUser) {
@@ -150,7 +150,6 @@ export function AccessManagementClient() {
         name: submittedData.name,
         username: submittedData.username,
         role: submittedData.role,
-        // Only update password if a new one was provided
         ...(submittedData.password && { password: submittedData.password }),
       };
 
@@ -203,12 +202,11 @@ export function AccessManagementClient() {
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
-    // Reset form with user data, but with an empty password field
     form.reset({
       name: user.name,
       username: user.username,
       password: '',
-      role: user.role,
+      role: user.role === 'system_admin' ? 'company_admin' : user.role,
     });
     setIsDialogOpen(true);
   };
@@ -221,13 +219,13 @@ export function AccessManagementClient() {
   const handleConfirmDelete = () => {
     if (userToDelete && companyId) {
       if (
-        userToDelete.username === 'admin' ||
+        userToDelete.role === 'system_admin' ||
         userToDelete.id === currentUser?.id
       ) {
         toast({
           title: 'Ação não permitida',
           description:
-            'O usuário "admin" do sistema e o seu próprio usuário não podem ser removidos.',
+            'O administrador do sistema e o seu próprio usuário não podem ser removidos.',
           variant: 'destructive',
         });
       } else {
@@ -286,7 +284,9 @@ export function AccessManagementClient() {
                       {user.username}
                     </TableCell>
                     <TableCell className="capitalize">
-                      {user.role === 'admin' ? 'Administrador' : 'Usuário'}
+                      {user.role === 'company_admin'
+                        ? 'Admin. da Empresa'
+                        : 'Usuário'}
                     </TableCell>
                     <TableCell className="text-center">
                       <DropdownMenu>
@@ -307,7 +307,7 @@ export function AccessManagementClient() {
                             onClick={() => handleDelete(user)}
                             className="text-red-500"
                             disabled={
-                              user.username === 'admin' ||
+                              user.role === 'system_admin' ||
                               user.id === currentUser?.id
                             }
                           >
@@ -347,6 +347,9 @@ export function AccessManagementClient() {
                         placeholder="ex: João da Silva"
                         {...field}
                         value={field.value || ''}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.toUpperCase())
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -364,9 +367,7 @@ export function AccessManagementClient() {
                         placeholder="ex: joao.silva"
                         {...field}
                         value={field.value || ''}
-                        disabled={
-                          editingUser?.username === 'admin'
-                        }
+                        disabled={editingUser?.role === 'system_admin'}
                       />
                     </FormControl>
                     <FormMessage />
@@ -406,18 +407,15 @@ export function AccessManagementClient() {
                         onValueChange={field.onChange}
                         value={field.value}
                         className="flex gap-4"
-                        disabled={
-                          editingUser?.username === 'admin' ||
-                          editingUser?.id === currentUser?.id
-                        }
+                        disabled={editingUser?.id === currentUser?.id}
                       >
                         <FormItem className="flex items-center space-x-2">
                           <RadioGroupItem value="user" />
                           <Label>Usuário</Label>
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
-                          <RadioGroupItem value="admin" />
-                          <Label>Administrador</Label>
+                          <RadioGroupItem value="company_admin" />
+                          <Label>Admin. da Empresa</Label>
                         </FormItem>
                       </RadioGroup>
                     </FormControl>

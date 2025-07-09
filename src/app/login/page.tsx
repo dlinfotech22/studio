@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { type User, type CompanyInfo } from '@/lib/types';
+import { capitalizeFirstLetter } from '@/lib/utils';
 
 const USERS_STORAGE_KEY = 'app-users';
 const COMPANIES_STORAGE_KEY = 'app-companies';
@@ -44,11 +45,11 @@ export default function LoginPage() {
         const defaultUsers: User[] = [
           {
             id: '1',
-            name: 'ADMINISTRADOR',
+            name: 'ADMINISTRADOR DO SISTEMA',
             username: 'admin',
             password: 'senha123',
             companyId: defaultCompany.document,
-            role: 'admin',
+            role: 'system_admin',
           },
         ];
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));

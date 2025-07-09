@@ -3,18 +3,19 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AccessManagementClient } from '@/components/access-management-client';
+import { SystemAdminClient } from '@/components/system-admin-client';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AccessManagementPage() {
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     try {
-      const userRole = localStorage.getItem('current-user-role');
-      if (userRole === 'admin') {
-        setIsAuthorized(true);
+      const role = localStorage.getItem('current-user-role');
+      if (role === 'system_admin' || role === 'company_admin') {
+        setUserRole(role);
       } else {
         router.replace('/');
       }
@@ -38,7 +39,7 @@ export default function AccessManagementPage() {
     );
   }
 
-  if (!isAuthorized) {
+  if (!userRole) {
     return null;
   }
 
@@ -47,10 +48,16 @@ export default function AccessManagementPage() {
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Gestão de Acessos</h1>
         <p className="text-muted-foreground">
-          Adicione, edite e remova os acessos dos usuários ao sistema.
+          {userRole === 'system_admin'
+            ? 'Gerencie empresas e todos os usuários do sistema.'
+            : 'Adicione, edite e remova os acessos dos usuários da sua empresa.'}
         </p>
       </header>
-      <AccessManagementClient />
+      {userRole === 'system_admin' ? (
+        <SystemAdminClient />
+      ) : (
+        <AccessManagementClient />
+      )}
     </div>
   );
 }

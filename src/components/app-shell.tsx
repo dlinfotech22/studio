@@ -63,6 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     localStorage.removeItem('current-user');
     localStorage.removeItem('current-user-name');
     localStorage.removeItem('current-user-role');
+    localStorage.removeItem('current-user-company-id');
     router.push('/login');
   };
 
@@ -159,7 +160,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
-            {currentUserRole === 'admin' && (
+            {(currentUserRole === 'system_admin' || currentUserRole === 'company_admin') && (
               <SidebarMenuItem>
                 <Link href="/access-management">
                   <SidebarMenuButton
