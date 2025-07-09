@@ -250,6 +250,7 @@ export function AccessManagementClient() {
                       <Input
                         placeholder="ex: João da Silva"
                         {...field}
+                        value={field.value || ''}
                         className="uppercase"
                       />
                     </FormControl>
@@ -264,7 +265,11 @@ export function AccessManagementClient() {
                   <FormItem>
                     <FormLabel>Nome de Usuário</FormLabel>
                     <FormControl>
-                      <Input placeholder="ex: joao.silva" {...field} />
+                      <Input
+                        placeholder="ex: joao.silva"
+                        {...field}
+                        value={field.value || ''}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -277,7 +282,12 @@ export function AccessManagementClient() {
                   <FormItem>
                     <FormLabel>Senha</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                        value={field.value || ''}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
