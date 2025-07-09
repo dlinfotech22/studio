@@ -85,14 +85,14 @@ export default function LoginPage() {
       );
 
       if (foundUser) {
-        localStorage.setItem('auth-token', 'mock-token-string');
-        localStorage.setItem('current-user', foundUser.username);
-        localStorage.setItem('current-user-name', foundUser.name);
-        localStorage.setItem('current-user-role', foundUser.role);
+        sessionStorage.setItem('auth-token', 'mock-token-string');
+        sessionStorage.setItem('current-user', foundUser.username);
+        sessionStorage.setItem('current-user-name', foundUser.name);
+        sessionStorage.setItem('current-user-role', foundUser.role);
         if (foundUser.companyId) {
-          localStorage.setItem('current-user-company-id', foundUser.companyId);
+          sessionStorage.setItem('current-user-company-id', foundUser.companyId);
         } else {
-          localStorage.removeItem('current-user-company-id');
+          sessionStorage.removeItem('current-user-company-id');
         }
 
         toast({

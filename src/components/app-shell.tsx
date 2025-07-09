@@ -43,9 +43,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth-token');
-    const user = localStorage.getItem('current-user-name');
-    const role = localStorage.getItem('current-user-role');
+    const token = sessionStorage.getItem('auth-token');
+    const user = sessionStorage.getItem('current-user-name');
+    const role = sessionStorage.getItem('current-user-role');
     setCurrentUser(user);
     setCurrentUserRole(role);
 
@@ -59,11 +59,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [pathname, router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('auth-token');
-    localStorage.removeItem('current-user');
-    localStorage.removeItem('current-user-name');
-    localStorage.removeItem('current-user-role');
-    localStorage.removeItem('current-user-company-id');
+    sessionStorage.removeItem('auth-token');
+    sessionStorage.removeItem('current-user');
+    sessionStorage.removeItem('current-user-name');
+    sessionStorage.removeItem('current-user-role');
+    sessionStorage.removeItem('current-user-company-id');
     router.push('/login');
   };
 

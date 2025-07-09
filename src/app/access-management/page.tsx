@@ -13,7 +13,7 @@ export default function AccessManagementPage() {
 
   useEffect(() => {
     try {
-      const role = localStorage.getItem('current-user-role');
+      const role = sessionStorage.getItem('current-user-role');
       if (role === 'system_admin' || role === 'company_admin') {
         setUserRole(role);
       } else {

@@ -7,7 +7,7 @@ export function AdminDashboard() {
   const [userName, setUserName] = useState('');
 
   useEffect(() => {
-    const name = localStorage.getItem('current-user-name');
+    const name = sessionStorage.getItem('current-user-name');
     setUserName(name || 'Administrador');
   }, []);
 

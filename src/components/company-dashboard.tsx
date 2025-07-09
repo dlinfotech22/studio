@@ -32,7 +32,7 @@ export function CompanyDashboard() {
   const [hasData, setHasData] = useState(false);
 
   useEffect(() => {
-    const companyId = localStorage.getItem('current-user-company-id');
+    const companyId = sessionStorage.getItem('current-user-company-id');
     if (!companyId) {
       setIsLoading(false);
       return;

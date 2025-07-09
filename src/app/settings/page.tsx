@@ -128,7 +128,7 @@ function UserProfile() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const username = localStorage.getItem('current-user');
+    const username = sessionStorage.getItem('current-user');
     if (username) {
       const users: User[] = JSON.parse(
         localStorage.getItem(USERS_STORAGE_KEY) || '[]'
@@ -232,8 +232,8 @@ function CompanyProfile() {
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
 
   useEffect(() => {
-    const id = localStorage.getItem('current-user-company-id');
-    const role = localStorage.getItem('current-user-role');
+    const id = sessionStorage.getItem('current-user-company-id');
+    const role = sessionStorage.getItem('current-user-role');
     setIsSystemAdmin(role === 'system_admin');
     setIsCompanyAdmin(role === 'company_admin');
     setCompanyId(id);
@@ -394,7 +394,7 @@ function CategoryManagement() {
   });
 
   useEffect(() => {
-    const id = localStorage.getItem('current-user-company-id');
+    const id = sessionStorage.getItem('current-user-company-id');
     setCompanyId(id);
     if (id) {
       try {
@@ -683,8 +683,8 @@ export default function SettingsPage() {
   const [hasCompany, setHasCompany] = useState(false);
 
   useEffect(() => {
-    const role = localStorage.getItem('current-user-role');
-    const companyId = localStorage.getItem('current-user-company-id');
+    const role = sessionStorage.getItem('current-user-role');
+    const companyId = sessionStorage.getItem('current-user-company-id');
     setIsSystemAdmin(role === 'system_admin');
     setHasCompany(!!companyId);
   }, []);

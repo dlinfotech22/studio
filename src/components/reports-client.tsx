@@ -216,7 +216,7 @@ export function ReportsClient() {
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const id = localStorage.getItem('current-user-company-id');
+    const id = sessionStorage.getItem('current-user-company-id');
     setCompanyId(id);
     if (!id) {
       setIsClient(true);

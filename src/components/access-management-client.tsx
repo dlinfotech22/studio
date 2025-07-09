@@ -82,9 +82,9 @@ export function AccessManagementClient() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const currentCompanyId = localStorage.getItem('current-user-company-id');
+    const currentCompanyId = sessionStorage.getItem('current-user-company-id');
     setCompanyId(currentCompanyId);
-    const currentUsername = localStorage.getItem('current-user');
+    const currentUsername = sessionStorage.getItem('current-user');
 
     if (currentCompanyId) {
       try {

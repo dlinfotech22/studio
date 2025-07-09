@@ -115,7 +115,7 @@ export function SystemAdminClient() {
     try {
       const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
       const storedCompanies = localStorage.getItem(COMPANIES_STORAGE_KEY);
-      const currentUsername = localStorage.getItem('current-user');
+      const currentUsername = sessionStorage.getItem('current-user');
 
       const allUsers = storedUsers ? JSON.parse(storedUsers) : [];
       setUsers(allUsers);

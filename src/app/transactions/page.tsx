@@ -10,7 +10,7 @@ export default function TransactionsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const role = localStorage.getItem('current-user-role');
+    const role = sessionStorage.getItem('current-user-role');
     setUserRole(role);
     setIsLoading(false);
   }, []);

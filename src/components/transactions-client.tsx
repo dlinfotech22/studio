@@ -104,7 +104,7 @@ export function TransactionsClient() {
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
 
   useEffect(() => {
-    const id = localStorage.getItem('current-user-company-id');
+    const id = sessionStorage.getItem('current-user-company-id');
     setCompanyId(id);
     if (!id) return;
 
