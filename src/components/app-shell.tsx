@@ -40,11 +40,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [currentUserUsername, setCurrentUserUsername] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     const token = localStorage.getItem('auth-token');
     const user = localStorage.getItem('current-user-name');
+    const username = localStorage.getItem('current-user');
     setCurrentUser(user);
+    setCurrentUserUsername(username);
 
     if (!token && pathname !== '/login') {
       router.push('/login');
@@ -155,18 +160,20 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
+            {currentUserUsername === 'admin' && (
+              <SidebarMenuItem>
+                <Link href="/access-management">
+                  <SidebarMenuButton
+                    tooltip="Gestão de Acessos"
+                    isActive={pathname === '/access-management'}
+                  >
+                    <Users />
+                    <span>Gestão de Acessos</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            )}
             <SidebarMenuItem>
-              <Link href="/access-management">
-                <SidebarMenuButton
-                  tooltip="Gestão de Acessos"
-                  isActive={pathname === '/access-management'}
-                >
-                  <Users />
-                  <span>Gestão de Acessos</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-             <SidebarMenuItem>
               <Link href="/settings">
                 <SidebarMenuButton
                   tooltip="Configurações"
@@ -188,36 +195,39 @@ export function AppShell({ children }: { children: ReactNode }) {
       </Sidebar>
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
-            <SidebarTrigger className="md:hidden" />
-            <div className="ml-auto flex items-center gap-4">
-               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex items-center gap-2"
+          <SidebarTrigger className="md:hidden" />
+          <div className="ml-auto flex items-center gap-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2">
+                  <span className="hidden font-medium sm:block">
+                    {currentUser}
+                  </span>
+                  <User className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{currentUser}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="p-0">
+                  <Link
+                    href="/settings"
+                    className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5"
                   >
-                    <span className="hidden font-medium sm:block">
-                      {currentUser}
-                    </span>
-                    <User className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>{currentUser}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                   <DropdownMenuItem className="p-0">
-                    <Link href="/settings" className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5">
-                      <Settings className="h-4 w-4" />
-                      <span>Configurações</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sair</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                    <Settings className="h-4 w-4" />
+                    <span>Configurações</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="cursor-pointer"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sair</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </SidebarInset>
