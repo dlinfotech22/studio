@@ -12,6 +12,8 @@ import {
   Edit,
   Trash2,
   MoreHorizontal,
+  Search,
+  X,
 } from 'lucide-react';
 
 import { type Transaction, type Category } from '@/lib/types';
@@ -108,6 +110,12 @@ export function TransactionsClient() {
   const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [amountFilter, setAmountFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState<Date | undefined>();
+  const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
+
   useEffect(() => {
     try {
       const storedTransactions = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
@@ -142,8 +150,30 @@ export function TransactionsClient() {
     },
   });
 
-  const revenue = transactions.filter((t) => t.type === 'revenue');
-  const expenses = transactions.filter((t) => t.type === 'expense');
+  const filteredTransactions = transactions.filter(t => {
+      const searchTermLower = searchTerm.toLowerCase();
+
+      const searchMatch =
+        searchTerm === '' ||
+        t.description.toLowerCase().includes(searchTermLower) ||
+        t.category.toLowerCase().includes(searchTermLower);
+
+      const amountValue = parseFloat(amountFilter);
+      const amountMatch =
+        amountFilter === '' ||
+        isNaN(amountValue) ||
+        Math.abs(t.amount) === amountValue;
+
+      const dateMatch =
+        !dateFilter ||
+        format(new Date(t.date), 'yyyy-MM-dd') ===
+          format(dateFilter, 'yyyy-MM-dd');
+
+      return searchMatch && amountMatch && dateMatch;
+    });
+
+  const revenue = filteredTransactions.filter((t) => t.type === 'revenue');
+  const expenses = filteredTransactions.filter((t) => t.type === 'expense');
 
   const revenueCategories = allCategories.filter(c => c.type === 'revenue').map(c => c.name);
   const expenseCategories = allCategories.filter(c => c.type === 'expense').map(c => c.name);
@@ -201,6 +231,12 @@ export function TransactionsClient() {
     });
     setIsDialogOpen(true);
   };
+  
+  const clearFilters = () => {
+    setSearchTerm('');
+    setAmountFilter('');
+    setDateFilter(undefined);
+  };
 
   const renderTable = (data: Transaction[], type: 'revenue' | 'expense') => (
     <div className="rounded-md border">
@@ -215,7 +251,7 @@ export function TransactionsClient() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.map((item) => (
+          {data.length > 0 ? data.map((item) => (
             <TableRow key={item.id}>
               <TableCell className="font-medium">{item.description}</TableCell>
               <TableCell>{item.category}</TableCell>
@@ -241,7 +277,13 @@ export function TransactionsClient() {
                 </DropdownMenu>
               </TableCell>
             </TableRow>
-          ))}
+          )) : (
+             <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  Nenhum lançamento encontrado.
+                </TableCell>
+              </TableRow>
+          )}
         </TableBody>
       </Table>
     </div>
@@ -249,6 +291,55 @@ export function TransactionsClient() {
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
+          <div className="relative w-full md:max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+                placeholder="Pesquisar por descrição ou categoria..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+            />
+          </div>
+          <Input
+              type="number"
+              placeholder="Filtrar por valor (ex: 500)"
+              value={amountFilter}
+              onChange={(e) => setAmountFilter(e.target.value)}
+              className="w-full md:w-52"
+          />
+           <Popover open={isFilterDatePickerOpen} onOpenChange={setIsFilterDatePickerOpen}>
+              <PopoverTrigger asChild>
+                  <Button
+                      variant={'outline'}
+                      className={cn(
+                          'w-full justify-start text-left font-normal md:w-auto',
+                          !dateFilter && 'text-muted-foreground'
+                      )}
+                  >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateFilter ? format(dateFilter, 'PPP', { locale: ptBR }) : <span>Filtrar por data</span>}
+                  </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                  <Calendar
+                      mode="single"
+                      selected={dateFilter}
+                      onSelect={(date) => {
+                          setDateFilter(date);
+                          setIsFilterDatePickerOpen(false);
+                      }}
+                      initialFocus
+                  />
+              </PopoverContent>
+          </Popover>
+          {(searchTerm || amountFilter || dateFilter) && (
+            <Button variant="ghost" onClick={clearFilters} className="w-full md:w-auto">
+                <X className="mr-2 h-4 w-4" />
+                Limpar Filtros
+            </Button>
+          )}
+      </div>
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'revenue' | 'expense')}>
         <div className="flex items-center justify-between">
           <TabsList>
