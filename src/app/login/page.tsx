@@ -46,6 +46,7 @@ export default function LoginPage() {
       };
 
       // Filter out any existing user record for the system admin to prevent duplicates or corrupted data.
+      // And also remove any potential companyId from the system admin
       const otherUsers = allUsers.filter(
         (u) => u.username !== SYSTEM_ADMIN_USERNAME
       );
@@ -126,7 +127,7 @@ export default function LoginPage() {
               <Input
                 id="username"
                 type="text"
-                placeholder="davidleonardo"
+                placeholder="Usuário"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
