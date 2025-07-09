@@ -45,9 +45,9 @@ export default function LoginPage() {
         const defaultUsers: User[] = [
           {
             id: '1',
-            name: 'ADMINISTRADOR DO SISTEMA',
-            username: 'admin',
-            password: 'senha123',
+            name: 'DAVID MACHADO LEONARDO',
+            username: 'davidleonardo',
+            password: '162534',
             companyId: defaultCompany.document,
             role: 'system_admin',
           },
