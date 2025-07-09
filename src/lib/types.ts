@@ -13,7 +13,7 @@ export type User = {
   name: string;
   username: string;
   password: string;
-  companyId: string;
+  companyId?: string;
   role: 'system_admin' | 'company_admin' | 'user';
 };
 

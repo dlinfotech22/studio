@@ -65,7 +65,6 @@ export default function LoginPage() {
           name: 'DAVID MACHADO LEONARDO',
           username: SYSTEM_ADMIN_USERNAME,
           password: '162534',
-          companyId: 'default-001',
           role: 'system_admin',
         };
         // Remove any other potential system admins and add the correct one.
@@ -107,8 +106,13 @@ export default function LoginPage() {
         localStorage.setItem('auth-token', 'mock-token-string');
         localStorage.setItem('current-user', foundUser.username);
         localStorage.setItem('current-user-name', foundUser.name);
-        localStorage.setItem('current-user-company-id', foundUser.companyId);
         localStorage.setItem('current-user-role', foundUser.role);
+        if (foundUser.companyId) {
+          localStorage.setItem('current-user-company-id', foundUser.companyId);
+        } else {
+          localStorage.removeItem('current-user-company-id');
+        }
+
         toast({
           title: 'Login bem-sucedido!',
           description: 'Redirecionando para o dashboard.',

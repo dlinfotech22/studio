@@ -662,31 +662,48 @@ function AppearanceSettings() {
 }
 
 export default function SettingsPage() {
+  const [isSystemAdmin, setIsSystemAdmin] = useState(false);
+
+  useEffect(() => {
+    const role = localStorage.getItem('current-user-role');
+    setIsSystemAdmin(role === 'system_admin');
+  }, []);
+
   return (
     <div className="flex flex-col gap-6">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">
-          Gerencie as configurações da sua conta, empresa e aparência do sistema.
+          {isSystemAdmin
+            ? 'Gerencie as configurações da sua conta e aparência do sistema.'
+            : 'Gerencie as configurações da sua conta, empresa e aparência do sistema.'}
         </p>
       </header>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+        <TabsList>
           <TabsTrigger value="profile">Perfil</TabsTrigger>
-          <TabsTrigger value="company">Empresa</TabsTrigger>
-          <TabsTrigger value="categories">Categorias</TabsTrigger>
+          {!isSystemAdmin && (
+            <>
+              <TabsTrigger value="company">Empresa</TabsTrigger>
+              <TabsTrigger value="categories">Categorias</TabsTrigger>
+            </>
+          )}
           <TabsTrigger value="appearance">Aparência</TabsTrigger>
         </TabsList>
         <TabsContent value="profile" className="mt-6">
           <UserProfile />
         </TabsContent>
-        <TabsContent value="company" className="mt-6">
-          <CompanyProfile />
-        </TabsContent>
-        <TabsContent value="categories" className="mt-6">
-          <CategoryManagement />
-        </TabsContent>
+        {!isSystemAdmin && (
+          <>
+            <TabsContent value="company" className="mt-6">
+              <CompanyProfile />
+            </TabsContent>
+            <TabsContent value="categories" className="mt-6">
+              <CategoryManagement />
+            </TabsContent>
+          </>
+        )}
         <TabsContent value="appearance" className="mt-6">
           <AppearanceSettings />
         </TabsContent>
