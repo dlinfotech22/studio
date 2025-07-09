@@ -87,7 +87,7 @@ const userSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
   username: z.string().min(1, 'O nome de usuário é obrigatório.'),
   password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.').or(z.literal('')).optional(),
-  role: z.enum(['company_admin', 'user']),
+  role: z.enum(['system_admin', 'company_admin', 'user']),
 });
 
 type CompanyFormValues = z.infer<typeof newCompanySchema>;
@@ -188,49 +188,99 @@ export function SystemAdminClient() {
   };
   
   const handleUserSubmit = (data: UserFormValues) => {
-    if (!activeCompanyId) return;
-
-     const submittedData = {
-      ...data,
-      username: data.username.toLowerCase(),
-      name: data.name.toUpperCase(),
-    };
+    if (editingUser?.role !== 'system_admin' && !activeCompanyId) return;
 
     if (editingUser) {
-        if (editingUser.username.toLowerCase() !== submittedData.username.toLowerCase()) {
-            if (users.some(u => u.username.toLowerCase() === submittedData.username.toLowerCase())) {
-                userForm.setError('username', { message: 'Este nome de usuário já existe.' });
-                return;
-            }
-        }
-        const updatedUsers = users.map(u => u.id === editingUser.id ? { ...editingUser, name: submittedData.name, username: submittedData.username, role: submittedData.role, ... (submittedData.password && { password: submittedData.password }) } : u);
-        setUsers(updatedUsers);
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-        toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
-    } else {
-        if (!submittedData.password) {
-            userForm.setError('password', { message: 'A senha é obrigatória para novos usuários.' });
-            return;
-        }
-        if (users.some(u => u.username.toLowerCase() === submittedData.username.toLowerCase())) {
-            userForm.setError('username', { message: 'Este nome de usuário já existe.' });
-            return;
-        }
-        const newUser: User = {
-            id: new Date().toISOString(),
-            name: submittedData.name,
-            username: submittedData.username,
-            password: submittedData.password,
-            companyId: activeCompanyId,
-            role: submittedData.role
+      let updatedUser: User;
+
+      if (editingUser.role === 'system_admin') {
+        updatedUser = {
+          ...editingUser,
+          ...(data.password && { password: data.password }),
         };
-        const updatedUsers = [...users, newUser];
-        setUsers(updatedUsers);
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-        toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
+      } else {
+        const submittedData = {
+          ...data,
+          username: data.username.toLowerCase(),
+          name: data.name.toUpperCase(),
+        };
+
+        if (
+          editingUser.username.toLowerCase() !==
+          submittedData.username.toLowerCase()
+        ) {
+          if (
+            users.some(
+              (u) =>
+                u.username.toLowerCase() ===
+                  submittedData.username.toLowerCase() && u.id !== editingUser.id
+            )
+          ) {
+            userForm.setError('username', {
+              message: 'Este nome de usuário já existe.',
+            });
+            return;
+          }
+        }
+
+        updatedUser = {
+          ...editingUser,
+          name: submittedData.name,
+          username: submittedData.username,
+          role: submittedData.role as 'company_admin' | 'user',
+          ...(submittedData.password && { password: submittedData.password }),
+        };
+      }
+
+      const updatedUsers = users.map((u) =>
+        u.id === editingUser.id ? updatedUser : u
+      );
+      setUsers(updatedUsers);
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
+      toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
+    } else {
+      // Logic for creating a new user (this is only for company users, so it's fine)
+      if (!activeCompanyId) return;
+      const submittedData = {
+        ...data,
+        username: data.username.toLowerCase(),
+        name: data.name.toUpperCase(),
+      };
+      if (!submittedData.password) {
+        userForm.setError('password', {
+          type: 'manual',
+          message: 'A senha é obrigatória para novos usuários.',
+        });
+        return;
+      }
+      if (
+        users.some(
+          (u) => u.username.toLowerCase() === submittedData.username.toLowerCase()
+        )
+      ) {
+        userForm.setError('username', {
+          type: 'manual',
+          message: 'Este nome de usuário já existe.',
+        });
+        return;
+      }
+      const newUser: User = {
+        id: new Date().toISOString(),
+        name: submittedData.name,
+        username: submittedData.username,
+        password: submittedData.password,
+        companyId: activeCompanyId,
+        role: submittedData.role as 'company_admin' | 'user',
+      };
+      const updatedUsers = [...users, newUser];
+      setUsers(updatedUsers);
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
+      toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
     }
+
     setIsUserDialogOpen(false);
     setEditingUser(null);
+    userForm.reset();
   };
   
   const openCompanyDialog = (company: CompanyInfo | null) => {
@@ -321,6 +371,7 @@ export function SystemAdminClient() {
                     <TableHead>Nome Completo</TableHead>
                     <TableHead>Usuário</TableHead>
                     <TableHead>Nível</TableHead>
+                    <TableHead className="w-24 text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -331,6 +382,26 @@ export function SystemAdminClient() {
                         {user.username}
                       </TableCell>
                       <TableCell>ADMINISTRADOR DO SISTEMA</TableCell>
+                      <TableCell className="text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => openUserDialog(user, user.companyId || '')}
+                            >
+                              <Edit className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -503,10 +574,10 @@ export function SystemAdminClient() {
           </DialogHeader>
           <Form {...userForm}>
             <form onSubmit={userForm.handleSubmit(handleUserSubmit)} className="space-y-4">
-                <FormField control={userForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Nome Completo</FormLabel><FormControl><Input {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={userForm.control} name="username" render={({ field }) => ( <FormItem><FormLabel>Nome de Usuário</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={userForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Nome Completo</FormLabel><FormControl><Input {...field} disabled={editingUser?.role === 'system_admin'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={userForm.control} name="username" render={({ field }) => ( <FormItem><FormLabel>Nome de Usuário</FormLabel><FormControl><Input {...field} disabled={editingUser?.role === 'system_admin'} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={userForm.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Senha</FormLabel><FormControl><Input type="password" placeholder={editingUser ? "Deixe em branco para manter a atual" : "••••••••" } {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={userForm.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Nível de Acesso</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="user" /><Label>Usuário</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="company_admin" /><Label>Admin. da Empresa</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )} />
+                {editingUser?.role !== 'system_admin' && <FormField control={userForm.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Nível de Acesso</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="user" /><Label>Usuário</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="company_admin" /><Label>Admin. da Empresa</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )} />}
               <DialogFooter>
                 <DialogClose asChild><Button type="button" variant="ghost">Cancelar</Button></DialogClose>
                 <Button type="submit">{editingUser ? 'Salvar' : 'Adicionar'}</Button>
