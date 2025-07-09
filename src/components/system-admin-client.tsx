@@ -13,7 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { type User, type CompanyInfo } from '@/lib/types';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -65,6 +65,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from './ui/accordion';
+import { cn } from '@/lib/utils';
 
 const USERS_STORAGE_KEY = 'app-users';
 const COMPANIES_STORAGE_KEY = 'app-companies';
@@ -196,6 +197,8 @@ export function SystemAdminClient() {
       if (editingUser.role === 'system_admin') {
         updatedUser = {
           ...editingUser,
+          name: editingUser.name, // Ensure name is not changed
+          username: editingUser.username, // Ensure username is not changed
           ...(data.password && { password: data.password }),
         };
       } else {
@@ -293,11 +296,21 @@ export function SystemAdminClient() {
     setIsCompanyDialogOpen(true);
   };
   
-  const openUserDialog = (user: User | null, companyId: string) => {
-    setActiveCompanyId(companyId);
+  const openUserDialog = (user: User | null, companyId: string | undefined) => {
+    setActiveCompanyId(companyId || null);
     setEditingUser(user);
     if (user) {
-      userForm.reset({ name: user.name, username: user.username, password: '', role: user.role});
+      const isSystemAdmin = user.role === 'system_admin';
+      userForm.reset({ 
+        name: user.name, 
+        username: user.username, 
+        password: '', 
+        role: user.role
+      });
+      if(isSystemAdmin) {
+        userForm.getValues('name') && userForm.setValue('name', user.name, { shouldValidate: true });
+        userForm.getValues('username') && userForm.setValue('username', user.username, { shouldValidate: true });
+      }
     } else {
       userForm.reset({ name: '', username: '', password: '', role: 'user' });
     }
@@ -395,7 +408,7 @@ export function SystemAdminClient() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => openUserDialog(user, user.companyId || '')}
+                              onClick={() => openUserDialog(user, user.companyId)}
                             >
                               <Edit className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
