@@ -228,11 +228,13 @@ function CompanyProfile() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [isDocumentDisabled, setIsDocumentDisabled] = useState(true);
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
+  const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
 
   useEffect(() => {
     const id = localStorage.getItem('current-user-company-id');
     const role = localStorage.getItem('current-user-role');
     setIsSystemAdmin(role === 'system_admin');
+    setIsCompanyAdmin(role === 'company_admin');
     setCompanyId(id);
     if (id) {
       // The document field (company ID) can only be edited if it's the placeholder value.
@@ -255,7 +257,7 @@ function CompanyProfile() {
   });
 
   const onSubmit = (values: z.infer<typeof companyInfoSchema>) => {
-    if (!companyId || !isSystemAdmin) return;
+    if (!companyId || (!isSystemAdmin && !isCompanyAdmin)) return;
 
     const allCompanies: CompanyInfo[] = JSON.parse(localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]');
 
@@ -288,7 +290,7 @@ function CompanyProfile() {
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isSystemAdmin) return;
+    if (!isSystemAdmin && !isCompanyAdmin) return;
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -308,7 +310,9 @@ function CompanyProfile() {
         <CardDescription>
           {isSystemAdmin
             ? 'Essas informações serão usadas nos relatórios.'
-            : 'Somente o administrador do sistema pode editar estas informações.'}
+            : isCompanyAdmin 
+            ? 'Como administrador da empresa, você pode alterar o logo.'
+            : 'Somente administradores podem editar estas informações.'}
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -325,7 +329,7 @@ function CompanyProfile() {
                 type="button"
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={!isSystemAdmin}
+                disabled={!isSystemAdmin && !isCompanyAdmin}
               >
                 Carregar Logo
               </Button>
@@ -335,7 +339,7 @@ function CompanyProfile() {
                 className="hidden"
                 accept="image/png, image/jpeg"
                 onChange={handleLogoChange}
-                disabled={!isSystemAdmin}
+                disabled={!isSystemAdmin && !isCompanyAdmin}
               />
             </div>
             <div className="max-w-md space-y-4">
@@ -377,7 +381,7 @@ function CompanyProfile() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={!isSystemAdmin}>Salvar Informações</Button>
+            <Button type="submit" disabled={!isSystemAdmin && !isCompanyAdmin}>Salvar Informações</Button>
           </CardFooter>
         </form>
       </Form>
