@@ -34,6 +34,7 @@ import { Label } from '@/components/ui/label';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -79,8 +80,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { capitalizeFirstLetter } from '@/lib/utils';
 
 const USERS_STORAGE_KEY = 'app-users';
-const CATEGORIES_STORAGE_KEY = 'app-categories';
-const COMPANY_INFO_STORAGE_KEY = 'app-company-info';
+const COMPANIES_STORAGE_KEY = 'app-companies';
 
 // Schemas
 const profileSchema = z
@@ -107,11 +107,11 @@ const categorySchema = z.object({
 
 // Default values
 const defaultCategories: Category[] = [
-  { id: 'cat-rev-1', name: 'Prestação de Serviço', type: 'revenue' },
-  { id: 'cat-rev-2', name: 'Venda de Produtos', type: 'revenue' },
-  { id: 'cat-exp-1', name: 'Salários', type: 'expense' },
-  { id: 'cat-exp-2', name: 'Fornecedores', type: 'expense' },
-  { id: 'cat-exp-3', name: 'Aluguel', type: 'expense' },
+  { id: 'cat-rev-1', name: 'Prestação de Serviço', type: 'revenue', companyId: 'default-001' },
+  { id: 'cat-rev-2', name: 'Venda de Produtos', type: 'revenue', companyId: 'default-001' },
+  { id: 'cat-exp-1', name: 'Salários', type: 'expense', companyId: 'default-001' },
+  { id: 'cat-exp-2', name: 'Fornecedores', type: 'expense', companyId: 'default-001' },
+  { id: 'cat-exp-3', name: 'Aluguel', type: 'expense', companyId: 'default-001' },
 ];
 
 const defaultCompanyInfo: CompanyInfo = {
@@ -225,15 +225,24 @@ function CompanyProfile() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(defaultCompanyInfo);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [isDocumentDisabled, setIsDocumentDisabled] = useState(true);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(COMPANY_INFO_STORAGE_KEY);
-      if (stored) {
-        setCompanyInfo(JSON.parse(stored));
+    const id = localStorage.getItem('current-user-company-id');
+    setCompanyId(id);
+    if (id) {
+      // The document field (company ID) can only be edited if it's the placeholder value.
+      setIsDocumentDisabled(id !== 'default-001');
+      try {
+        const allCompanies: CompanyInfo[] = JSON.parse(localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]');
+        const currentCompany = allCompanies.find(c => c.document === id);
+        if (currentCompany) {
+          setCompanyInfo(currentCompany);
+        }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
     }
   }, []);
 
@@ -243,10 +252,36 @@ function CompanyProfile() {
   });
 
   const onSubmit = (values: z.infer<typeof companyInfoSchema>) => {
+    if (!companyId) return;
+
+    const allCompanies: CompanyInfo[] = JSON.parse(localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]');
+
+    // Prevent using a document ID that already exists
+    if (values.document !== companyId && allCompanies.some(c => c.document === values.document)) {
+        form.setError('document', { message: 'Este documento já está cadastrado.' });
+        return;
+    }
+
     const updatedInfo = { ...companyInfo, ...values };
+    const updatedCompanies = allCompanies.map(c => c.document === companyId ? updatedInfo : c);
+    
+    localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(updatedCompanies));
+    
+    // If the document ID was changed, update it for the current session and user record
+    if (values.document !== companyId) {
+        localStorage.setItem('current-user-company-id', values.document);
+
+        const allUsers: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '[]');
+        const currentUsername = localStorage.getItem('current-user');
+        const updatedUsers = allUsers.map(u => u.username === currentUsername ? {...u, companyId: values.document} : u);
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
+        setCompanyId(values.document);
+        setIsDocumentDisabled(true);
+    }
+    
     setCompanyInfo(updatedInfo);
-    localStorage.setItem(COMPANY_INFO_STORAGE_KEY, JSON.stringify(updatedInfo));
     toast({ title: 'Sucesso!', description: 'Informações da empresa salvas.' });
+    form.reset(updatedInfo);
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -321,8 +356,11 @@ function CompanyProfile() {
                   <FormItem>
                     <FormLabel>CNPJ / CPF</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} disabled={isDocumentDisabled} />
                     </FormControl>
+                    <FormDescription>
+                        O documento é o identificador único da empresa e não pode ser alterado após a configuração inicial.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -345,35 +383,55 @@ function CategoryManagement() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   
   const form = useForm<z.infer<typeof categorySchema>>({
     resolver: zodResolver(categorySchema),
   });
 
+  const getCategoriesStorageKey = (id: string) => `app-categories-${id}`;
+
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-      setCategories(stored ? JSON.parse(stored) : defaultCategories);
-    } catch (e) {
-      console.error(e);
-      setCategories(defaultCategories);
+    const id = localStorage.getItem('current-user-company-id');
+    setCompanyId(id);
+    if (id) {
+      try {
+        const storageKey = getCategoriesStorageKey(id);
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          setCategories(JSON.parse(stored));
+        } else {
+          const companyDefaultCategories = defaultCategories.map(c => ({...c, companyId: id}));
+          setCategories(companyDefaultCategories);
+          localStorage.setItem(storageKey, JSON.stringify(companyDefaultCategories));
+        }
+      } catch (e) {
+        console.error(e);
+        const companyDefaultCategories = defaultCategories.map(c => ({...c, companyId: id}));
+        setCategories(companyDefaultCategories);
+      }
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories));
-  }, [categories]);
+    if (companyId && categories.length > 0) {
+      localStorage.setItem(getCategoriesStorageKey(companyId), JSON.stringify(categories));
+    }
+  }, [categories, companyId]);
 
   const onSubmit = (values: z.infer<typeof categorySchema>) => {
+    if (!companyId) return;
+    const payload = {...values, companyId};
+
     if (editingCategory) {
       setCategories(
         categories.map((c) =>
-          c.id === editingCategory.id ? { ...c, ...values } : c
+          c.id === editingCategory.id ? { ...c, ...payload } : c
         )
       );
       toast({ title: 'Sucesso!', description: 'Categoria atualizada.' });
     } else {
-      setCategories([...categories, { id: new Date().toISOString(), ...values }]);
+      setCategories([...categories, { id: new Date().toISOString(), ...payload }]);
       toast({ title: 'Sucesso!', description: 'Categoria adicionada.' });
     }
     setEditingCategory(null);
@@ -419,7 +477,7 @@ function CategoryManagement() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((cat) => (
+            {data.length > 0 ? data.map((cat) => (
               <TableRow key={cat.id}>
                 <TableCell>{cat.name}</TableCell>
                 <TableCell className="text-center">
@@ -440,7 +498,13 @@ function CategoryManagement() {
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
-            ))}
+            )) : (
+                <TableRow>
+                    <TableCell colSpan={2} className="h-24 text-center">
+                        Nenhuma categoria encontrada.
+                    </TableCell>
+                </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

@@ -198,14 +198,14 @@ function ReportsSkeleton() {
   );
 }
 
-const TRANSACTIONS_STORAGE_KEY = 'app-transactions';
-const COMPANY_INFO_STORAGE_KEY = 'app-company-info';
+const COMPANIES_STORAGE_KEY = 'app-companies';
 
 export function ReportsClient() {
   const { toast } = useToast();
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
   const [selectionMode, setSelectionMode] = useState<
@@ -214,9 +214,19 @@ export function ReportsClient() {
   const [isClearDataAlertOpen, setIsClearDataAlertOpen] = useState(false);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
+  const getTransactionsStorageKey = (id: string) => `app-transactions-${id}`;
+
   useEffect(() => {
+    const id = localStorage.getItem('current-user-company-id');
+    setCompanyId(id);
+    if (!id) {
+      setIsClient(true);
+      return;
+    }
+
     try {
-      const storedTransactions = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
+      const storageKey = getTransactionsStorageKey(id);
+      const storedTransactions = localStorage.getItem(storageKey);
       const allTransactions = storedTransactions
         ? JSON.parse(storedTransactions, (key, value) =>
             key === 'date' ? new Date(value) : value
@@ -224,9 +234,10 @@ export function ReportsClient() {
         : [];
       setTransactions(allTransactions);
 
-      const storedCompanyInfo = localStorage.getItem(COMPANY_INFO_STORAGE_KEY);
-      if (storedCompanyInfo) {
-        setCompanyInfo(JSON.parse(storedCompanyInfo));
+      const storedCompanies = localStorage.getItem(COMPANIES_STORAGE_KEY);
+      if (storedCompanies) {
+        const allCompanies: CompanyInfo[] = JSON.parse(storedCompanies);
+        setCompanyInfo(allCompanies.find(c => c.document === id) || null);
       }
     } catch (error) {
       console.error('Failed to load data from localStorage', error);
@@ -621,13 +632,14 @@ export function ReportsClient() {
   };
 
   const handleClearOldData = () => {
+    if (!companyId) return;
     const currentYear = new Date().getFullYear();
     const transactionsToKeep = transactions.filter(
       (t) => new Date(t.date).getFullYear() === currentYear
     );
     setTransactions(transactionsToKeep);
     localStorage.setItem(
-      TRANSACTIONS_STORAGE_KEY,
+      getTransactionsStorageKey(companyId),
       JSON.stringify(transactionsToKeep)
     );
     toast({

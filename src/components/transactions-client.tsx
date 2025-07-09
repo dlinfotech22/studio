@@ -73,24 +73,6 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 
-const TRANSACTIONS_STORAGE_KEY = 'app-transactions';
-const CATEGORIES_STORAGE_KEY = 'app-categories';
-
-const initialTransactions: Transaction[] = [
-  { id: '1', date: new Date(), description: 'Prestação de Serviço - Cliente A', amount: 5000, type: 'revenue', category: 'Prestação de Serviço' },
-  { id: '2', date: new Date(new Date().setDate(new Date().getDate() - 1)), description: 'Pagamento de Salários', amount: -12000, type: 'expense', category: 'Salários' },
-  { id: '3', date: new Date(new Date().setDate(new Date().getDate() - 2)), description: 'Conta de Luz', amount: -450.75, type: 'expense', category: 'Luz' },
-  { id: '4', date: new Date(new Date().setDate(new Date().getDate() - 3)), description: 'Prestação de Serviço - Cliente B', amount: 7500, type: 'revenue', category: 'Prestação de Serviço' },
-];
-
-const defaultCategories: Category[] = [
-    { id: 'cat-rev-1', name: 'Prestação de Serviço', type: 'revenue' },
-    { id: 'cat-rev-2', name: 'Venda de Produtos', type: 'revenue' },
-    { id: 'cat-exp-1', name: 'Salários', type: 'expense' },
-    { id: 'cat-exp-2', name: 'Fornecedores', type: 'expense' },
-    { id: 'cat-exp-3', name: 'Aluguel', type: 'expense' },
-  ];
-
 const transactionSchema = z.object({
   description: z.string().optional(),
   amount: z.coerce.number().positive('O valor deve ser positivo.'),
@@ -110,6 +92,7 @@ export function TransactionsClient() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -117,29 +100,34 @@ export function TransactionsClient() {
   const [dateFilter, setDateFilter] = useState<Date | undefined>();
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
 
-  useEffect(() => {
-    try {
-      const storedTransactions = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
-      setAllTransactions(storedTransactions ? JSON.parse(storedTransactions, (key, value) => key === 'date' ? new Date(value) : value) : initialTransactions);
+  const getTransactionsStorageKey = (id: string) => `app-transactions-${id}`;
+  const getCategoriesStorageKey = (id: string) => `app-categories-${id}`;
 
-      const storedCategories = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-      const categories = storedCategories ? JSON.parse(storedCategories) : defaultCategories;
-      setAllCategories(categories);
-      if (!storedCategories) {
-        localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(defaultCategories));
-      }
+  useEffect(() => {
+    const id = localStorage.getItem('current-user-company-id');
+    setCompanyId(id);
+    if (!id) return;
+
+    try {
+      const transactionsKey = getTransactionsStorageKey(id);
+      const storedTransactions = localStorage.getItem(transactionsKey);
+      setAllTransactions(storedTransactions ? JSON.parse(storedTransactions, (key, value) => key === 'date' ? new Date(value) : value) : []);
+
+      const categoriesKey = getCategoriesStorageKey(id);
+      const storedCategories = localStorage.getItem(categoriesKey);
+      setAllCategories(storedCategories ? JSON.parse(storedCategories) : []);
     } catch (error) {
       console.error("Failed to load data from localStorage", error);
-      setAllTransactions(initialTransactions);
-      setAllCategories(defaultCategories);
+      setAllTransactions([]);
+      setAllCategories([]);
     }
   }, []);
 
   useEffect(() => {
-    if (allTransactions.length) {
-      localStorage.setItem(TRANSACTIONS_STORAGE_KEY, JSON.stringify(allTransactions));
+    if (companyId && allTransactions.length) {
+      localStorage.setItem(getTransactionsStorageKey(companyId), JSON.stringify(allTransactions));
     }
-  }, [allTransactions]);
+  }, [allTransactions, companyId]);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
@@ -200,8 +188,10 @@ export function TransactionsClient() {
 
 
   const onSubmit = (data: TransactionFormValues) => {
+    if (!companyId) return;
+
     const amount = data.type === 'expense' ? -Math.abs(data.amount) : data.amount;
-    const payload = { ...data, amount, description: data.description || data.category };
+    const payload = { ...data, companyId, amount, description: data.description || data.category };
 
     if (editingTransaction) {
       setAllTransactions(

@@ -5,6 +5,7 @@ export type Transaction = {
   amount: number;
   type: 'revenue' | 'expense';
   category: string;
+  companyId: string;
 };
 
 export type User = {
@@ -12,16 +13,18 @@ export type User = {
   name: string;
   username: string;
   password: string;
+  companyId: string;
 };
 
 export type Category = {
   id: string;
   name: string;
   type: 'revenue' | 'expense';
+  companyId: string;
 };
 
 export type CompanyInfo = {
   name: string;
-  document: string; // CNPJ or CPF
+  document: string; // This is the companyId
   logo?: string; // base64 data URI
 };

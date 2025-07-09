@@ -14,9 +14,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { type User } from '@/lib/types';
+import { type User, type CompanyInfo } from '@/lib/types';
 
 const USERS_STORAGE_KEY = 'app-users';
+const COMPANIES_STORAGE_KEY = 'app-companies';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,18 +26,37 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Ensure default admin user exists in localStorage on client side
+  // Ensure default admin user and company exist in localStorage on client side
   useEffect(() => {
     try {
       const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
       if (!storedUsers) {
+        const defaultCompany: CompanyInfo = {
+          document: 'default-001',
+          name: 'Minha Empresa (Padrão)',
+          logo: '',
+        };
+        localStorage.setItem(
+          COMPANIES_STORAGE_KEY,
+          JSON.stringify([defaultCompany])
+        );
+
         const defaultUsers: User[] = [
-          { id: '1', name: 'ADMINISTRADOR', username: 'admin', password: 'senha123' },
+          {
+            id: '1',
+            name: 'ADMINISTRADOR',
+            username: 'admin',
+            password: 'senha123',
+            companyId: defaultCompany.document,
+          },
         ];
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
       }
     } catch (error) {
-      console.error('Failed to initialize users in localStorage:', error);
+      console.error(
+        'Failed to initialize default data in localStorage:',
+        error
+      );
     }
   }, []);
 
@@ -57,13 +77,16 @@ export default function LoginPage() {
       }
 
       const foundUser = users.find(
-        (user) => user.username.toLowerCase() === username.toLowerCase() && user.password === password
+        (user) =>
+          user.username.toLowerCase() === username.toLowerCase() &&
+          user.password === password
       );
 
       if (foundUser) {
         localStorage.setItem('auth-token', 'mock-token-string');
         localStorage.setItem('current-user', foundUser.username);
         localStorage.setItem('current-user-name', foundUser.name);
+        localStorage.setItem('current-user-company-id', foundUser.companyId);
         toast({
           title: 'Login bem-sucedido!',
           description: 'Redirecionando para o dashboard.',

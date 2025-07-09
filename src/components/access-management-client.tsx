@@ -77,37 +77,24 @@ export function AccessManagementClient() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-      if (storedUsers) {
-        setUsers(JSON.parse(storedUsers));
-      } else {
-        const defaultUsers: User[] = [
-          { id: '1', name: 'ADMINISTRADOR', username: 'admin', password: 'senha123' },
-        ];
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
-        setUsers(defaultUsers);
+    const currentCompanyId = localStorage.getItem('current-user-company-id');
+    setCompanyId(currentCompanyId);
+
+    if (currentCompanyId) {
+      try {
+        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+        if (storedUsers) {
+          const allUsers: User[] = JSON.parse(storedUsers);
+          setUsers(allUsers.filter((u) => u.companyId === currentCompanyId));
+        }
+      } catch (error) {
+        console.error('Failed to access localStorage:', error);
       }
-    } catch (error) {
-      console.error('Failed to access localStorage:', error);
-      const defaultUsers: User[] = [
-        { id: '1', name: 'ADMINISTRADOR', username: 'admin', password: 'senha123' },
-      ];
-      setUsers(defaultUsers);
     }
   }, []);
-
-  useEffect(() => {
-    if (users.length > 0) {
-      try {
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-      } catch (error) {
-        console.error('Failed to save users to localStorage:', error);
-      }
-    }
-  }, [users]);
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -119,6 +106,12 @@ export function AccessManagementClient() {
   });
 
   const onSubmit = (data: UserFormValues) => {
+    if (!companyId) return;
+
+    const allUsers: User[] = JSON.parse(
+      localStorage.getItem(USERS_STORAGE_KEY) || '[]'
+    );
+
     const submittedData = {
       ...data,
       username: data.username.toLowerCase(),
@@ -128,12 +121,13 @@ export function AccessManagementClient() {
     if (editingUser) {
       // Logic for editing a user
       if (
-        editingUser.username.toLowerCase() !== submittedData.username.toLowerCase()
+        editingUser.username.toLowerCase() !==
+        submittedData.username.toLowerCase()
       ) {
-        const existingUser = users.find(
+        const existingUser = allUsers.find(
           (u) =>
-            u.username.toLowerCase() === submittedData.username.toLowerCase() &&
-            u.id !== editingUser.id
+            u.username.toLowerCase() ===
+              submittedData.username.toLowerCase() && u.id !== editingUser.id
         );
         if (existingUser) {
           form.setError('username', {
@@ -152,7 +146,11 @@ export function AccessManagementClient() {
         ...(submittedData.password && { password: submittedData.password }),
       };
 
-      setUsers(users.map((u) => (u.id === editingUser.id ? payload : u)));
+      const updatedAllUsers = allUsers.map((u) =>
+        u.id === editingUser.id ? payload : u
+      );
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedAllUsers));
+      setUsers(updatedAllUsers.filter((u) => u.companyId === companyId));
       toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
     } else {
       // Logic for creating a new user
@@ -164,7 +162,7 @@ export function AccessManagementClient() {
         return;
       }
 
-      const existingUser = users.find(
+      const existingUser = allUsers.find(
         (u) => u.username.toLowerCase() === submittedData.username.toLowerCase()
       );
       if (existingUser) {
@@ -174,15 +172,18 @@ export function AccessManagementClient() {
         });
         return;
       }
-      setUsers([
-        ...users,
-        {
-          id: new Date().toISOString(),
-          name: submittedData.name,
-          username: submittedData.username,
-          password: submittedData.password,
-        },
-      ]);
+
+      const newUser: User = {
+        id: new Date().toISOString(),
+        name: submittedData.name,
+        username: submittedData.username,
+        password: submittedData.password,
+        companyId: companyId,
+      };
+
+      const updatedAllUsers = [...allUsers, newUser];
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedAllUsers));
+      setUsers(updatedAllUsers.filter((u) => u.companyId === companyId));
       toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
     }
 
@@ -208,22 +209,25 @@ export function AccessManagementClient() {
   };
 
   const handleConfirmDelete = () => {
-    if (userToDelete) {
+    if (userToDelete && companyId) {
       if (userToDelete.username === 'admin') {
         toast({
           title: 'Ação não permitida',
           description: 'O usuário admin não pode ser removido.',
           variant: 'destructive',
         });
-        setIsDeleteAlertOpen(false);
-        setUserToDelete(null);
-        return;
+      } else {
+        const allUsers: User[] = JSON.parse(
+          localStorage.getItem(USERS_STORAGE_KEY) || '[]'
+        );
+        const updatedAllUsers = allUsers.filter((u) => u.id !== userToDelete.id);
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedAllUsers));
+        setUsers(updatedAllUsers.filter((u) => u.companyId === companyId));
+        toast({
+          title: 'Sucesso!',
+          description: 'Usuário removido.',
+        });
       }
-      setUsers(users.filter((u) => u.id !== userToDelete.id));
-      toast({
-        title: 'Sucesso!',
-        description: 'Usuário removido.',
-      });
     }
     setIsDeleteAlertOpen(false);
     setUserToDelete(null);
