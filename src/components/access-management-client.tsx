@@ -247,7 +247,11 @@ export function AccessManagementClient() {
                   <FormItem>
                     <FormLabel>Nome Completo</FormLabel>
                     <FormControl>
-                      <Input placeholder="ex: João da Silva" {...field} />
+                      <Input
+                        placeholder="ex: João da Silva"
+                        {...field}
+                        className="uppercase"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
