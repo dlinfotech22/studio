@@ -343,8 +343,8 @@ export function SystemAdminClient() {
                       <TableRow key={user.id}>
                         <TableCell>{user.name}</TableCell>
                         <TableCell className="font-medium">{user.username}</TableCell>
-                        <TableCell className="capitalize">
-                            {user.role === 'system_admin' && 'Admin. do Sistema'}
+                        <TableCell>
+                            {user.role === 'system_admin' && 'ADMINISTRADOR DO SISTEMA'}
                             {user.role === 'company_admin' && 'Admin. da Empresa'}
                             {user.role === 'user' && 'Usuário'}
                         </TableCell>
