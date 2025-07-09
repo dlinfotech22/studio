@@ -54,10 +54,16 @@ import {
 } from './ui/alert-dialog';
 import { Card, CardContent } from './ui/card';
 
+// The schema now allows an empty string for the password, or a string of at least 6 characters.
+// This allows the password field to be optional during edits.
 const userSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
   username: z.string().min(1, 'O nome de usuário é obrigatório.'),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.'),
+  password: z
+    .string()
+    .min(6, 'A senha deve ter pelo menos 6 caracteres.')
+    .or(z.literal(''))
+    .optional(),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -113,12 +119,20 @@ export function AccessManagementClient() {
   });
 
   const onSubmit = (data: UserFormValues) => {
-    const payload = { ...data, username: data.username.toLowerCase(), name: data.name.toUpperCase() };
+    const submittedData = {
+      ...data,
+      username: data.username.toLowerCase(),
+      name: data.name.toUpperCase(),
+    };
+
     if (editingUser) {
-      if (editingUser.username !== payload.username) {
+      // Logic for editing a user
+      if (
+        editingUser.username.toLowerCase() !== submittedData.username.toLowerCase()
+      ) {
         const existingUser = users.find(
           (u) =>
-            u.username.toLowerCase() === payload.username.toLowerCase() &&
+            u.username.toLowerCase() === submittedData.username.toLowerCase() &&
             u.id !== editingUser.id
         );
         if (existingUser) {
@@ -130,13 +144,28 @@ export function AccessManagementClient() {
         }
       }
 
-      setUsers(
-        users.map((u) => (u.id === editingUser.id ? { ...u, ...payload } : u))
-      );
+      const payload = {
+        ...editingUser,
+        name: submittedData.name,
+        username: submittedData.username,
+        // Only update password if a new one was provided
+        ...(submittedData.password && { password: submittedData.password }),
+      };
+
+      setUsers(users.map((u) => (u.id === editingUser.id ? payload : u)));
       toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
     } else {
+      // Logic for creating a new user
+      if (!submittedData.password) {
+        form.setError('password', {
+          type: 'manual',
+          message: 'A senha é obrigatória para novos usuários.',
+        });
+        return;
+      }
+
       const existingUser = users.find(
-        (u) => u.username.toLowerCase() === payload.username.toLowerCase()
+        (u) => u.username.toLowerCase() === submittedData.username.toLowerCase()
       );
       if (existingUser) {
         form.setError('username', {
@@ -145,9 +174,18 @@ export function AccessManagementClient() {
         });
         return;
       }
-      setUsers([...users, { id: new Date().toISOString(), ...payload }]);
+      setUsers([
+        ...users,
+        {
+          id: new Date().toISOString(),
+          name: submittedData.name,
+          username: submittedData.username,
+          password: submittedData.password,
+        },
+      ]);
       toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
     }
+
     setEditingUser(null);
     form.reset({ name: '', username: '', password: '' });
     setIsDialogOpen(false);
@@ -155,7 +193,12 @@ export function AccessManagementClient() {
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
-    form.reset(user);
+    // Reset form with user data, but with an empty password field
+    form.reset({
+      name: user.name,
+      username: user.username,
+      password: '',
+    });
     setIsDialogOpen(true);
   };
 
@@ -268,7 +311,9 @@ export function AccessManagementClient() {
                         placeholder="ex: João da Silva"
                         {...field}
                         value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.toUpperCase())
+                        }
                         className="uppercase"
                       />
                     </FormControl>
@@ -303,7 +348,11 @@ export function AccessManagementClient() {
                     <FormControl>
                       <Input
                         type="password"
-                        placeholder="••••••••"
+                        placeholder={
+                          editingUser
+                            ? 'Deixe em branco para manter a atual'
+                            : '••••••••'
+                        }
                         {...field}
                         value={field.value || ''}
                       />
