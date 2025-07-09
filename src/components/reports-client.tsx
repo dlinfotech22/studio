@@ -213,11 +213,14 @@ export function ReportsClient() {
     'period' | 'day' | 'month' | 'year' | undefined
   >();
   const [isClearDataAlertOpen, setIsClearDataAlertOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const id = sessionStorage.getItem('current-user-company-id');
+    const role = sessionStorage.getItem('current-user-role');
     setCompanyId(id);
+    setUserRole(role);
     if (!id) {
       setIsClient(true);
       return;
@@ -679,14 +682,16 @@ export function ReportsClient() {
                 <FileText className="mr-2 h-4 w-4" />
                 Gerar Relatório PDF
               </Button>
-               <Button
-                variant="destructive"
-                onClick={() => setIsClearDataAlertOpen(true)}
-                className="w-full sm:w-auto"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Limpar Dados Antigos
-              </Button>
+              {userRole === 'company_admin' && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setIsClearDataAlertOpen(true)}
+                  className="w-full sm:w-auto"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Limpar Dados Antigos
+                </Button>
+              )}
             </div>
           </div>
 
