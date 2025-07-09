@@ -236,7 +236,7 @@ function CompanyProfile() {
     setCompanyId(id);
     if (id) {
       // The document field (company ID) can only be edited if it's the placeholder value.
-      setIsDocumentDisabled(id !== 'default-001');
+      setIsDocumentDisabled(true);
       try {
         const allCompanies: CompanyInfo[] = JSON.parse(localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]');
         const currentCompany = allCompanies.find(c => c.document === id);

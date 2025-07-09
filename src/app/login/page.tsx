@@ -31,26 +31,6 @@ export default function LoginPage() {
   // Ensure default admin user and company exist in localStorage on client side
   useEffect(() => {
     try {
-      // Initialize companies if not present
-      let allCompanies: CompanyInfo[] = JSON.parse(
-        localStorage.getItem(COMPANIES_STORAGE_KEY) || '[]'
-      );
-      const defaultCompanyExists = allCompanies.some(
-        (c) => c.document === 'default-001'
-      );
-      if (!defaultCompanyExists) {
-        const defaultCompany: CompanyInfo = {
-          document: 'default-001',
-          name: 'Minha Empresa (Padrão)',
-          logo: '',
-        };
-        allCompanies.push(defaultCompany);
-        localStorage.setItem(
-          COMPANIES_STORAGE_KEY,
-          JSON.stringify(allCompanies)
-        );
-      }
-
       // Initialize users and ensure the system admin is always correct.
       let allUsers: User[] = JSON.parse(
         localStorage.getItem(USERS_STORAGE_KEY) || '[]'

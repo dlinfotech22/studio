@@ -445,7 +445,6 @@ export function SystemAdminClient() {
                         setIsDeleteCompanyAlertOpen(true);
                       }}
                       className="text-red-500"
-                      disabled={company.document === 'default-001'}
                     >
                       <Trash2 className="mr-2 h-4 w-4" /> Deletar Empresa
                     </DropdownMenuItem>
