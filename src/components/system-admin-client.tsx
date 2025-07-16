@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
   Building,
   Users,
+  Search,
 } from 'lucide-react';
 import { type User, type CompanyInfo } from '@/lib/types';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -115,6 +116,7 @@ export function SystemAdminClient() {
   const [companyToDelete, setCompanyToDelete] = useState<CompanyInfo | null>(null);
   const [isDeleteUserAlertOpen, setIsDeleteUserAlertOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -345,11 +347,26 @@ export function SystemAdminClient() {
   };
 
   const systemAdmins = users.filter((u) => u.role === 'system_admin');
+  const filteredCompanies = companies.filter(
+    (company) =>
+      company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      company.document.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <>
-      <div className="flex justify-end">
-        <Button onClick={() => openCompanyDialog(null)}>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="relative w-full md:max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Pesquisar empresa por nome ou documento..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Button onClick={() => openCompanyDialog(null)} className="w-full md:w-auto">
           <Building className="mr-2 h-4 w-4" />
           Adicionar Nova Empresa
         </Button>
@@ -405,7 +422,7 @@ export function SystemAdminClient() {
             </div>
           </AccordionContent>
         </AccordionItem>
-        {companies.map((company) => (
+        {filteredCompanies.map((company) => (
           <AccordionItem value={company.document} key={company.document}>
             <AccordionTrigger>
               <div className="flex justify-between items-center w-full">
