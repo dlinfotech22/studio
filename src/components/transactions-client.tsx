@@ -728,21 +728,22 @@ export function TransactionsClient() {
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                         <Command>
+                           <CommandInput placeholder="Pesquisar produto..." />
                           <CommandList>
-                            <CommandItem
-                                value="--none--"
-                                onSelect={() => {
-                                  form.setValue("productId", "");
-                                  form.setValue("amount", 0);
-                                  form.setValue("quantitySold", 0);
-                                  form.setValue("productAmount", 0);
-                                  setIsProductComboboxOpen(false);
-                                }}
-                              >
-                                Nenhum
-                              </CommandItem>
-                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                             <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                             <CommandGroup>
+                              <CommandItem
+                                  value="--none--"
+                                  onSelect={() => {
+                                    form.setValue("productId", "");
+                                    form.setValue("amount", 0);
+                                    form.setValue("quantitySold", 0);
+                                    form.setValue("productAmount", 0);
+                                    setIsProductComboboxOpen(false);
+                                  }}
+                                >
+                                  Nenhum
+                                </CommandItem>
                               {allProducts.map((prod) => (
                                 <CommandItem
                                   value={prod.id}
