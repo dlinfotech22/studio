@@ -196,7 +196,7 @@ export function TransactionsClient() {
         const searchTermLower = searchTerm.toLowerCase();
         const searchMatch =
           searchTerm === '' ||
-          t.description.toLowerCase().includes(searchTermLower);
+          (t.description && t.description.toLowerCase().includes(searchTermLower));
 
         const amountValue = parseFloat(amountFilter);
         const amountMatch =
@@ -834,6 +834,7 @@ export function TransactionsClient() {
                     <Input
                       placeholder="Ex: Pagamento de aluguel"
                       {...field}
+                      value={field.value || ''}
                       onChange={(e) =>
                         field.onChange(capitalizeFirstLetter(e.target.value))
                       }
