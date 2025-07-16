@@ -187,8 +187,8 @@ function CompanyUserList({
                 const isAdmin = user.role === 'company_admin';
                 return (
                   <TableRow key={user.id}>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell className="font-medium">{user.username}</TableCell>
+                    <TableCell className={cn(isAdmin && 'font-semibold text-primary')}>{user.name}</TableCell>
+                    <TableCell className={cn("font-medium", isAdmin && 'font-semibold text-primary')}>{user.username}</TableCell>
                     <TableCell>
                       {isAdmin ? (
                         <Badge variant="outline">Admin. da Empresa</Badge>
@@ -546,13 +546,6 @@ export function SystemAdminClient() {
       const transactionsSnapshot = await getDocs(transactionsQuery);
       transactionsSnapshot.forEach((doc) => batch.delete(doc.ref));
 
-      const categoriesQuery = query(
-        collection(db, 'categories'),
-        where('companyId', '==', companyToDelete.document)
-      );
-      const categoriesSnapshot = await getDocs(categoriesQuery);
-      categoriesSnapshot.forEach((doc) => batch.delete(doc.ref));
-      
       const productsQuery = query(
         collection(db, 'products'),
         where('companyId', '==', companyToDelete.document)
@@ -1095,7 +1088,7 @@ export function SystemAdminClient() {
             <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta ação é irreversível. Todos os dados da empresa, incluindo
-              usuários, transações, produtos e categorias, serão permanentemente
+              usuários, transações, e produtos, serão permanentemente
               removidos.
             </AlertDialogDescription>
           </AlertDialogHeader>

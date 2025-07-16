@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
-import { type Transaction, type Category, type Product, type TransactionSubtype, type TransactionType } from '@/lib/types';
+import { type Transaction, type Product, type TransactionSubtype, type TransactionType } from '@/lib/types';
 import { formatCurrency, cn, capitalizeFirstLetter } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -101,7 +101,6 @@ const transactionSchema = z.object({
   description: z.string().optional(),
   amount: z.coerce.number().positive('O valor deve ser positivo.'),
   date: z.date(),
-  category: z.string().min(1, 'Selecione uma categoria.'),
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   productId: z.string().optional(),
   quantitySold: z.coerce.number().optional(),
@@ -116,15 +115,12 @@ const subtypeToTypeMap: Record<TransactionSubtype, TransactionType> = {
   'Despesa': 'expense',
 };
 
-const revenueSubtypes: TransactionSubtype[] = ['Prestação de Serviço', 'Venda', 'Serviço + Venda'];
-
 export function TransactionsClient() {
   const { toast } = useToast();
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<
     Transaction[]
   >([]);
-  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] =
@@ -160,14 +156,6 @@ export function TransactionsClient() {
         });
         setAllTransactions(transactions);
 
-        const categoriesRef = collection(db, 'categories');
-        const qCategories = query(categoriesRef, where('companyId', '==', id));
-        const categorySnapshot = await getDocs(qCategories);
-        const categories = categorySnapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Category)
-        );
-        setAllCategories(categories);
-
         const productsRef = collection(db, 'products');
         const qProducts = query(productsRef, where('companyId', '==', id));
         const productSnapshot = await getDocs(qProducts);
@@ -178,7 +166,6 @@ export function TransactionsClient() {
       } catch (error) {
         console.error('Failed to load data from Firestore', error);
         setAllTransactions([]);
-        setAllCategories([]);
       }
     };
 
@@ -198,8 +185,7 @@ export function TransactionsClient() {
         const searchTermLower = searchTerm.toLowerCase();
         const searchMatch =
           searchTerm === '' ||
-          t.description.toLowerCase().includes(searchTermLower) ||
-          t.category.toLowerCase().includes(searchTermLower);
+          t.description.toLowerCase().includes(searchTermLower);
 
         const amountValue = parseFloat(amountFilter);
         const amountMatch =
@@ -251,13 +237,6 @@ export function TransactionsClient() {
   const revenue = filteredTransactions.filter((t) => t.type === 'revenue');
   const expenses = filteredTransactions.filter((t) => t.type === 'expense');
 
-  const revenueCategories = allCategories
-    .filter((c) => c.type === 'revenue')
-    .map((c) => c.name);
-  const expenseCategories = allCategories
-    .filter((c) => c.type === 'expense')
-    .map((c) => c.name);
-
   const onSubmit = async (data: TransactionFormValues) => {
     if (!companyId) return;
 
@@ -295,7 +274,7 @@ export function TransactionsClient() {
             type: transactionType,
             companyId,
             amount: transactionType === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount),
-            description: data.description || data.category,
+            description: data.description || data.subtype,
             date: Timestamp.fromDate(data.date),
           };
           transaction.update(transactionRef, payload);
@@ -315,7 +294,7 @@ export function TransactionsClient() {
             type: transactionType,
             companyId,
             amount: transactionType === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount),
-            description: data.description || data.category,
+            description: data.description || data.subtype,
             date: Timestamp.fromDate(data.date),
           };
           transaction.set(doc(collection(db, 'transactions')), payload);
@@ -336,7 +315,6 @@ export function TransactionsClient() {
         amount: 0,
         date: new Date(),
         subtype: data.subtype,
-        category: '',
         productId: '',
         quantitySold: 0,
       });
@@ -408,7 +386,6 @@ export function TransactionsClient() {
       amount: 0,
       date: new Date(),
       subtype: type === 'revenue' ? 'Prestação de Serviço' : 'Despesa',
-      category: '',
       productId: '',
       quantitySold: 0,
     });
@@ -445,7 +422,6 @@ export function TransactionsClient() {
               <TableRow>
                 <TableHead>Descrição</TableHead>
                 <TableHead>Tipo</TableHead>
-                <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead className="text-right">Data</TableHead>
                 <TableHead className="w-12"></TableHead>
@@ -459,7 +435,6 @@ export function TransactionsClient() {
                       {item.description}
                     </TableCell>
                     <TableCell>{item.subtype}</TableCell>
-                    <TableCell>{item.category}</TableCell>
                     <TableCell
                       className={cn(
                         'text-right font-mono',
@@ -495,7 +470,7 @@ export function TransactionsClient() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={5} className="h-24 text-center">
                     Nenhum lançamento encontrado.
                   </TableCell>
                 </TableRow>
@@ -567,7 +542,7 @@ export function TransactionsClient() {
         <div className="relative w-full md:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Pesquisar por descrição ou categoria..."
+            placeholder="Pesquisar por descrição..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
@@ -671,7 +646,6 @@ export function TransactionsClient() {
                   <Select
                     onValueChange={(value: TransactionSubtype) => {
                       field.onChange(value);
-                      form.setValue('category', '');
                     }}
                     value={field.value}
                   >
@@ -821,33 +795,6 @@ export function TransactionsClient() {
                   <FormControl>
                     <Input type="number" placeholder="0.00" {...field} disabled={!!selectedProductId} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoria</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma categoria" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {(subtypeToTypeMap[selectedSubtype] === 'revenue'
-                        ? revenueCategories
-                        : expenseCategories
-                      ).map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

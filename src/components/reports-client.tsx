@@ -190,13 +190,12 @@ function ReportsSkeleton() {
                 <TableRow>
                   <TableHead>Data</TableHead>
                   <TableHead>Descrição</TableHead>
-                  <TableHead>Categoria</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
+                  <TableCell colSpan={3} className="h-24 text-center">
                     Carregando dados...
                   </TableCell>
                 </TableRow>
@@ -430,7 +429,6 @@ export function ReportsClient() {
       Data: format(new Date(t.date), 'dd/MM/yyyy'),
       Descrição: t.description,
       Tipo: t.subtype,
-      Categoria: t.category,
       Valor: t.amount,
     }));
 
@@ -438,7 +436,7 @@ export function ReportsClient() {
 
     const range = XLSX.utils.decode_range(worksheet['!ref']!);
     for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-      const cell_address = { c: 4, r: R };
+      const cell_address = { c: 3, r: R };
       const cell_ref = XLSX.utils.encode_cell(cell_address);
       if (worksheet[cell_ref]) {
         worksheet[cell_ref].t = 'n';
@@ -450,16 +448,16 @@ export function ReportsClient() {
       worksheet,
       [
         [],
-        ['', '', '', 'Receita Total', totalRevenue],
-        ['', '', '', 'Despesa Total', totalExpenses],
-        ['', '', '', 'Lucro/Prejuízo', profit],
+        ['', '', 'Receita Total', totalRevenue],
+        ['', '', 'Despesa Total', totalExpenses],
+        ['', '', 'Lucro/Prejuízo', profit],
       ],
       { origin: -1 }
     );
 
     const new_range = XLSX.utils.decode_range(worksheet['!ref']!);
     for (let R = new_range.e.r - 2; R <= new_range.e.r; ++R) {
-      const cell_address = { c: 4, r: R };
+      const cell_address = { c: 3, r: R };
       const cell_ref = XLSX.utils.encode_cell(cell_address);
       if (worksheet[cell_ref]) {
         worksheet[cell_ref].t = 'n';
@@ -470,7 +468,6 @@ export function ReportsClient() {
     worksheet['!cols'] = [
       { wch: 12 },
       { wch: 40 },
-      { wch: 20 },
       { wch: 20 },
       { wch: 15 },
     ];
@@ -607,19 +604,18 @@ export function ReportsClient() {
       };
     } else {
       autoTableOptions = {
-        head: [['Data', 'Descrição', 'Tipo', 'Categoria', 'Valor']],
+        head: [['Data', 'Descrição', 'Tipo', 'Valor']],
         body: filteredTransactions.map((t) => [
           format(new Date(t.date), 'dd/MM/yyyy'),
           t.description,
           t.subtype,
-          t.category,
           formatCurrency(t.amount),
         ]),
         startY,
         headStyles: { fillColor: [41, 128, 185] },
-        columnStyles: { 4: { halign: 'right' } },
+        columnStyles: { 3: { halign: 'right' } },
         didParseCell: (data: any) => {
-          if (data.column.index === 4 && data.cell.section === 'body') {
+          if (data.column.index === 3 && data.cell.section === 'body') {
             const transaction = filteredTransactions[data.row.index];
             data.cell.styles.textColor =
               transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
@@ -851,7 +847,6 @@ export function ReportsClient() {
                   <TableHead>Data</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Categoria</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                 </TableRow>
               </TableHeader>
@@ -866,7 +861,6 @@ export function ReportsClient() {
                         {t.description}
                       </TableCell>
                        <TableCell>{t.subtype}</TableCell>
-                      <TableCell>{t.category}</TableCell>
                       <TableCell
                         className={cn(
                           'text-right font-mono',
@@ -881,7 +875,7 @@ export function ReportsClient() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={4} className="h-24 text-center">
                       Nenhum lançamento encontrado para o período selecionado.
                     </TableCell>
                   </TableRow>

@@ -24,14 +24,9 @@ import {
   getDownloadURL,
 } from 'firebase/storage';
 import {
-  Edit,
-  Trash2,
-  PlusCircle,
-  MoreHorizontal,
   Moon,
   Sun,
   Image as ImageIcon,
-  Search,
 } from 'lucide-react';
 import {
   Card,
@@ -49,7 +44,6 @@ import {
 } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Form,
   FormControl,
@@ -60,51 +54,10 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { type User, type Category, type CompanyInfo } from '@/lib/types';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { type User, type CompanyInfo } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { capitalizeFirstLetter } from '@/lib/utils';
 import { db, storage } from '@/lib/firebase';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 // Schemas
 const profileSchema = z
@@ -124,20 +77,8 @@ const companyInfoSchema = z.object({
   logo: z.string().optional(),
 });
 
-const categorySchema = z.object({
-  name: z.string().min(1, 'O nome da categoria é obrigatório.'),
-  type: z.enum(['revenue', 'expense']),
-});
 
 // Default values
-const defaultCategories: Omit<Category, 'companyId' | 'id'>[] = [
-  { name: 'Prestação de Serviço', type: 'revenue' },
-  { name: 'Venda de Produtos', type: 'revenue' },
-  { name: 'Salários', type: 'expense' },
-  { name: 'Fornecedores', type: 'expense' },
-  { name: 'Aluguel', type: 'expense' },
-];
-
 const defaultCompanyInfo: CompanyInfo = {
   id: '',
   name: '',
@@ -437,404 +378,6 @@ function CompanyProfile() {
   );
 }
 
-function CategoryManagement() {
-  const { toast } = useToast();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
-    null
-  );
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  const form = useForm<z.infer<typeof categorySchema>>({
-    resolver: zodResolver(categorySchema),
-    defaultValues: {
-      name: '',
-      type: 'revenue',
-    },
-  });
-
-  useEffect(() => {
-    const fetchCategories = async (id: string) => {
-      try {
-        const categoriesRef = collection(db, 'categories');
-        const q = query(categoriesRef, where('companyId', '==', id));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-          // If no categories exist, create default ones
-          const batch = writeBatch(db);
-          const companyDefaultCategories = defaultCategories.map((c) => {
-            const newDocRef = doc(collection(db, 'categories'));
-            const newCategory = { ...c, companyId: id };
-            batch.set(newDocRef, newCategory);
-            return { id: newDocRef.id, ...newCategory };
-          });
-          await batch.commit();
-          setCategories(companyDefaultCategories);
-        } else {
-          const fetchedCategories = querySnapshot.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() } as Category)
-          );
-          setCategories(fetchedCategories);
-        }
-      } catch (e) {
-        console.error('Failed to load or set categories:', e);
-      }
-    };
-
-    const id = sessionStorage.getItem('current-user-company-id');
-    setCompanyId(id);
-    if (id) {
-      fetchCategories(id);
-    }
-  }, []);
-
-  const onSubmit = async (values: z.infer<typeof categorySchema>) => {
-    if (!companyId) return;
-    const payload = {
-      ...values,
-      companyId,
-      name: capitalizeFirstLetter(values.name),
-    };
-
-    try {
-      if (editingCategory) {
-        const categoryRef = doc(db, 'categories', editingCategory.id);
-        await updateDoc(categoryRef, { name: payload.name, type: payload.type });
-        setCategories(
-          categories.map((c) =>
-            c.id === editingCategory.id ? { ...editingCategory, ...payload } : c
-          )
-        );
-        toast({ title: 'Sucesso!', description: 'Categoria atualizada.' });
-      } else {
-        const docRef = await addDoc(collection(db, 'categories'), payload);
-        setCategories([...categories, { id: docRef.id, ...payload }]);
-        toast({ title: 'Sucesso!', description: 'Categoria adicionada.' });
-      }
-      setEditingCategory(null);
-      form.reset({ name: '', type: activeTab });
-      setIsDialogOpen(false);
-    } catch (error: any) {
-      console.error('Failed to save category:', error);
-      toast({
-        title: 'Erro!',
-        description:
-          error.code === 'permission-denied'
-            ? 'Permissão negada para salvar a categoria.'
-            : 'Não foi possível salvar a categoria.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleEdit = (category: Category) => {
-    setEditingCategory(category);
-    form.reset(category);
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = (category: Category) => {
-    setCategoryToDelete(category);
-    setIsDeleteAlertOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (categoryToDelete) {
-      try {
-        await deleteDoc(doc(db, 'categories', categoryToDelete.id));
-        setCategories(categories.filter((c) => c.id !== categoryToDelete.id));
-        toast({ title: 'Sucesso!', description: 'Categoria removida.' });
-      } catch (error: any) {
-        console.error('Failed to delete category:', error);
-        toast({
-          title: 'Erro!',
-          description:
-            error.code === 'permission-denied'
-              ? 'Permissão negada para remover a categoria.'
-              : 'Não foi possível remover a categoria.',
-          variant: 'destructive',
-        });
-      }
-    }
-    setIsDeleteAlertOpen(false);
-    setCategoryToDelete(null);
-  };
-
-  const openNewDialog = (type: 'revenue' | 'expense') => {
-    setEditingCategory(null);
-    form.reset({ name: '', type });
-    setIsDialogOpen(true);
-  };
-
-  const renderCategoryTable = (type: 'revenue' | 'expense') => {
-    const filteredData = categories.filter(
-      (c) =>
-        c.type === type &&
-        c.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    const totalItems = filteredData.length;
-    const totalPages =
-      itemsPerPage > 0 ? Math.ceil(totalItems / itemsPerPage) : 1;
-    const paginatedData =
-      itemsPerPage > 0
-        ? filteredData.slice(
-            (currentPage - 1) * itemsPerPage,
-            currentPage * itemsPerPage
-          )
-        : filteredData;
-
-    return (
-      <div className="space-y-4">
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome da Categoria</TableHead>
-                <TableHead className="w-24 text-center">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedData.length > 0 ? (
-                paginatedData.map((cat) => (
-                  <TableRow key={cat.id}>
-                    <TableCell>{cat.name}</TableCell>
-                    <TableCell className="text-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem onClick={() => handleEdit(cat)}>
-                            <Edit className="mr-2 h-4 w-4" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(cat)}
-                            className="text-red-500"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Deletar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={2} className="h-24 text-center">
-                    Nenhuma categoria encontrada.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        {itemsPerPage > 0 && totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Total de {totalItems} categoria(s).
-            </div>
-            <div className="flex items-center space-x-2">
-              <p className="text-sm font-medium">Itens por página</p>
-              <Select
-                value={`${itemsPerPage}`}
-                onValueChange={(value) => {
-                  setItemsPerPage(Number(value));
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="h-8 w-[70px]">
-                  <SelectValue placeholder={itemsPerPage} />
-                </SelectTrigger>
-                <SelectContent side="top">
-                  {[10, 30, 50].map((pageSize) => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                      {pageSize}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="0">Todos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground">
-                Página {currentPage} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-              >
-                Próximo
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, searchTerm, itemsPerPage]);
-
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Gerenciar Categorias</CardTitle>
-          <CardDescription>
-            Adicione, edite ou remova categorias de receitas e despesas.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => {
-              setActiveTab(v as 'revenue' | 'expense');
-              setSearchTerm('');
-            }}
-            className="w-full"
-          >
-            <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center md:justify-between">
-              <TabsList>
-                <TabsTrigger value="revenue">Receitas</TabsTrigger>
-                <TabsTrigger value="expense">Despesas</TabsTrigger>
-              </TabsList>
-              <div className="flex items-center gap-2">
-                <div className="relative w-full md:w-auto">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Pesquisar..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8 w-full md:w-[250px]"
-                  />
-                </div>
-                <Button onClick={() => openNewDialog(activeTab)}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Nova Categoria
-                </Button>
-              </div>
-            </div>
-
-            <TabsContent value="revenue" className="mt-0">
-              {renderCategoryTable('revenue')}
-            </TabsContent>
-            <TabsContent value="expense" className="mt-0">
-              {renderCategoryTable('expense')}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingCategory ? 'Editar' : 'Nova'} Categoria
-            </DialogTitle>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome da Categoria</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(capitalizeFirstLetter(e.target.value))
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo</FormLabel>
-                    <RadioGroup
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      className="flex gap-4"
-                    >
-                      <FormItem className="flex items-center space-x-2">
-                        <FormControl>
-                          <RadioGroupItem value="revenue" />
-                        </FormControl>
-                        <FormLabel>Receita</FormLabel>
-                      </FormItem>
-                      <FormItem className="flex items-center space-x-2">
-                        <FormControl>
-                          <RadioGroupItem value="expense" />
-                        </FormControl>
-                        <FormLabel>Despesa</FormLabel>
-                      </FormItem>
-                    </RadioGroup>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="ghost">Cancelar</Button>
-                </DialogClose>
-                <Button type="submit">
-                  {editingCategory ? 'Salvar' : 'Adicionar'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-      <AlertDialog
-        open={isDeleteAlertOpen}
-        onOpenChange={setIsDeleteAlertOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita e removerá a categoria.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>
-              Continuar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
-
 function AppearanceSettings() {
   const { setTheme, theme } = useTheme();
 
@@ -852,18 +395,18 @@ function AppearanceSettings() {
           onValueChange={setTheme}
           className="space-y-2"
         >
-          <Label>Tema</Label>
+          <FormLabel>Tema</FormLabel>
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="light" id="light" />
-            <Label htmlFor="light" className="flex items-center gap-2">
+            <FormLabel htmlFor="light" className="flex items-center gap-2 font-normal">
               <Sun className="h-4 w-4" /> Claro
-            </Label>
+            </FormLabel>
           </div>
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="dark" id="dark" />
-            <Label htmlFor="dark" className="flex items-center gap-2">
+            <FormLabel htmlFor="dark" className="flex items-center gap-2 font-normal">
               <Moon className="h-4 w-4" /> Escuro
-            </Label>
+            </FormLabel>
           </div>
         </RadioGroup>
       </CardContent>
@@ -872,13 +415,10 @@ function AppearanceSettings() {
 }
 
 export default function SettingsPage() {
-  const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [hasCompany, setHasCompany] = useState(false);
 
   useEffect(() => {
-    const role = sessionStorage.getItem('current-user-role');
     const companyId = sessionStorage.getItem('current-user-company-id');
-    setIsSystemAdmin(role === 'system_admin');
     setHasCompany(!!companyId);
   }, []);
 
@@ -895,10 +435,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="profile">Perfil</TabsTrigger>
           {hasCompany && (
-            <>
               <TabsTrigger value="company">Empresa</TabsTrigger>
-              <TabsTrigger value="categories">Categorias</TabsTrigger>
-            </>
           )}
           <TabsTrigger value="appearance">Aparência</TabsTrigger>
         </TabsList>
@@ -906,14 +443,9 @@ export default function SettingsPage() {
           <UserProfile />
         </TabsContent>
         {hasCompany && (
-          <>
             <TabsContent value="company" className="mt-6">
               <CompanyProfile />
             </TabsContent>
-            <TabsContent value="categories" className="mt-6">
-              <CategoryManagement />
-            </TabsContent>
-          </>
         )}
         <TabsContent value="appearance" className="mt-6">
           <AppearanceSettings />

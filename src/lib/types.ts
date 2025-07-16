@@ -15,7 +15,6 @@ export type Transaction = {
   amount: number;
   type: TransactionType;
   subtype: TransactionSubtype;
-  category: string;
   companyId: string;
   productId?: string;
   quantitySold?: number;
@@ -28,13 +27,6 @@ export type User = {
   password: string;
   companyId?: string;
   role: 'system_admin' | 'company_admin' | 'user';
-};
-
-export type Category = {
-  id: string;
-  name: string;
-  type: 'revenue' | 'expense';
-  companyId: string;
 };
 
 export type CompanyInfo = {
