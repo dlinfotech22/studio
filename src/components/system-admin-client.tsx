@@ -91,6 +91,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 
@@ -186,23 +187,14 @@ function CompanyUserList({
                 const isAdmin = user.role === 'company_admin';
                 return (
                   <TableRow key={user.id}>
-                    <TableCell
-                      className={cn(isAdmin && 'text-primary font-semibold')}
-                    >
-                      {user.name}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        'font-medium',
-                        isAdmin && 'text-primary font-semibold'
+                    <TableCell>{user.name}</TableCell>
+                    <TableCell className="font-medium">{user.username}</TableCell>
+                    <TableCell>
+                      {isAdmin ? (
+                        <Badge variant="outline">Admin. da Empresa</Badge>
+                      ) : (
+                        'Usuário'
                       )}
-                    >
-                      {user.username}
-                    </TableCell>
-                    <TableCell
-                      className={cn(isAdmin && 'text-primary font-semibold')}
-                    >
-                      {isAdmin ? 'Admin. da Empresa' : 'Usuário'}
                     </TableCell>
                     <TableCell className="text-center">
                       <DropdownMenu>
