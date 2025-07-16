@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { format, getMonth, getYear } from 'date-fns';
+import { format, getMonth, getYear, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   collection,
@@ -26,6 +26,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
+import { DateRange } from 'react-day-picker';
 
 import { type Transaction, type Category } from '@/lib/types';
 import { formatCurrency, cn, capitalizeFirstLetter } from '@/lib/utils';
@@ -111,7 +112,7 @@ export function TransactionsClient() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [amountFilter, setAmountFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState<Date | undefined>();
+  const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -174,10 +175,10 @@ export function TransactionsClient() {
           isNaN(amountValue) ||
           Math.abs(t.amount) === amountValue;
 
-        const dateMatch =
-          !dateFilter ||
-          format(new Date(t.date as Date), 'yyyy-MM-dd') ===
-            format(dateFilter, 'yyyy-MM-dd');
+        const dateMatch = !dateFilter?.from || (
+            new Date(t.date as Date) >= dateFilter.from &&
+            (!dateFilter.to || new Date(t.date as Date) <= dateFilter.to)
+        );
 
         return searchMatch && amountMatch && dateMatch;
       });
@@ -492,22 +493,33 @@ export function TransactionsClient() {
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateFilter ? (
-                format(dateFilter, 'PPP', { locale: ptBR })
+              {dateFilter?.from ? (
+                dateFilter.to ? (
+                  <>
+                    {format(dateFilter.from, "LLL dd, y")} -{" "}
+                    {format(dateFilter.to, "LLL dd, y")}
+                  </>
+                ) : (
+                  format(dateFilter.from, "LLL dd, y")
+                )
               ) : (
-                <span>Filtrar por data</span>
+                <span>Filtrar por período</span>
               )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0">
             <Calendar
-              mode="single"
-              selected={dateFilter}
-              onSelect={(date) => {
-                setDateFilter(date);
-                setIsFilterDatePickerOpen(false);
-              }}
               initialFocus
+              mode="range"
+              defaultMonth={dateFilter?.from}
+              selected={dateFilter}
+              onSelect={(range) => {
+                setDateFilter(range);
+                if(range?.from && range.to) {
+                  setIsFilterDatePickerOpen(false);
+                }
+              }}
+              numberOfMonths={2}
             />
           </PopoverContent>
         </Popover>
