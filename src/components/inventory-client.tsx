@@ -83,6 +83,7 @@ import {
 
 const productSchema = z.object({
   name: z.string().min(1, 'O nome do produto é obrigatório.'),
+  barcode: z.string().optional(),
   quantity: z.coerce.number().min(0, 'A quantidade não pode ser negativa.'),
   price: z.coerce.number().positive('O preço deve ser um valor positivo.'),
 });
@@ -126,19 +127,22 @@ export function InventoryClient() {
   }, [companyId]);
 
   useEffect(() => {
-    let productsToDisplay = products.filter((p) =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    let productsToDisplay = products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     setFilteredProducts(
       productsToDisplay.sort((a, b) => a.name.localeCompare(b.name))
     );
   }, [products, searchTerm]);
-  
+
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: '',
+      barcode: '',
       quantity: 0,
       price: 0,
     },
@@ -146,7 +150,7 @@ export function InventoryClient() {
 
   const onSubmit = async (data: ProductFormValues) => {
     if (!companyId) return;
-    
+
     const payload = { ...data, name: capitalizeFirstLetter(data.name), companyId };
 
     try {
@@ -167,7 +171,7 @@ export function InventoryClient() {
       setIsDialogOpen(false);
       form.reset();
     } catch (error: any) {
-       console.error('Failed to save product', error);
+      console.error('Failed to save product', error);
       toast({
         title: 'Erro!',
         description:
@@ -184,7 +188,7 @@ export function InventoryClient() {
     form.reset(product);
     setIsDialogOpen(true);
   };
-  
+
   const handleDelete = (product: Product) => {
     setProductToDelete(product);
     setIsDeleteAlertOpen(true);
@@ -192,8 +196,8 @@ export function InventoryClient() {
 
   const confirmDelete = async () => {
     if (productToDelete) {
-        // We should also check if this product is used in any transactions
-        // For simplicity now, we just delete it. A better approach would be to archive it.
+      // We should also check if this product is used in any transactions
+      // For simplicity now, we just delete it. A better approach would be to archive it.
       try {
         await deleteDoc(doc(db, 'products', productToDelete.id));
         setProducts(products.filter((p) => p.id !== productToDelete.id));
@@ -216,7 +220,7 @@ export function InventoryClient() {
 
   const openNewProductDialog = () => {
     setEditingProduct(null);
-    form.reset({ name: '', quantity: 0, price: 0 });
+    form.reset({ name: '', barcode: '', quantity: 0, price: 0 });
     setIsDialogOpen(true);
   };
 
@@ -241,27 +245,30 @@ export function InventoryClient() {
         <div className="relative w-full md:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Pesquisar por nome do produto..."
+            placeholder="Pesquisar por nome ou código..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
           />
         </div>
         <div className="ml-auto">
-            <Button onClick={openNewProductDialog}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Adicionar Produto
-            </Button>
+          <Button onClick={openNewProductDialog}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Produto
+          </Button>
         </div>
       </div>
-      
+
       <div className="space-y-4">
         <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nome do Produto</TableHead>
-                <TableHead className="text-right">Quantidade em Estoque</TableHead>
+                <TableHead>Código de Barras</TableHead>
+                <TableHead className="text-right">
+                  Quantidade em Estoque
+                </TableHead>
                 <TableHead className="text-right">Preço de Venda</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
@@ -271,6 +278,7 @@ export function InventoryClient() {
                 paginatedData.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell>{item.barcode || '-'}</TableCell>
                     <TableCell className="text-right">{item.quantity}</TableCell>
                     <TableCell className="text-right font-mono">
                       {formatCurrency(item.price)}
@@ -278,7 +286,11 @@ export function InventoryClient() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -299,7 +311,7 @@ export function InventoryClient() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
+                  <TableCell colSpan={5} className="h-24 text-center">
                     Nenhum produto encontrado.
                   </TableCell>
                 </TableRow>
@@ -371,7 +383,7 @@ export function InventoryClient() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-               <FormField
+              <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
@@ -381,10 +393,23 @@ export function InventoryClient() {
                       <Input
                         placeholder="Ex: Camiseta Branca M"
                         {...field}
-                         onChange={(e) =>
+                        onChange={(e) =>
                           field.onChange(capitalizeFirstLetter(e.target.value))
                         }
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="barcode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código de Barras (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: 7891234567890" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -430,8 +455,8 @@ export function InventoryClient() {
           </Form>
         </DialogContent>
       </Dialog>
-      
-       <AlertDialog
+
+      <AlertDialog
         open={isDeleteAlertOpen}
         onOpenChange={setIsDeleteAlertOpen}
       >
@@ -439,7 +464,9 @@ export function InventoryClient() {
           <AlertDialogHeader>
             <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação removerá o produto do estoque. Lançamentos de vendas associados a este produto não serão afetados, mas o vínculo será perdido.
+              Esta ação removerá o produto do estoque. Lançamentos de vendas
+              associados a este produto não serão afetados, mas o vínculo será
+              perdido.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -38,6 +38,7 @@ export type CompanyInfo = {
 export type Product = {
   id: string;
   name: string;
+  barcode?: string;
   quantity: number;
   price: number;
   companyId: string;
