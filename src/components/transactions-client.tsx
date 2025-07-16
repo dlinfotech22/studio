@@ -816,7 +816,7 @@ export function TransactionsClient() {
                     <FormItem>
                       <FormLabel>Valor do Serviço</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0.00" {...field} value={field.value ?? 0} />
+                        <Input type="number" placeholder="0.00" {...field} value={field.value ?? 0} onChange={(e) => field.onChange(e.target.valueAsNumber)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -849,7 +849,7 @@ export function TransactionsClient() {
                 <FormItem>
                   <FormLabel>Valor Total</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0.00" {...field} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
+                    <Input type="number" placeholder="0.00" {...field} value={field.value ?? 0} onChange={(e) => field.onChange(e.target.valueAsNumber)} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
