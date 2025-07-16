@@ -77,6 +77,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from './ui/accordion';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 
@@ -117,6 +124,9 @@ export function SystemAdminClient() {
   const [isDeleteUserAlertOpen, setIsDeleteUserAlertOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -345,13 +355,26 @@ export function SystemAdminClient() {
         setUserToDelete(null);
      }
   };
-
+  
   const systemAdmins = users.filter((u) => u.role === 'system_admin');
+  
   const filteredCompanies = companies.filter(
     (company) =>
       company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       company.document.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, itemsPerPage]);
+
+  const totalCompanies = filteredCompanies.length;
+  const totalPages = itemsPerPage > 0 ? Math.ceil(totalCompanies / itemsPerPage) : 1;
+  
+  const paginatedCompanies = itemsPerPage > 0 
+      ? filteredCompanies.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+      : filteredCompanies;
+
 
   return (
     <>
@@ -422,7 +445,7 @@ export function SystemAdminClient() {
             </div>
           </AccordionContent>
         </AccordionItem>
-        {filteredCompanies.map((company) => (
+        {paginatedCompanies.map((company) => (
           <AccordionItem value={company.document} key={company.document}>
             <AccordionTrigger>
               <div className="flex justify-between items-center w-full">
@@ -518,6 +541,58 @@ export function SystemAdminClient() {
           </AccordionItem>
         ))}
       </Accordion>
+
+      {totalCompanies > 0 && itemsPerPage > 0 && (
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+            Total de {totalCompanies} empresa(s).
+          </div>
+          <div className="flex items-center space-x-2">
+              <p className="text-sm font-medium">Itens por página</p>
+              <Select
+                value={`${itemsPerPage}`}
+                onValueChange={(value) => {
+                  setItemsPerPage(Number(value));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={itemsPerPage} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[10, 30, 50].map((pageSize) => (
+                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                      {pageSize}
+                    </SelectItem>
+                  ))}
+                   <SelectItem value="0">Todos</SelectItem>
+                </SelectContent>
+              </Select>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-muted-foreground">
+              Página {currentPage} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Próximo
+            </Button>
+          </div>
+        </div>
+      )}
+
 
       <Dialog open={isCompanyDialogOpen} onOpenChange={setIsCompanyDialogOpen}>
         <DialogContent>
