@@ -26,6 +26,8 @@ import {
   MoreHorizontal,
   Search,
   X,
+  Check,
+  ChevronsUpDown
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
@@ -87,6 +89,14 @@ import {
 } from './ui/dropdown-menu';
 import { db } from '@/lib/firebase';
 import { CardFooter } from './ui/card';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 
 const transactionSchema = z.object({
   description: z.string().optional(),
@@ -562,7 +572,7 @@ export function TransactionsClient() {
             <Button
               variant={'outline'}
               className={cn(
-                'w-full justify-start text-left font-normal md:w-auto',
+                'w-full justify-start text-left font-normal md:w-[240px]',
                 !dateFilter && 'text-muted-foreground'
               )}
             >
@@ -581,7 +591,7 @@ export function TransactionsClient() {
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
+          <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               initialFocus
               mode="range"
@@ -668,38 +678,60 @@ export function TransactionsClient() {
                 control={form.control}
                 name="productId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Produto Vinculado (Opcional)</FormLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        const isNone = value === '--none--';
-                        field.onChange(isNone ? '' : value);
-                        
-                        const product = allProducts.find(p => p.id === value);
-                        if (product) {
-                          form.setValue('amount', product.price);
-                          form.setValue('quantitySold', 1);
-                        } else {
-                           form.setValue('amount', undefined);
-                           form.setValue('quantitySold', undefined);
-                        }
-                      }}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um produto" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="--none--">Nenhum</SelectItem>
-                        {allProducts.map((prod) => (
-                          <SelectItem key={prod.id} value={prod.id}>
-                            {prod.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                     <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value
+                              ? allProducts.find(
+                                  (prod) => prod.id === field.value
+                                )?.name
+                              : "Selecione um produto"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <Command>
+                          <CommandInput placeholder="Pesquisar produto..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {allProducts.map((prod) => (
+                                <CommandItem
+                                  value={prod.name}
+                                  key={prod.id}
+                                  onSelect={() => {
+                                    form.setValue("productId", prod.id)
+                                    form.setValue('amount', prod.price);
+                                    form.setValue('quantitySold', 1);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      prod.id === field.value
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  {prod.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
