@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -107,6 +108,119 @@ const userSchema = z.object({
 
 type CompanyFormValues = z.infer<typeof newCompanySchema>;
 type UserFormValues = z.infer<typeof userSchema>;
+
+// Sub-component to manage user list within each accordion
+function CompanyUserList({
+  company,
+  allUsers,
+  currentUser,
+  onEditUser,
+  onDeleteUser,
+  onAddUser,
+}: {
+  company: CompanyInfo;
+  allUsers: User[];
+  currentUser: User | null;
+  onEditUser: (user: User, companyId: string) => void;
+  onDeleteUser: (user: User) => void;
+  onAddUser: (companyId: string) => void;
+}) {
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const companyUsers = allUsers
+    .filter((u) => u.companyId === company.document)
+    .filter(
+      (u) =>
+        u.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+        u.username.toLowerCase().includes(userSearchTerm.toLowerCase())
+    );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="relative w-full md:max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Pesquisar usuário por nome..."
+            value={userSearchTerm}
+            onChange={(e) => setUserSearchTerm(e.target.value)}
+            className="pl-8"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddUser(company.document);
+          }}
+        >
+          <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Usuário
+        </Button>
+      </div>
+
+      <div className="rounded-md border bg-background">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome Completo</TableHead>
+              <TableHead>Usuário</TableHead>
+              <TableHead>Nível</TableHead>
+              <TableHead className="w-24 text-center">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {companyUsers.length > 0 ? (
+              companyUsers.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>{user.name}</TableCell>
+                  <TableCell className="font-medium">{user.username}</TableCell>
+                  <TableCell>
+                    {user.role === 'company_admin' && 'Admin. da Empresa'}
+                    {user.role === 'user' && 'Usuário'}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEditUser(user, company.document)}>
+                          <Edit className="mr-2 h-4 w-4" /> Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onDeleteUser(user)}
+                          className="text-red-500"
+                          disabled={user.id === currentUser?.id}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Deletar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} className="h-24 text-center">
+                  Nenhum usuário encontrado para esta empresa.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
 
 export function SystemAdminClient() {
   const { toast } = useToast();
@@ -252,7 +366,7 @@ export function SystemAdminClient() {
             userForm.setError('username', { message: 'Este nome de usuário já existe.' });
             return;
         }
-        const newUser: Omit<User, 'id'> = { ...submittedData, companyId: activeCompanyId, password: submittedData.password };
+        const newUser: Omit<User, 'id'> = { ...submittedData, companyId: activeCompanyId, password: submittedData.password, role: data.role as 'company_admin' | 'user' };
         const docRef = await addDoc(usersRef, newUser);
         setUsers([...users, { id: docRef.id, ...newUser }]);
         toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
@@ -477,66 +591,14 @@ export function SystemAdminClient() {
               </div>
             </AccordionTrigger>
             <AccordionContent className="bg-muted/40 p-4 rounded-md">
-              <div className="flex justify-end mb-4">
-                <Button variant="outline" size="sm" onClick={() => openUserDialog(null, company.document)}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Usuário
-                </Button>
-              </div>
-              <div className="rounded-md border bg-background">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome Completo</TableHead>
-                      <TableHead>Usuário</TableHead>
-                      <TableHead>Nível</TableHead>
-                      <TableHead className="w-24 text-center">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.filter((u) => u.companyId === company.document).length > 0 ? (
-                      users
-                        .filter((u) => u.companyId === company.document)
-                        .map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell>{user.name}</TableCell>
-                            <TableCell className="font-medium">{user.username}</TableCell>
-                            <TableCell>
-                              {user.role === 'company_admin' && 'Admin. da Empresa'}
-                              {user.role === 'user' && 'Usuário'}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => openUserDialog(user, company.document)}>
-                                    <Edit className="mr-2 h-4 w-4" /> Editar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => { setUserToDelete(user); setIsDeleteUserAlertOpen(true); }}
-                                    className="text-red-500"
-                                    disabled={user.id === currentUser?.id}
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Deletar
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
-                          Nenhum usuário encontrado para esta empresa.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                <CompanyUserList 
+                    company={company}
+                    allUsers={users}
+                    currentUser={currentUser}
+                    onEditUser={openUserDialog}
+                    onDeleteUser={(user) => { setUserToDelete(user); setIsDeleteUserAlertOpen(true); }}
+                    onAddUser={(companyId) => openUserDialog(null, companyId)}
+                />
             </AccordionContent>
           </AccordionItem>
         ))}
