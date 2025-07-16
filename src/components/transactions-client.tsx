@@ -232,11 +232,11 @@ export function TransactionsClient() {
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       description: '',
-      amount: undefined,
+      amount: 0,
       date: new Date(),
       type: 'revenue',
       productId: '',
-      quantitySold: undefined
+      quantitySold: 0
     },
   });
 
@@ -322,12 +322,12 @@ export function TransactionsClient() {
       setEditingTransaction(null);
       form.reset({
         description: '',
-        amount: undefined,
+        amount: 0,
         date: new Date(),
         type: data.type,
         category: '',
         productId: '',
-        quantitySold: undefined,
+        quantitySold: 0,
       });
       setIsDialogOpen(false);
 
@@ -347,6 +347,7 @@ export function TransactionsClient() {
       ...transaction,
       date: new Date(transaction.date as Date),
       amount: Math.abs(transaction.amount),
+      quantitySold: transaction.quantitySold || 0,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -393,12 +394,12 @@ export function TransactionsClient() {
     setEditingTransaction(null);
     form.reset({
       description: '',
-      amount: undefined,
+      amount: 0,
       date: new Date(),
       type: type,
       category: '',
       productId: '',
-      quantitySold: undefined,
+      quantitySold: 0,
     });
     setIsDialogOpen(true);
   };
