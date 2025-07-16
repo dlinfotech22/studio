@@ -746,11 +746,12 @@ export function TransactionsClient() {
                             <CommandGroup>
                               {allProducts.map((prod) => (
                                 <CommandItem
-                                  value={prod.name}
+                                  value={prod.id}
                                   key={prod.id}
-                                  onSelect={() => {
-                                    form.setValue("productId", prod.id);
-                                    const price = prod.price || 0;
+                                  onSelect={(currentValue) => {
+                                    form.setValue("productId", currentValue === field.value ? "" : currentValue);
+                                    const product = allProducts.find(p => p.id === currentValue);
+                                    const price = product?.price || 0;
                                     const qty = selectedSubtype === 'Venda' ? 1 : (form.getValues('quantitySold') || 1);
                                     if (selectedSubtype === 'Venda') {
                                         form.setValue('amount', price * qty);
