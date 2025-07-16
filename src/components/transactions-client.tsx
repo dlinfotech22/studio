@@ -672,7 +672,9 @@ export function TransactionsClient() {
                     <FormLabel>Produto Vinculado (Opcional)</FormLabel>
                     <Select
                       onValueChange={(value) => {
-                        field.onChange(value);
+                        const isNone = value === '--none--';
+                        field.onChange(isNone ? '' : value);
+                        
                         const product = allProducts.find(p => p.id === value);
                         if (product) {
                           form.setValue('amount', product.price);
@@ -690,7 +692,7 @@ export function TransactionsClient() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value="--none--">Nenhum</SelectItem>
                         {allProducts.map((prod) => (
                           <SelectItem key={prod.id} value={prod.id}>
                             {prod.name}
