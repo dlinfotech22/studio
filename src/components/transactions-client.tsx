@@ -123,6 +123,7 @@ export function TransactionsClient() {
     useState<Transaction | null>(null);
   const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isProductComboboxOpen, setIsProductComboboxOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -680,7 +681,7 @@ export function TransactionsClient() {
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Produto Vinculado (Opcional)</FormLabel>
-                     <Popover>
+                     <Popover open={isProductComboboxOpen} onOpenChange={setIsProductComboboxOpen}>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
@@ -711,9 +712,10 @@ export function TransactionsClient() {
                                   value={prod.name}
                                   key={prod.id}
                                   onSelect={() => {
-                                    form.setValue("productId", prod.id)
+                                    form.setValue("productId", prod.id);
                                     form.setValue('amount', prod.price);
                                     form.setValue('quantitySold', 1);
+                                    setIsProductComboboxOpen(false);
                                   }}
                                 >
                                   <Check
