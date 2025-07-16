@@ -183,7 +183,13 @@ function CompanyUserList({
           <TableBody>
             {companyUsers.length > 0 ? (
               companyUsers.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow
+                  key={user.id}
+                  className={cn(
+                    user.role === 'company_admin' &&
+                      'bg-accent/20 hover:bg-accent/30'
+                  )}
+                >
                   <TableCell>{user.name}</TableCell>
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>
@@ -256,6 +262,7 @@ export function SystemAdminClient() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [companySearchTerm, setCompanySearchTerm] = useState('');
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('companies');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -380,65 +387,54 @@ export function SystemAdminClient() {
   };
 
   const handleUserSubmit = async (data: UserFormValues) => {
-    const isEditingSysAdmin = editingUser?.role === 'system_admin';
     const isNewSysAdmin = !editingUser && data.role === 'system_admin';
 
-    if (!isEditingSysAdmin && !isNewSysAdmin && !activeCompanyId) return;
+    if (!isNewSysAdmin && !activeCompanyId && !editingUser) {
+      toast({
+        title: 'Erro de validação',
+        description: 'ID da empresa é necessário para novos usuários.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     try {
+      const submittedData = {
+        ...data,
+        username: data.username.toLowerCase(),
+        name: data.name.toUpperCase(),
+      };
+      
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('username', '==', submittedData.username));
+      const querySnapshot = await getDocs(q);
+      const isUsernameTaken = !querySnapshot.empty && (editingUser ? querySnapshot.docs[0].id !== editingUser.id : true);
+
+      if (isUsernameTaken) {
+        userForm.setError('username', { message: 'Este nome de usuário já existe.' });
+        return;
+      }
+      
       if (editingUser) {
-        let updatedUser: Partial<User> = {};
-        const submittedData = {
-          ...data,
-          username: data.username.toLowerCase(),
-          name: data.name.toUpperCase(),
-        };
-
-        if (submittedData.username !== editingUser.username) {
-            const usersRef = collection(db, 'users');
-            const q = query(usersRef, where('username', '==', submittedData.username));
-            const snapshot = await getDocs(q);
-            if (!snapshot.empty) {
-                userForm.setError('username', { message: 'Este nome de usuário já existe.' });
-                return;
-            }
-        }
-
-        updatedUser = {
+        let payload: Partial<User> = {
           name: submittedData.name,
           username: submittedData.username,
           role: submittedData.role,
-          ...(submittedData.password && { password: submittedData.password }),
         };
-        if(isEditingSysAdmin) {
-            delete updatedUser.role; // System admin role cannot be changed
+        if (submittedData.password) {
+          payload.password = submittedData.password;
         }
-
-        await updateDoc(doc(db, 'users', editingUser.id), updatedUser);
+        if (editingUser.role === 'system_admin') {
+           delete payload.role;
+        }
+        await updateDoc(doc(db, 'users', editingUser.id), payload);
         setUsers(
-          users.map((u) => (u.id === editingUser.id ? { ...u, ...updatedUser } : u))
+          users.map((u) => (u.id === editingUser.id ? { ...u, ...payload } : u))
         );
         toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
       } else {
-        const submittedData = {
-          ...data,
-          username: data.username.toLowerCase(),
-          name: data.name.toUpperCase(),
-        };
         if (!submittedData.password) {
           userForm.setError('password', { message: 'A senha é obrigatória.' });
-          return;
-        }
-
-        const usersRef = collection(db, 'users');
-        const q = query(
-          usersRef,
-          where('username', '==', submittedData.username)
-        );
-        if (!(await getDocs(q)).empty) {
-          userForm.setError('username', {
-            message: 'Este nome de usuário já existe.',
-          });
           return;
         }
 
@@ -460,7 +456,7 @@ export function SystemAdminClient() {
           };
         }
 
-        const docRef = await addDoc(usersRef, newUserPayload);
+        const docRef = await addDoc(collection(db, 'users'), newUserPayload);
         setUsers([...users, { id: docRef.id, ...newUserPayload }]);
         toast({ title: 'Sucesso!', description: 'Usuário adicionado.' });
       }
@@ -555,6 +551,14 @@ export function SystemAdminClient() {
       );
       const categoriesSnapshot = await getDocs(categoriesQuery);
       categoriesSnapshot.forEach((doc) => batch.delete(doc.ref));
+      
+      const productsQuery = query(
+        collection(db, 'products'),
+        where('companyId', '==', companyToDelete.document)
+      );
+      const productsSnapshot = await getDocs(productsQuery);
+      productsSnapshot.forEach((doc) => batch.delete(doc.ref));
+
 
       await batch.commit();
 
@@ -641,7 +645,7 @@ export function SystemAdminClient() {
 
   return (
     <>
-      <Tabs defaultValue="companies" className="w-full space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
         <TabsList>
           <TabsTrigger value="companies">Empresas</TabsTrigger>
           <TabsTrigger value="admins">Administradores</TabsTrigger>
@@ -1030,44 +1034,42 @@ export function SystemAdminClient() {
                   </FormItem>
                 )}
               />
-              {!editingUser ||
-              (editingUser.role !== 'system_admin' && (
-                <FormField
-                  control={userForm.control}
-                  name="role"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nível de Acesso</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          className="flex gap-4"
-                        >
-                           {userForm.getValues('role') === 'system_admin' ? (
-                            <FormItem className="flex items-center space-x-2">
-                                <RadioGroupItem value="system_admin" />
-                                <Label>Admin. do Sistema</Label>
-                            </FormItem>
-                           ) : (
-                            <>
-                                <FormItem className="flex items-center space-x-2">
-                                <RadioGroupItem value="user" />
-                                <Label>Usuário</Label>
-                                </FormItem>
-                                <FormItem className="flex items-center space-x-2">
-                                <RadioGroupItem value="company_admin" />
-                                <Label>Admin. da Empresa</Label>
-                                </FormItem>
-                            </>
-                           )}
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ))}
+              <FormField
+                control={userForm.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nível de Acesso</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        className="flex gap-4"
+                        disabled={editingUser?.role === 'system_admin'}
+                      >
+                         {userForm.getValues('role') === 'system_admin' ? (
+                          <FormItem className="flex items-center space-x-2">
+                              <RadioGroupItem value="system_admin" />
+                              <Label>Admin. do Sistema</Label>
+                          </FormItem>
+                         ) : (
+                          <>
+                              <FormItem className="flex items-center space-x-2">
+                              <RadioGroupItem value="user" />
+                              <Label>Usuário</Label>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-2">
+                              <RadioGroupItem value="company_admin" />
+                              <Label>Admin. da Empresa</Label>
+                              </FormItem>
+                          </>
+                         )}
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <DialogFooter>
                 <DialogClose asChild>
                   <Button type="button" variant="ghost">
@@ -1092,7 +1094,7 @@ export function SystemAdminClient() {
             <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta ação é irreversível. Todos os dados da empresa, incluindo
-              usuários, transações e categorias, serão permanentemente
+              usuários, transações, produtos e categorias, serão permanentemente
               removidos.
             </AlertDialogDescription>
           </AlertDialogHeader>
