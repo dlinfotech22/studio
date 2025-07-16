@@ -104,7 +104,18 @@ const transactionSchema = z.object({
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   productId: z.string().optional(),
   quantitySold: z.coerce.number().optional(),
+  serviceAmount: z.coerce.number().optional(),
+  productAmount: z.coerce.number().optional(),
+}).refine(data => {
+  if (data.subtype === 'Serviço + Venda') {
+    return (data.serviceAmount ?? 0) > 0 || (data.productAmount ?? 0) > 0;
+  }
+  return true;
+}, {
+  message: 'Para "Serviço + Venda", o valor do serviço ou do produto deve ser informado.',
+  path: ['amount'],
 });
+
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
 
@@ -230,7 +241,9 @@ export function TransactionsClient() {
       date: new Date(),
       subtype: 'Prestação de Serviço',
       productId: '',
-      quantitySold: 0
+      quantitySold: 0,
+      serviceAmount: 0,
+      productAmount: 0
     },
   });
 
@@ -245,8 +258,21 @@ export function TransactionsClient() {
         let product: Product | undefined;
         let productRef;
         const transactionType = subtypeToTypeMap[data.subtype];
+        
+        const payload: Omit<Transaction, 'id' | 'date'> & { date: Timestamp } = {
+          ...data,
+          type: transactionType,
+          companyId,
+          amount: Math.abs(data.amount),
+          description: data.description || data.subtype,
+          date: Timestamp.fromDate(data.date),
+        };
 
-        if (data.productId && data.quantitySold) {
+        if (transactionType === 'expense') {
+          payload.amount = -Math.abs(data.amount);
+        }
+
+        if (data.productId && (data.subtype === 'Venda' || data.subtype === 'Serviço + Venda')) {
           productRef = doc(db, 'products', data.productId);
           const productDoc = await transaction.get(productRef);
           if (!productDoc.exists()) {
@@ -268,16 +294,7 @@ export function TransactionsClient() {
             }
             transaction.update(productRef, { quantity: product.quantity - quantityDiff });
           }
-
-          const payload: Partial<Transaction> = {
-            ...data,
-            type: transactionType,
-            companyId,
-            amount: transactionType === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount),
-            description: data.description || data.subtype,
-            date: Timestamp.fromDate(data.date),
-          };
-          transaction.update(transactionRef, payload);
+          transaction.update(transactionRef, payload as any);
 
         } else {
           // --- CREATE LOGIC ---
@@ -288,16 +305,7 @@ export function TransactionsClient() {
             }
             transaction.update(productRef, { quantity: product.quantity - quantitySold });
           }
-          
-          const payload: Omit<Transaction, 'id'> = {
-            ...data,
-            type: transactionType,
-            companyId,
-            amount: transactionType === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount),
-            description: data.description || data.subtype,
-            date: Timestamp.fromDate(data.date),
-          };
-          transaction.set(doc(collection(db, 'transactions')), payload);
+          transaction.set(doc(collection(db, 'transactions')), payload as any);
         }
       });
       
@@ -317,6 +325,8 @@ export function TransactionsClient() {
         subtype: data.subtype,
         productId: '',
         quantitySold: 0,
+        serviceAmount: 0,
+        productAmount: 0,
       });
       setIsDialogOpen(false);
 
@@ -337,6 +347,8 @@ export function TransactionsClient() {
       date: new Date(transaction.date as Date),
       amount: Math.abs(transaction.amount),
       quantitySold: transaction.quantitySold || 0,
+      serviceAmount: transaction.serviceAmount || 0,
+      productAmount: transaction.productAmount || 0,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -388,6 +400,8 @@ export function TransactionsClient() {
       subtype: type === 'revenue' ? 'Prestação de Serviço' : 'Despesa',
       productId: '',
       quantitySold: 0,
+      serviceAmount: 0,
+      productAmount: 0,
     });
     setIsDialogOpen(true);
   };
@@ -536,6 +550,21 @@ export function TransactionsClient() {
   const selectedSubtype = form.watch('subtype');
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
 
+  useEffect(() => {
+    const { serviceAmount, productAmount, quantitySold, productId, subtype } = form.getValues();
+    const product = allProducts.find(p => p.id === productId);
+
+    if (subtype === 'Venda' && product) {
+        const total = (product.price || 0) * (quantitySold || 0);
+        form.setValue('amount', total);
+    } else if (subtype === 'Serviço + Venda') {
+        const prodAmt = product ? (product.price || 0) * (quantitySold || 0) : 0;
+        form.setValue('productAmount', prodAmt);
+        form.setValue('amount', (serviceAmount || 0) + prodAmt);
+    }
+  }, [form.watch('serviceAmount'), form.watch('productAmount'), form.watch('quantitySold'), form.watch('productId'), form.watch('subtype'), allProducts, form]);
+
+
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
@@ -646,6 +675,11 @@ export function TransactionsClient() {
                   <Select
                     onValueChange={(value: TransactionSubtype) => {
                       field.onChange(value);
+                      form.setValue('productId', '');
+                      form.setValue('quantitySold', 0);
+                      form.setValue('serviceAmount', 0);
+                      form.setValue('productAmount', 0);
+                      form.setValue('amount', 0);
                     }}
                     value={field.value}
                   >
@@ -671,7 +705,7 @@ export function TransactionsClient() {
                 name="productId"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Produto Vinculado (Opcional)</FormLabel>
+                    <FormLabel>Produto Vinculado</FormLabel>
                      <Popover open={isProductComboboxOpen} onOpenChange={setIsProductComboboxOpen}>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -702,6 +736,7 @@ export function TransactionsClient() {
                                   form.setValue("productId", "");
                                   form.setValue("amount", 0);
                                   form.setValue("quantitySold", 0);
+                                  form.setValue("productAmount", 0);
                                   setIsProductComboboxOpen(false);
                                 }}
                               >
@@ -715,8 +750,14 @@ export function TransactionsClient() {
                                   key={prod.id}
                                   onSelect={() => {
                                     form.setValue("productId", prod.id);
-                                    form.setValue('amount', prod.price);
-                                    form.setValue('quantitySold', 1);
+                                    const price = prod.price || 0;
+                                    const qty = selectedSubtype === 'Venda' ? 1 : (form.getValues('quantitySold') || 1);
+                                    if (selectedSubtype === 'Venda') {
+                                        form.setValue('amount', price * qty);
+                                        form.setValue('quantitySold', qty);
+                                    } else {
+                                        form.setValue('productAmount', price * qty);
+                                    }
                                     setIsProductComboboxOpen(false);
                                   }}
                                 >
@@ -767,6 +808,21 @@ export function TransactionsClient() {
                   )}
                 />
             )}
+             {selectedSubtype === 'Serviço + Venda' && (
+                <FormField
+                  control={form.control}
+                  name="serviceAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor do Serviço</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0.00" {...field} value={field.value ?? 0} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+             )}
             <FormField
               control={form.control}
               name="description"
@@ -791,9 +847,9 @@ export function TransactionsClient() {
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Valor</FormLabel>
+                  <FormLabel>Valor Total</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0.00" {...field} disabled={!!selectedProductId} />
+                    <Input type="number" placeholder="0.00" {...field} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

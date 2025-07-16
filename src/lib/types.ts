@@ -18,6 +18,8 @@ export type Transaction = {
   companyId: string;
   productId?: string;
   quantitySold?: number;
+  serviceAmount?: number;
+  productAmount?: number;
 };
 
 export type User = {
