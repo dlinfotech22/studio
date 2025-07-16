@@ -429,8 +429,8 @@ export function ReportsClient() {
     const dataToExport = filteredTransactions.map((t) => ({
       Data: format(new Date(t.date), 'dd/MM/yyyy'),
       Descrição: t.description,
+      Tipo: t.subtype,
       Categoria: t.category,
-      Tipo: t.type === 'revenue' ? 'Receita' : 'Despesa',
       Valor: t.amount,
     }));
 
@@ -471,7 +471,7 @@ export function ReportsClient() {
       { wch: 12 },
       { wch: 40 },
       { wch: 20 },
-      { wch: 10 },
+      { wch: 20 },
       { wch: 15 },
     ];
 
@@ -576,7 +576,7 @@ export function ReportsClient() {
             : format(d.date, 'MMMM/yyyy', { locale: ptBR }),
           Math.abs(d.revenue),
           Math.abs(d.expense),
-          d.revenue + d.expense,
+          d.revenue - d.expense, // Keep expense negative for subtraction
         ]);
 
       autoTableOptions = {
@@ -607,18 +607,19 @@ export function ReportsClient() {
       };
     } else {
       autoTableOptions = {
-        head: [['Data', 'Descrição', 'Categoria', 'Valor']],
+        head: [['Data', 'Descrição', 'Tipo', 'Categoria', 'Valor']],
         body: filteredTransactions.map((t) => [
           format(new Date(t.date), 'dd/MM/yyyy'),
           t.description,
+          t.subtype,
           t.category,
           formatCurrency(t.amount),
         ]),
         startY,
         headStyles: { fillColor: [41, 128, 185] },
-        columnStyles: { 3: { halign: 'right' } },
+        columnStyles: { 4: { halign: 'right' } },
         didParseCell: (data: any) => {
-          if (data.column.index === 3 && data.cell.section === 'body') {
+          if (data.column.index === 4 && data.cell.section === 'body') {
             const transaction = filteredTransactions[data.row.index];
             data.cell.styles.textColor =
               transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
@@ -849,6 +850,7 @@ export function ReportsClient() {
                 <TableRow>
                   <TableHead>Data</TableHead>
                   <TableHead>Descrição</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                 </TableRow>
@@ -863,6 +865,7 @@ export function ReportsClient() {
                       <TableCell className="font-medium">
                         {t.description}
                       </TableCell>
+                       <TableCell>{t.subtype}</TableCell>
                       <TableCell>{t.category}</TableCell>
                       <TableCell
                         className={cn(
@@ -878,7 +881,7 @@ export function ReportsClient() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       Nenhum lançamento encontrado para o período selecionado.
                     </TableCell>
                   </TableRow>

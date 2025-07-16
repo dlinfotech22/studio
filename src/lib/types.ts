@@ -1,11 +1,20 @@
 import type { Timestamp } from 'firebase/firestore';
 
+export type TransactionType = 'revenue' | 'expense';
+export type TransactionSubtype =
+  | 'Prestação de Serviço'
+  | 'Venda'
+  | 'Serviço + Venda'
+  | 'Despesa';
+
+
 export type Transaction = {
   id: string;
   date: Date | Timestamp;
   description: string;
   amount: number;
-  type: 'revenue' | 'expense';
+  type: TransactionType;
+  subtype: TransactionSubtype;
   category: string;
   companyId: string;
   productId?: string;

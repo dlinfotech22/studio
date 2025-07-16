@@ -27,11 +27,11 @@ import {
   Search,
   X,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
-import { type Transaction, type Category, type Product } from '@/lib/types';
+import { type Transaction, type Category, type Product, type TransactionSubtype, type TransactionType } from '@/lib/types';
 import { formatCurrency, cn, capitalizeFirstLetter } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -88,7 +88,6 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { db } from '@/lib/firebase';
-import { CardFooter } from './ui/card';
 import {
   Command,
   CommandEmpty,
@@ -103,12 +102,21 @@ const transactionSchema = z.object({
   amount: z.coerce.number().positive('O valor deve ser positivo.'),
   date: z.date(),
   category: z.string().min(1, 'Selecione uma categoria.'),
-  type: z.enum(['revenue', 'expense']),
+  subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   productId: z.string().optional(),
   quantitySold: z.coerce.number().optional(),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
+
+const subtypeToTypeMap: Record<TransactionSubtype, TransactionType> = {
+  'Prestação de Serviço': 'revenue',
+  'Venda': 'revenue',
+  'Serviço + Venda': 'revenue',
+  'Despesa': 'expense',
+};
+
+const revenueSubtypes: TransactionSubtype[] = ['Prestação de Serviço', 'Venda', 'Serviço + Venda'];
 
 export function TransactionsClient() {
   const { toast } = useToast();
@@ -234,7 +242,7 @@ export function TransactionsClient() {
       description: '',
       amount: 0,
       date: new Date(),
-      type: 'revenue',
+      subtype: 'Prestação de Serviço',
       productId: '',
       quantitySold: 0
     },
@@ -257,6 +265,7 @@ export function TransactionsClient() {
       await runTransaction(db, async (transaction) => {
         let product: Product | undefined;
         let productRef;
+        const transactionType = subtypeToTypeMap[data.subtype];
 
         if (data.productId && data.quantitySold) {
           productRef = doc(db, 'products', data.productId);
@@ -283,8 +292,9 @@ export function TransactionsClient() {
 
           const payload: Partial<Transaction> = {
             ...data,
+            type: transactionType,
             companyId,
-            amount: data.type === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount),
+            amount: transactionType === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount),
             description: data.description || data.category,
             date: Timestamp.fromDate(data.date),
           };
@@ -302,8 +312,9 @@ export function TransactionsClient() {
           
           const payload: Omit<Transaction, 'id'> = {
             ...data,
+            type: transactionType,
             companyId,
-            amount: data.type === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount),
+            amount: transactionType === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount),
             description: data.description || data.category,
             date: Timestamp.fromDate(data.date),
           };
@@ -324,7 +335,7 @@ export function TransactionsClient() {
         description: '',
         amount: 0,
         date: new Date(),
-        type: data.type,
+        subtype: data.subtype,
         category: '',
         productId: '',
         quantitySold: 0,
@@ -396,7 +407,7 @@ export function TransactionsClient() {
       description: '',
       amount: 0,
       date: new Date(),
-      type: type,
+      subtype: type === 'revenue' ? 'Prestação de Serviço' : 'Despesa',
       category: '',
       productId: '',
       quantitySold: 0,
@@ -433,6 +444,7 @@ export function TransactionsClient() {
             <TableHeader>
               <TableRow>
                 <TableHead>Descrição</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead className="text-right">Data</TableHead>
@@ -446,6 +458,7 @@ export function TransactionsClient() {
                     <TableCell className="font-medium">
                       {item.description}
                     </TableCell>
+                    <TableCell>{item.subtype}</TableCell>
                     <TableCell>{item.category}</TableCell>
                     <TableCell
                       className={cn(
@@ -482,7 +495,7 @@ export function TransactionsClient() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     Nenhum lançamento encontrado.
                   </TableCell>
                 </TableRow>
@@ -545,6 +558,7 @@ export function TransactionsClient() {
   };
 
   const selectedProductId = form.watch('productId');
+  const selectedSubtype = form.watch('subtype');
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
 
   return (
@@ -650,12 +664,12 @@ export function TransactionsClient() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="type"
+              name="subtype"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo de Lançamento</FormLabel>
                   <Select
-                    onValueChange={(value) => {
+                    onValueChange={(value: TransactionSubtype) => {
                       field.onChange(value);
                       form.setValue('category', '');
                     }}
@@ -667,15 +681,17 @@ export function TransactionsClient() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="revenue">Receita</SelectItem>
-                      <SelectItem value="expense">Despesa</SelectItem>
+                      <SelectItem value="Prestação de Serviço">Prestação de Serviço</SelectItem>
+                      <SelectItem value="Venda">Venda</SelectItem>
+                      <SelectItem value="Serviço + Venda">Serviço + Venda</SelectItem>
+                      <SelectItem value="Despesa">Despesa</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-             {form.watch('type') === 'revenue' && (
+             {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
               <FormField
                 control={form.control}
                 name="productId"
@@ -706,6 +722,17 @@ export function TransactionsClient() {
                         <Command>
                           <CommandInput placeholder="Pesquisar produto..." />
                           <CommandList>
+                            <CommandItem
+                                value="--none--"
+                                onSelect={() => {
+                                  form.setValue("productId", "");
+                                  form.setValue("amount", 0);
+                                  form.setValue("quantitySold", 0);
+                                  setIsProductComboboxOpen(false);
+                                }}
+                              >
+                                Nenhum
+                              </CommandItem>
                             <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                             <CommandGroup>
                               {allProducts.map((prod) => (
@@ -740,7 +767,7 @@ export function TransactionsClient() {
                 )}
               />
             )}
-            {selectedProductId && form.watch('type') === 'revenue' && (
+            {selectedProductId && (selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
                 <FormField
                   control={form.control}
                   name="quantitySold"
@@ -748,7 +775,13 @@ export function TransactionsClient() {
                     <FormItem>
                       <FormLabel>Quantidade Vendida</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0" {...field} />
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          {...field}
+                          value={field.value ?? 0}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                         />
                       </FormControl>
                       {selectedProduct && (
                         <FormDescription>
@@ -805,7 +838,7 @@ export function TransactionsClient() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {(form.watch('type') === 'revenue'
+                      {(subtypeToTypeMap[selectedSubtype] === 'revenue'
                         ? revenueCategories
                         : expenseCategories
                       ).map((cat) => (
