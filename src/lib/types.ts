@@ -8,6 +8,8 @@ export type Transaction = {
   type: 'revenue' | 'expense';
   category: string;
   companyId: string;
+  productId?: string;
+  quantitySold?: number;
 };
 
 export type User = {
@@ -31,4 +33,12 @@ export type CompanyInfo = {
   name: string;
   document: string; // This is the unique identifier (CNPJ/CPF)
   logo?: string; // public URL from Firebase Storage
+};
+
+export type Product = {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  companyId: string;
 };

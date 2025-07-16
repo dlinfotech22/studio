@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { format, getMonth, getYear, addDays } from 'date-fns';
+import { format, getMonth, getYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   collection,
@@ -16,6 +16,7 @@ import {
   updateDoc,
   deleteDoc,
   Timestamp,
+  runTransaction,
 } from 'firebase/firestore';
 import {
   CalendarIcon,
@@ -28,7 +29,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
-import { type Transaction, type Category } from '@/lib/types';
+import { type Transaction, type Category, type Product } from '@/lib/types';
 import { formatCurrency, cn, capitalizeFirstLetter } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,6 +58,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -92,6 +94,8 @@ const transactionSchema = z.object({
   date: z.date(),
   category: z.string().min(1, 'Selecione uma categoria.'),
   type: z.enum(['revenue', 'expense']),
+  productId: z.string().optional(),
+  quantitySold: z.coerce.number().optional(),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -103,6 +107,7 @@ export function TransactionsClient() {
     Transaction[]
   >([]);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
@@ -143,6 +148,14 @@ export function TransactionsClient() {
           (doc) => ({ id: doc.id, ...doc.data() } as Category)
         );
         setAllCategories(categories);
+
+        const productsRef = collection(db, 'products');
+        const qProducts = query(productsRef, where('companyId', '==', id));
+        const productSnapshot = await getDocs(qProducts);
+        const products = productSnapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as Product)
+        );
+        setAllProducts(products);
       } catch (error) {
         console.error('Failed to load data from Firestore', error);
         setAllTransactions([]);
@@ -155,7 +168,7 @@ export function TransactionsClient() {
     if (id) {
       fetchData(id);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
@@ -208,9 +221,11 @@ export function TransactionsClient() {
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       description: '',
-      amount: 0,
+      amount: undefined,
       date: new Date(),
       type: 'revenue',
+      productId: '',
+      quantitySold: undefined
     },
   });
 
@@ -227,54 +242,89 @@ export function TransactionsClient() {
   const onSubmit = async (data: TransactionFormValues) => {
     if (!companyId) return;
 
-    const amount =
-      data.type === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount);
-    const description = data.description || data.category;
-    const payload = {
-      ...data,
-      companyId,
-      amount,
-      description,
-      date: Timestamp.fromDate(data.date),
-    };
-
     try {
-      if (editingTransaction) {
-        const transactionRef = doc(db, 'transactions', editingTransaction.id);
-        await updateDoc(transactionRef, payload);
-        setAllTransactions(
-          allTransactions.map((t) =>
-            t.id === editingTransaction.id
-              ? { ...t, ...data, amount, description }
-              : t
-          )
-        );
-        toast({ title: 'Sucesso!', description: 'Lançamento atualizado.' });
-      } else {
-        const docRef = await addDoc(collection(db, 'transactions'), payload);
-        setAllTransactions([
-          ...allTransactions,
-          { id: docRef.id, ...data, amount, description },
-        ]);
-        toast({ title: 'Sucesso!', description: 'Lançamento adicionado.' });
-      }
+      await runTransaction(db, async (transaction) => {
+        let product: Product | undefined;
+        let productRef;
+
+        if (data.productId && data.quantitySold) {
+          productRef = doc(db, 'products', data.productId);
+          const productDoc = await transaction.get(productRef);
+          if (!productDoc.exists()) {
+            throw new Error('Produto não encontrado.');
+          }
+          product = productDoc.data() as Product;
+        }
+
+        if (editingTransaction) {
+          // --- UPDATE LOGIC ---
+          const transactionRef = doc(db, 'transactions', editingTransaction.id);
+          const oldQuantity = editingTransaction.quantitySold || 0;
+          const newQuantity = data.quantitySold || 0;
+          const quantityDiff = newQuantity - oldQuantity;
+
+          if (product && productRef) {
+             if (product.quantity < quantityDiff) {
+              throw new Error(`Estoque insuficiente. Disponível: ${product.quantity}`);
+            }
+            transaction.update(productRef, { quantity: product.quantity - quantityDiff });
+          }
+
+          const payload: Partial<Transaction> = {
+            ...data,
+            companyId,
+            amount: data.type === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount),
+            description: data.description || data.category,
+            date: Timestamp.fromDate(data.date),
+          };
+          transaction.update(transactionRef, payload);
+
+        } else {
+          // --- CREATE LOGIC ---
+          const quantitySold = data.quantitySold || 0;
+          if (product && productRef) {
+            if (product.quantity < quantitySold) {
+              throw new Error(`Estoque insuficiente. Disponível: ${product.quantity}`);
+            }
+            transaction.update(productRef, { quantity: product.quantity - quantitySold });
+          }
+          
+          const payload: Omit<Transaction, 'id'> = {
+            ...data,
+            companyId,
+            amount: data.type === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount),
+            description: data.description || data.category,
+            date: Timestamp.fromDate(data.date),
+          };
+          transaction.set(doc(collection(db, 'transactions')), payload);
+        }
+      });
+      
+      // Manually refetch data to reflect updated stock
+      const productSnapshot = await getDocs(query(collection(db, 'products'), where('companyId', '==', companyId)));
+      setAllProducts(productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      const transactionSnapshot = await getDocs(query(collection(db, 'transactions'), where('companyId', '==', companyId)));
+      setAllTransactions(transactionSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Transaction)));
+      
+      toast({ title: 'Sucesso!', description: `Lançamento ${editingTransaction ? 'atualizado' : 'adicionado'}.` });
+
       setEditingTransaction(null);
       form.reset({
         description: '',
-        amount: 0,
+        amount: undefined,
         date: new Date(),
         type: data.type,
         category: '',
+        productId: '',
+        quantitySold: undefined,
       });
       setIsDialogOpen(false);
+
     } catch (error: any) {
       console.error('Failed to save transaction', error);
       toast({
         title: 'Erro!',
-        description:
-          error.code === 'permission-denied'
-            ? 'Permissão negada para salvar.'
-            : 'Não foi possível salvar o lançamento.',
+        description: error.message || (error.code === 'permission-denied' ? 'Permissão negada.' : 'Não foi possível salvar.'),
         variant: 'destructive',
       });
     }
@@ -291,11 +341,29 @@ export function TransactionsClient() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (transactionToDelete: Transaction) => {
+     if (!companyId) return;
+
     try {
-      await deleteDoc(doc(db, 'transactions', id));
-      setAllTransactions(allTransactions.filter((t) => t.id !== id));
-      toast({ title: 'Sucesso!', description: 'Lançamento removido.' });
+        await runTransaction(db, async (dbTransaction) => {
+            if (transactionToDelete.productId && transactionToDelete.quantitySold) {
+                const productRef = doc(db, 'products', transactionToDelete.productId);
+                const productDoc = await dbTransaction.get(productRef);
+                if (productDoc.exists()) {
+                    const currentQuantity = productDoc.data().quantity;
+                    dbTransaction.update(productRef, { quantity: currentQuantity + transactionToDelete.quantitySold });
+                }
+            }
+            dbTransaction.delete(doc(db, 'transactions', transactionToDelete.id));
+        });
+
+        // Manually refetch data to reflect changes
+        const productSnapshot = await getDocs(query(collection(db, 'products'), where('companyId', '==', companyId)));
+        setAllProducts(productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+        setAllTransactions(allTransactions.filter((t) => t.id !== transactionToDelete.id));
+
+        toast({ title: 'Sucesso!', description: 'Lançamento removido.' });
+
     } catch (error: any) {
       console.error('Failed to delete transaction', error);
       toast({
@@ -309,14 +377,17 @@ export function TransactionsClient() {
     }
   };
 
+
   const openNewTransactionDialog = (type: 'revenue' | 'expense') => {
     setEditingTransaction(null);
     form.reset({
       description: '',
-      amount: 0,
+      amount: undefined,
       date: new Date(),
       type: type,
       category: '',
+      productId: '',
+      quantitySold: undefined,
     });
     setIsDialogOpen(true);
   };
@@ -387,7 +458,7 @@ export function TransactionsClient() {
                             <Edit className="mr-2 h-4 w-4" /> Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => handleDelete(item.id)}
+                            onClick={() => handleDelete(item)}
                             className="text-red-500"
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Deletar
@@ -460,6 +531,9 @@ export function TransactionsClient() {
       </div>
     );
   };
+
+  const selectedProductId = form.watch('productId');
+  const selectedProduct = allProducts.find(p => p.id === selectedProductId);
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -589,6 +663,66 @@ export function TransactionsClient() {
                 </FormItem>
               )}
             />
+             {form.watch('type') === 'revenue' && (
+              <FormField
+                control={form.control}
+                name="productId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Produto Vinculado (Opcional)</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        const product = allProducts.find(p => p.id === value);
+                        if (product) {
+                          form.setValue('amount', product.price);
+                          form.setValue('quantitySold', 1);
+                        } else {
+                           form.setValue('amount', undefined);
+                           form.setValue('quantitySold', undefined);
+                        }
+                      }}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um produto" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">Nenhum</SelectItem>
+                        {allProducts.map((prod) => (
+                          <SelectItem key={prod.id} value={prod.id}>
+                            {prod.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            {selectedProductId && form.watch('type') === 'revenue' && (
+                <FormField
+                  control={form.control}
+                  name="quantitySold"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantidade Vendida</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0" {...field} />
+                      </FormControl>
+                      {selectedProduct && (
+                        <FormDescription>
+                          Estoque disponível: {selectedProduct.quantity}
+                        </FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            )}
             <FormField
               control={form.control}
               name="description"
@@ -615,7 +749,7 @@ export function TransactionsClient() {
                 <FormItem>
                   <FormLabel>Valor</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0.00" {...field} />
+                    <Input type="number" placeholder="0.00" {...field} disabled={!!selectedProductId} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -681,7 +815,7 @@ export function TransactionsClient() {
                         mode="single"
                         selected={field.value}
                         onSelect={(date) => {
-                          field.onChange(date);
+                          if (date) field.onChange(date);
                           setIsDatePickerOpen(false);
                         }}
                         disabled={(date) =>

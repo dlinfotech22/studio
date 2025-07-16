@@ -11,6 +11,7 @@ import {
   Settings,
   Users,
   User,
+  Package,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -41,13 +42,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [hasCompany, setHasCompany] = useState(false);
 
   useEffect(() => {
     const token = sessionStorage.getItem('auth-token');
     const user = sessionStorage.getItem('current-user-name');
     const role = sessionStorage.getItem('current-user-role');
+    const companyId = sessionStorage.getItem('current-user-company-id');
     setCurrentUser(user);
     setCurrentUserRole(role);
+    setHasCompany(!!companyId);
 
     if (!token && pathname !== '/login') {
       router.push('/login');
@@ -138,28 +142,44 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <Link href="/transactions">
-                <SidebarMenuButton
-                  tooltip="Lançamentos"
-                  isActive={pathname === '/transactions'}
-                >
-                  <ArrowRightLeft />
-                  <span>Lançamentos</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <Link href="/reports">
-                <SidebarMenuButton
-                  tooltip="Relatórios"
-                  isActive={pathname === '/reports'}
-                >
-                  <BarChart3 />
-                  <span>Relatórios</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
+            {hasCompany && (
+               <>
+                <SidebarMenuItem>
+                  <Link href="/transactions">
+                    <SidebarMenuButton
+                      tooltip="Lançamentos"
+                      isActive={pathname === '/transactions'}
+                    >
+                      <ArrowRightLeft />
+                      <span>Lançamentos</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <Link href="/inventory">
+                    <SidebarMenuButton
+                      tooltip="Estoque"
+                      isActive={pathname === '/inventory'}
+                    >
+                      <Package />
+                      <span>Estoque</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <Link href="/reports">
+                    <SidebarMenuButton
+                      tooltip="Relatórios"
+                      isActive={pathname === '/reports'}
+                    >
+                      <BarChart3 />
+                      <span>Relatórios</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              </>
+            )}
+           
             {(currentUserRole === 'system_admin' || currentUserRole === 'company_admin') && (
               <SidebarMenuItem>
                 <Link href="/access-management">
