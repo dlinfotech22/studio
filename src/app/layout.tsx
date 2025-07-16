@@ -5,8 +5,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'Gestão Financeira',
-  description: 'Gerencie as finanças da sua empresa de forma simples e eficiente.',
+  title: 'Gestão Empresarial',
+  description: 'Gerencie sua empresa de forma simples e eficiente.',
 };
 
 export default function RootLayout({

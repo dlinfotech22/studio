@@ -30,7 +30,7 @@ export default function TransactionsPage() {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight">Lançamentos Financeiros</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Lançamentos</h1>
         <p className="text-muted-foreground">
           {userRole === 'system_admin'
             ? 'Esta seção é para usuários de empresas gerenciarem seus lançamentos.'
