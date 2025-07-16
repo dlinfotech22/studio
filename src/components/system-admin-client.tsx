@@ -79,6 +79,12 @@ import {
   AccordionTrigger,
 } from './ui/accordion';
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -248,7 +254,7 @@ export function SystemAdminClient() {
   );
   const [isDeleteUserAlertOpen, setIsDeleteUserAlertOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [companySearchTerm, setCompanySearchTerm] = useState('');
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -613,13 +619,13 @@ export function SystemAdminClient() {
 
   const filteredCompanies = companies.filter(
     (company) =>
-      company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      company.document.toLowerCase().includes(searchTerm.toLowerCase())
+      company.name.toLowerCase().includes(companySearchTerm.toLowerCase()) ||
+      company.document.toLowerCase().includes(companySearchTerm.toLowerCase())
   );
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, itemsPerPage]);
+  }, [companySearchTerm, itemsPerPage]);
 
   const totalCompanies = filteredCompanies.length;
   const totalPages =
@@ -635,233 +641,221 @@ export function SystemAdminClient() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full md:max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Pesquisar empresa por nome ou documento..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-        <Button
-          onClick={() => openCompanyDialog(null)}
-          className="w-full md:w-auto"
-        >
-          <Building className="mr-2 h-4 w-4" />
-          Adicionar Nova Empresa
-        </Button>
-      </div>
-      <Accordion
-        type="single"
-        collapsible
-        className="w-full"
-        defaultValue="system-admins"
-      >
-        <AccordionItem value="system-admins">
-          <AccordionTrigger>
-            <div className="flex items-center gap-4">
-              <Users className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="font-semibold">Administradores do Sistema</p>
-                <p className="text-sm text-muted-foreground font-normal">
-                  Usuários com acesso total ao sistema.
-                </p>
+      <Tabs defaultValue="companies" className="w-full space-y-4">
+        <TabsList>
+          <TabsTrigger value="companies">Empresas</TabsTrigger>
+          <TabsTrigger value="admins">Administradores</TabsTrigger>
+        </TabsList>
+        <TabsContent value="companies" className="space-y-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="relative w-full md:max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Pesquisar empresa por nome ou documento..."
+                value={companySearchTerm}
+                onChange={(e) => setCompanySearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <Button
+              onClick={() => openCompanyDialog(null)}
+              className="w-full md:w-auto"
+            >
+              <Building className="mr-2 h-4 w-4" />
+              Adicionar Nova Empresa
+            </Button>
+          </div>
+
+          <Accordion type="single" collapsible className="w-full">
+            {paginatedCompanies.map((company) => (
+              <AccordionItem value={company.document} key={company.document}>
+                <AccordionTrigger>
+                  <div className="flex justify-between items-center w-full">
+                    <div className="flex items-center gap-4">
+                      <Building className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-semibold">{company.name}</p>
+                        <p className="text-sm text-muted-foreground font-normal">
+                          {company.document}
+                        </p>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        asChild
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span
+                          className={cn(
+                            buttonVariants({ variant: 'ghost', size: 'icon' }),
+                            'h-8 w-8 mr-2'
+                          )}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </span>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem
+                          onClick={() => openCompanyDialog(company)}
+                        >
+                          <Edit className="mr-2 h-4 w-4" /> Editar Empresa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setCompanyToDelete(company);
+                            setIsDeleteCompanyAlertOpen(true);
+                          }}
+                          className="text-red-500"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Deletar Empresa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="bg-muted/40 p-4 rounded-md">
+                  <CompanyUserList
+                    company={company}
+                    allUsers={users}
+                    currentUser={currentUser}
+                    onEditUser={openUserDialog}
+                    onDeleteUser={(user) => {
+                      setUserToDelete(user);
+                      setIsDeleteUserAlertOpen(true);
+                    }}
+                    onAddUser={(companyId) => openUserDialog(null, companyId)}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+
+          {totalCompanies > 0 && itemsPerPage > 0 && totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Total de {totalCompanies} empresa(s).
+              </div>
+              <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium">Itens por página</p>
+                <Select
+                  value={`${itemsPerPage}`}
+                  onValueChange={(value) => {
+                    setItemsPerPage(Number(value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue placeholder={itemsPerPage} />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    {[10, 30, 50].map((pageSize) => (
+                      <SelectItem key={pageSize} value={`${pageSize}`}>
+                        {pageSize}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="0">Todos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Próximo
+                </Button>
               </div>
             </div>
-          </AccordionTrigger>
-          <AccordionContent className="space-y-4 bg-muted/40 p-4 rounded-md">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="relative w-full md:max-w-sm">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Pesquisar administrador..."
-                  value={adminSearchTerm}
-                  onChange={(e) => setAdminSearchTerm(e.target.value)}
-                  className="pl-8"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openNewSysAdminDialog();
-                }}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Administrador
-              </Button>
+          )}
+        </TabsContent>
+
+        <TabsContent value="admins" className="space-y-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="relative w-full md:max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Pesquisar administrador..."
+                value={adminSearchTerm}
+                onChange={(e) => setAdminSearchTerm(e.target.value)}
+                className="pl-8"
+              />
             </div>
-            <div className="rounded-md border bg-background">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome Completo</TableHead>
-                    <TableHead>Usuário</TableHead>
-                    <TableHead>Nível</TableHead>
-                    <TableHead className="w-24 text-center">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSystemAdmins.length > 0 ? (
-                    filteredSystemAdmins.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>{user.name}</TableCell>
-                        <TableCell className="font-medium">
-                          {user.username}
-                        </TableCell>
-                        <TableCell>ADMINISTRADOR DO SISTEMA</TableCell>
-                        <TableCell className="text-center">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  openUserDialog(user, undefined)
-                                }
-                              >
-                                <Edit className="mr-2 h-4 w-4" /> Editar
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">
-                        Nenhum administrador encontrado.
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openNewSysAdminDialog}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Administrador
+            </Button>
+          </div>
+          <div className="rounded-md border bg-background">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome Completo</TableHead>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Nível</TableHead>
+                  <TableHead className="w-24 text-center">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSystemAdmins.length > 0 ? (
+                  filteredSystemAdmins.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>{user.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {user.username}
+                      </TableCell>
+                      <TableCell>ADMINISTRADOR DO SISTEMA</TableCell>
+                      <TableCell className="text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => openUserDialog(user, undefined)}
+                            >
+                              <Edit className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-        {paginatedCompanies.map((company) => (
-          <AccordionItem value={company.document} key={company.document}>
-            <AccordionTrigger>
-              <div className="flex justify-between items-center w-full">
-                <div className="flex items-center gap-4">
-                  <Building className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-semibold">{company.name}</p>
-                    <p className="text-sm text-muted-foreground font-normal">
-                      {company.document}
-                    </p>
-                  </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    asChild
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span
-                      className={cn(
-                        buttonVariants({ variant: 'ghost', size: 'icon' }),
-                        'h-8 w-8 mr-2'
-                      )}
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </span>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => openCompanyDialog(company)}>
-                      <Edit className="mr-2 h-4 w-4" /> Editar Empresa
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setCompanyToDelete(company);
-                        setIsDeleteCompanyAlertOpen(true);
-                      }}
-                      className="text-red-500"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" /> Deletar Empresa
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="bg-muted/40 p-4 rounded-md">
-              <CompanyUserList
-                company={company}
-                allUsers={users}
-                currentUser={currentUser}
-                onEditUser={openUserDialog}
-                onDeleteUser={(user) => {
-                  setUserToDelete(user);
-                  setIsDeleteUserAlertOpen(true);
-                }}
-                onAddUser={(companyId) => openUserDialog(null, companyId)}
-              />
-            </AccordionContent>
-          </AccordionItem>
-        ))}
-      </Accordion>
-
-      {totalCompanies > 0 && itemsPerPage > 0 && (
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-muted-foreground">
-            Total de {totalCompanies} empresa(s).
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      Nenhum administrador encontrado.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Itens por página</p>
-            <Select
-              value={`${itemsPerPage}`}
-              onValueChange={(value) => {
-                setItemsPerPage(Number(value));
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue placeholder={itemsPerPage} />
-              </SelectTrigger>
-              <SelectContent side="top">
-                {[10, 30, 50].map((pageSize) => (
-                  <SelectItem key={pageSize} value={`${pageSize}`}>
-                    {pageSize}
-                  </SelectItem>
-                ))}
-                <SelectItem value="0">Todos</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-muted-foreground">
-              Página {currentPage} de {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Próximo
-            </Button>
-          </div>
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isCompanyDialogOpen} onOpenChange={setIsCompanyDialogOpen}>
         <DialogContent>
