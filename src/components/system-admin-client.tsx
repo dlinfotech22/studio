@@ -182,50 +182,59 @@ function CompanyUserList({
           </TableHeader>
           <TableBody>
             {companyUsers.length > 0 ? (
-              companyUsers.map((user) => (
-                <TableRow
-                  key={user.id}
-                  className={cn(
-                    user.role === 'company_admin' &&
-                      'bg-accent/20 hover:bg-accent/30'
-                  )}
-                >
-                  <TableCell>{user.name}</TableCell>
-                  <TableCell className="font-medium">{user.username}</TableCell>
-                  <TableCell>
-                    {user.role === 'company_admin' && 'Admin. da Empresa'}
-                    {user.role === 'user' && 'Usuário'}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => onEditUser(user, company.document)}
-                        >
-                          <Edit className="mr-2 h-4 w-4" /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => onDeleteUser(user)}
-                          className="text-red-500"
-                          disabled={user.id === currentUser?.id}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Deletar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+              companyUsers.map((user) => {
+                const isAdmin = user.role === 'company_admin';
+                return (
+                  <TableRow key={user.id}>
+                    <TableCell
+                      className={cn(isAdmin && 'text-primary font-semibold')}
+                    >
+                      {user.name}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        'font-medium',
+                        isAdmin && 'text-primary font-semibold'
+                      )}
+                    >
+                      {user.username}
+                    </TableCell>
+                    <TableCell
+                      className={cn(isAdmin && 'text-primary font-semibold')}
+                    >
+                      {isAdmin ? 'Admin. da Empresa' : 'Usuário'}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => onEditUser(user, company.document)}
+                          >
+                            <Edit className="mr-2 h-4 w-4" /> Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => onDeleteUser(user)}
+                            className="text-red-500"
+                            disabled={user.id === currentUser?.id}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Deletar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell colSpan={4} className="h-24 text-center">
