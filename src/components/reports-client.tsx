@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn, formatCurrency } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from './ui/card';
 import {
   Table,
   TableBody,
@@ -44,7 +44,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from './ui/table';
+} from '@/components/ui/table';
 import { type Transaction, type CompanyInfo } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
@@ -223,20 +223,25 @@ export function ReportsClient() {
   const [isClearDataAlertOpen, setIsClearDataAlertOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchData = async (id: string) => {
       try {
         const transactionsRef = collection(db, 'transactions');
-        const qTransactions = query(transactionsRef, where('companyId', '==', id));
+        const qTransactions = query(
+          transactionsRef,
+          where('companyId', '==', id)
+        );
         const transactionSnapshot = await getDocs(qTransactions);
         const allTransactions = transactionSnapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                ...data,
-                date: (data.date as Timestamp).toDate(),
-            } as Transaction;
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            date: (data.date as Timestamp).toDate(),
+          } as Transaction;
         });
         setTransactions(allTransactions);
 
@@ -244,8 +249,11 @@ export function ReportsClient() {
         const qCompanies = query(companiesRef, where('document', '==', id));
         const companySnapshot = await getDocs(qCompanies);
         if (!companySnapshot.empty) {
-            const companyDoc = companySnapshot.docs[0];
-            setCompanyInfo({ id: companyDoc.id, ...companyDoc.data() } as CompanyInfo);
+          const companyDoc = companySnapshot.docs[0];
+          setCompanyInfo({
+            id: companyDoc.id,
+            ...companyDoc.data(),
+          } as CompanyInfo);
         }
       } catch (error) {
         console.error('Failed to load data from Firestore', error);
@@ -253,7 +261,7 @@ export function ReportsClient() {
         setIsClient(true);
       }
     };
-    
+
     const id = sessionStorage.getItem('current-user-company-id');
     const role = sessionStorage.getItem('current-user-role');
     setCompanyId(id);
@@ -374,29 +382,41 @@ export function ReportsClient() {
           // Note: Adding images from URL might be blocked by CORS in some environments.
           // A server-side proxy or fetching the image as a blob might be needed.
           const img = new Image();
-          img.crossOrigin = "Anonymous";
+          img.crossOrigin = 'Anonymous';
           img.src = companyInfo.logo;
           img.onload = () => {
-              const canvas = document.createElement('canvas');
-              canvas.width = img.width;
-              canvas.height = img.height;
-              const ctx = canvas.getContext('2d');
-              ctx?.drawImage(img, 0, 0);
-              const dataUrl = canvas.toDataURL('image/png');
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            const dataUrl = canvas.toDataURL('image/png');
 
-              const imgProps = doc.getImageProperties(dataUrl);
-              const aspectRatio = imgProps.width / imgProps.height;
-              const imgWidth = 20;
-              const imgHeight = imgWidth / aspectRatio;
-              doc.addImage(dataUrl, 'PNG', leftMargin, startY, imgWidth, imgHeight);
-              logoRenderedSuccessfully = true;
-              generatePdfContent(doc, startY, leftMargin, logoRenderedSuccessfully);
+            const imgProps = doc.getImageProperties(dataUrl);
+            const aspectRatio = imgProps.width / imgProps.height;
+            const imgWidth = 20;
+            const imgHeight = imgWidth / aspectRatio;
+            doc.addImage(
+              dataUrl,
+              'PNG',
+              leftMargin,
+              startY,
+              imgWidth,
+              imgHeight
+            );
+            logoRenderedSuccessfully = true;
+            generatePdfContent(
+              doc,
+              startY,
+              leftMargin,
+              logoRenderedSuccessfully
+            );
           };
           img.onerror = () => {
-             generatePdfContent(doc, startY, leftMargin, false);
-          }
+            generatePdfContent(doc, startY, leftMargin, false);
+          };
         } catch (e) {
-          console.error("Error adding logo to PDF", e);
+          console.error('Error adding logo to PDF', e);
           generatePdfContent(doc, startY, leftMargin, false);
         }
       } else {
@@ -470,126 +490,154 @@ export function ReportsClient() {
     });
   };
 
-  const generatePdfContent = (doc: jsPDF, startY: number, leftMargin: number, logoRendered: boolean) => {
-      const textXOffset = logoRendered ? 25 : 0;
-      if (companyInfo?.name) {
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(companyInfo.name, leftMargin + textXOffset, startY + 6);
-      }
-      if (companyInfo?.document) {
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text(companyInfo.document, leftMargin + textXOffset, startY + 12);
-      }
-      
-      startY += logoRendered ? 28 : 20;
-
-      const formatDateRange = () => {
-        if (!date?.from) return 'Nenhum período selecionado';
-        const from = format(date.from, 'dd/MM/yyyy');
-        const to = date.to ? format(date.to, 'dd/MM/yyyy') : from;
-        return from === to ? `do dia ${from}` : `de ${from} a ${to}`;
-      };
-      
-      doc.setFontSize(18);
+  const generatePdfContent = (
+    doc: jsPDF,
+    startY: number,
+    leftMargin: number,
+    logoRendered: boolean
+  ) => {
+    const textXOffset = logoRendered ? 25 : 0;
+    if (companyInfo?.name) {
+      doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('Relatório Financeiro', leftMargin, startY);
-      doc.setFontSize(11);
+      doc.text(companyInfo.name, leftMargin + textXOffset, startY + 6);
+    }
+    if (companyInfo?.document) {
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100);
-      doc.text(`Período ${formatDateRange()}`, leftMargin, startY + 6);
-      startY += 12;
+      doc.text(companyInfo.document, leftMargin + textXOffset, startY + 12);
+    }
 
+    startY += logoRendered ? 28 : 20;
 
-      const summaryData = [
-        ['Receita Total:', formatCurrency(totalRevenue)],
-        ['Despesa Total:', formatCurrency(totalExpenses)],
-        ['Lucro/Prejuízo:', formatCurrency(profit)],
-      ];
+    const formatDateRange = () => {
+      if (!date?.from) return 'Nenhum período selecionado';
+      const from = format(date.from, 'dd/MM/yyyy');
+      const to = date.to ? format(date.to, 'dd/MM/yyyy') : from;
+      return from === to ? `do dia ${from}` : `de ${from} a ${to}`;
+    };
 
-      (doc as any).autoTable({
-        body: summaryData,
-        startY,
-        theme: 'plain',
-        styles: { fontSize: 12 },
-        columnStyles: { 1: { halign: 'right' } },
-        didParseCell: (data: any) => {
-          if (data.column.index === 0) data.cell.styles.fontStyle = 'bold';
-          if (data.row.index === 0 && data.column.index === 1) data.cell.styles.textColor = '#16a34a';
-          if (data.row.index === 1 && data.column.index === 1) data.cell.styles.textColor = '#dc2626';
-          if (data.row.index === 2 && data.column.index === 1) data.cell.styles.textColor = profit >= 0 ? '#16a34a' : '#dc2626';
-        },
-      });
-      startY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Relatório Financeiro', leftMargin, startY);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100);
+    doc.text(`Período ${formatDateRange()}`, leftMargin, startY + 6);
+    startY += 12;
 
-      let autoTableOptions: any;
-      if (selectionMode === 'month' || selectionMode === 'year') {
-         const timeUnit = selectionMode === 'month' ? 'yyyy-MM-dd' : 'yyyy-MM';
-         const headerLabel = selectionMode === 'month' ? 'Data' : 'Mês';
-         const tableHead = [[headerLabel, 'Receitas', 'Despesas', 'Saldo']];
-         const dataMap = filteredTransactions.reduce((acc, t) => {
-            const key = format(new Date(t.date), timeUnit);
-            if (!acc[key]) {
-               acc[key] = { revenue: 0, expense: 0, date: new Date(t.date) };
-            }
-            if (t.type === 'revenue') acc[key].revenue += t.amount;
-            else acc[key].expense += t.amount;
-            return acc;
-         }, {} as Record<string, { revenue: number; expense: number; date: Date }>);
-         
-         const tableBody = Object.values(dataMap)
-          .sort((a,b) => a.date.getTime() - b.date.getTime())
-          .map(d => [
-              selectionMode === 'month' ? format(d.date, 'dd/MM/yyyy') : format(d.date, 'MMMM/yyyy', {locale: ptBR}),
-              Math.abs(d.revenue),
-              Math.abs(d.expense),
-              d.revenue + d.expense
-          ]);
-        
-        autoTableOptions = {
-          head: tableHead,
-          body: tableBody,
-          startY,
-          headStyles: { fillColor: [41, 128, 185], halign: 'center' },
-          columnStyles: { 0: { halign: 'left' }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }},
-          didParseCell: (data: any) => {
-             if (data.cell.section === 'head' && data.column.index > 0) data.cell.styles.halign = 'right';
-             if (data.cell.section === 'body' && data.column.index > 0) {
-              data.cell.text = [formatCurrency(data.cell.raw)];
-              if (data.column.index === 1) data.cell.styles.textColor = '#16a34a';
-              if (data.column.index === 2) data.cell.styles.textColor = '#dc2626';
-              if (data.column.index === 3) data.cell.styles.textColor = data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
-             }
+    const summaryData = [
+      ['Receita Total:', formatCurrency(totalRevenue)],
+      ['Despesa Total:', formatCurrency(totalExpenses)],
+      ['Lucro/Prejuízo:', formatCurrency(profit)],
+    ];
+
+    (doc as any).autoTable({
+      body: summaryData,
+      startY,
+      theme: 'plain',
+      styles: { fontSize: 12 },
+      columnStyles: { 1: { halign: 'right' } },
+      didParseCell: (data: any) => {
+        if (data.column.index === 0) data.cell.styles.fontStyle = 'bold';
+        if (data.row.index === 0 && data.column.index === 1)
+          data.cell.styles.textColor = '#16a34a';
+        if (data.row.index === 1 && data.column.index === 1)
+          data.cell.styles.textColor = '#dc2626';
+        if (data.row.index === 2 && data.column.index === 1)
+          data.cell.styles.textColor = profit >= 0 ? '#16a34a' : '#dc2626';
+      },
+    });
+    startY = (doc as any).lastAutoTable.finalY + 10;
+
+    let autoTableOptions: any;
+    if (selectionMode === 'month' || selectionMode === 'year') {
+      const timeUnit = selectionMode === 'month' ? 'yyyy-MM-dd' : 'yyyy-MM';
+      const headerLabel = selectionMode === 'month' ? 'Data' : 'Mês';
+      const tableHead = [[headerLabel, 'Receitas', 'Despesas', 'Saldo']];
+      const dataMap = filteredTransactions.reduce(
+        (acc, t) => {
+          const key = format(new Date(t.date), timeUnit);
+          if (!acc[key]) {
+            acc[key] = { revenue: 0, expense: 0, date: new Date(t.date) };
           }
-        };
-      } else {
-        autoTableOptions = {
-          head: [['Data', 'Descrição', 'Categoria', 'Valor']],
-          body: filteredTransactions.map((t) => [
-            format(new Date(t.date), 'dd/MM/yyyy'),
-            t.description,
-            t.category,
-            formatCurrency(t.amount),
-          ]),
-          startY,
-          headStyles: { fillColor: [41, 128, 185] },
-          columnStyles: { 3: { halign: 'right' } },
-          didParseCell: (data: any) => {
-            if (data.column.index === 3 && data.cell.section === 'body') {
-              const transaction = filteredTransactions[data.row.index];
-              data.cell.styles.textColor =
-                transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
-            }
-          },
-        };
-      }
+          if (t.type === 'revenue') acc[key].revenue += t.amount;
+          else acc[key].expense += t.amount;
+          return acc;
+        },
+        {} as Record<string, { revenue: number; expense: number; date: Date }>
+      );
 
-      (doc as any).autoTable(autoTableOptions);
-      const fileName = `relatorio_financeiro_${format(new Date(),'yyyy-MM-dd')}.pdf`;
-      doc.save(fileName);
-      toast({ title: 'Exportação Concluída', description: `O arquivo ${fileName} foi gerado com sucesso.`});
-  }
+      const tableBody = Object.values(dataMap)
+        .sort((a, b) => a.date.getTime() - b.date.getTime())
+        .map((d) => [
+          selectionMode === 'month'
+            ? format(d.date, 'dd/MM/yyyy')
+            : format(d.date, 'MMMM/yyyy', { locale: ptBR }),
+          Math.abs(d.revenue),
+          Math.abs(d.expense),
+          d.revenue + d.expense,
+        ]);
+
+      autoTableOptions = {
+        head: tableHead,
+        body: tableBody,
+        startY,
+        headStyles: { fillColor: [41, 128, 185], halign: 'center' },
+        columnStyles: {
+          0: { halign: 'left' },
+          1: { halign: 'right' },
+          2: { halign: 'right' },
+          3: { halign: 'right' },
+        },
+        didParseCell: (data: any) => {
+          if (data.cell.section === 'head' && data.column.index > 0)
+            data.cell.styles.halign = 'right';
+          if (data.cell.section === 'body' && data.column.index > 0) {
+            data.cell.text = [formatCurrency(data.cell.raw)];
+            if (data.column.index === 1)
+              data.cell.styles.textColor = '#16a34a';
+            if (data.column.index === 2)
+              data.cell.styles.textColor = '#dc2626';
+            if (data.column.index === 3)
+              data.cell.styles.textColor =
+                data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
+          }
+        },
+      };
+    } else {
+      autoTableOptions = {
+        head: [['Data', 'Descrição', 'Categoria', 'Valor']],
+        body: filteredTransactions.map((t) => [
+          format(new Date(t.date), 'dd/MM/yyyy'),
+          t.description,
+          t.category,
+          formatCurrency(t.amount),
+        ]),
+        startY,
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: { 3: { halign: 'right' } },
+        didParseCell: (data: any) => {
+          if (data.column.index === 3 && data.cell.section === 'body') {
+            const transaction = filteredTransactions[data.row.index];
+            data.cell.styles.textColor =
+              transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
+          }
+        },
+      };
+    }
+
+    (doc as any).autoTable(autoTableOptions);
+    const fileName = `relatorio_financeiro_${format(
+      new Date(),
+      'yyyy-MM-dd'
+    )}.pdf`;
+    doc.save(fileName);
+    toast({
+      title: 'Exportação Concluída',
+      description: `O arquivo ${fileName} foi gerado com sucesso.`,
+    });
+  };
 
   const handleClearOldData = async () => {
     if (!companyId) return;
@@ -609,14 +657,16 @@ export function ReportsClient() {
     if (oldTransactionsCount > 0) {
       try {
         await batch.commit();
-        setTransactions(transactions.filter(t => getYear(new Date(t.date)) >= currentYear));
+        setTransactions(
+          transactions.filter((t) => getYear(new Date(t.date)) >= currentYear)
+        );
         toast({
           title: 'Sucesso!',
           description: `${oldTransactionsCount} lançamento(s) de anos anteriores foram removidos.`,
         });
       } catch (error: any) {
-         console.error('Failed to clear old data:', error);
-         toast({
+        console.error('Failed to clear old data:', error);
+        toast({
           title: 'Erro!',
           description:
             error.code === 'permission-denied'
@@ -626,11 +676,38 @@ export function ReportsClient() {
         });
       }
     } else {
-       toast({ title: 'Nenhum dado antigo', description: 'Não há lançamentos de anos anteriores para remover.'});
+      toast({
+        title: 'Nenhum dado antigo',
+        description: 'Não há lançamentos de anos anteriores para remover.',
+      });
     }
-    
+
     setIsClearDataAlertOpen(false);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [date, itemsPerPage]);
+
+  const totalItems = filteredTransactions.length;
+  const totalPages = itemsPerPage > 0 ? Math.ceil(totalItems / itemsPerPage) : 1;
+  const paginatedTransactions =
+    itemsPerPage > 0
+      ? filteredTransactions
+          .sort(
+            (a, b) =>
+              new Date(b.date as Date).getTime() -
+              new Date(a.date as Date).getTime()
+          )
+          .slice(
+            (currentPage - 1) * itemsPerPage,
+            currentPage * itemsPerPage
+          )
+      : filteredTransactions.sort(
+          (a, b) =>
+            new Date(b.date as Date).getTime() -
+            new Date(a.date as Date).getTime()
+        );
 
   if (!isClient) {
     return <ReportsSkeleton />;
@@ -777,12 +854,12 @@ export function ReportsClient() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTransactions.length > 0 ? (
-                  filteredTransactions
-                  .sort((a, b) => new Date(b.date as Date).getTime() - new Date(a.date as Date).getTime())
-                  .map((t) => (
+                {paginatedTransactions.length > 0 ? (
+                  paginatedTransactions.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>{format(new Date(t.date as Date), 'dd/MM/yyyy')}</TableCell>
+                      <TableCell>
+                        {format(new Date(t.date as Date), 'dd/MM/yyyy')}
+                      </TableCell>
                       <TableCell className="font-medium">
                         {t.description}
                       </TableCell>
@@ -810,6 +887,56 @@ export function ReportsClient() {
             </Table>
           </div>
         </CardContent>
+        {itemsPerPage > 0 && totalPages > 1 && (
+          <CardFooter className="flex items-center justify-between pt-4">
+            <div className="text-sm text-muted-foreground">
+              Total de {totalItems} lançamento(s).
+            </div>
+            <div className="flex items-center space-x-2">
+              <p className="text-sm font-medium">Itens por página</p>
+              <Select
+                value={`${itemsPerPage}`}
+                onValueChange={(value) => {
+                  setItemsPerPage(Number(value));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={itemsPerPage} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[10, 30, 50].map((pageSize) => (
+                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                      {pageSize}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="0">Todos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-muted-foreground">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Próximo
+              </Button>
+            </div>
+          </CardFooter>
+        )}
       </Card>
       <AlertDialog
         open={isClearDataAlertOpen}
@@ -820,7 +947,8 @@ export function ReportsClient() {
             <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta ação removerá permanentemente todos os lançamentos de anos
-              anteriores ao ano atual ({new Date().getFullYear()}). Esta ação não pode ser desfeita.
+              anteriores ao ano atual ({new Date().getFullYear()}). Esta ação não
+              pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

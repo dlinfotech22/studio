@@ -64,6 +64,13 @@ import { Card, CardContent } from './ui/card';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { db } from '@/lib/firebase';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 const userSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -88,6 +95,8 @@ export function AccessManagementClient() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchUsers = async (currentCompanyId: string) => {
@@ -101,7 +110,10 @@ export function AccessManagementClient() {
         setUsers(companyUsers);
 
         const currentUsername = sessionStorage.getItem('current-user');
-        const qCurrentUser = query(usersRef, where('username', '==', currentUsername));
+        const qCurrentUser = query(
+          usersRef,
+          where('username', '==', currentUsername)
+        );
         const currentUserSnapshot = await getDocs(qCurrentUser);
         if (!currentUserSnapshot.empty) {
           setCurrentUser({
@@ -143,10 +155,7 @@ export function AccessManagementClient() {
     try {
       const usersRef = collection(db, 'users');
       // Check for existing username
-      const q = query(
-        usersRef,
-        where('username', '==', submittedData.username)
-      );
+      const q = query(usersRef, where('username', '==', submittedData.username));
       const querySnapshot = await getDocs(q);
       const existingUser =
         !querySnapshot.empty && querySnapshot.docs[0].id !== editingUser?.id
@@ -174,9 +183,7 @@ export function AccessManagementClient() {
         await updateDoc(userRef, payload);
 
         setUsers(
-          users.map((u) =>
-            u.id === editingUser.id ? { ...u, ...payload } : u
-          )
+          users.map((u) => (u.id === editingUser.id ? { ...u, ...payload } : u))
         );
         toast({ title: 'Sucesso!', description: 'Usuário atualizado.' });
       } else {
@@ -274,11 +281,25 @@ export function AccessManagementClient() {
     setIsDialogOpen(true);
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, itemsPerPage]);
+
   const filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const totalUsers = filteredUsers.length;
+  const totalPages = itemsPerPage > 0 ? Math.ceil(totalUsers / itemsPerPage) : 1;
+  const paginatedUsers =
+    itemsPerPage > 0
+      ? filteredUsers.slice(
+          (currentPage - 1) * itemsPerPage,
+          currentPage * itemsPerPage
+        )
+      : filteredUsers;
 
   return (
     <>
@@ -300,7 +321,7 @@ export function AccessManagementClient() {
               Adicionar Usuário
             </Button>
           </div>
-          <div className="rounded-md border-t">
+          <div className="border-t">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -311,8 +332,8 @@ export function AccessManagementClient() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
+                {paginatedUsers.length > 0 ? (
+                  paginatedUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>{user.name}</TableCell>
                       <TableCell className="font-medium">
@@ -364,6 +385,56 @@ export function AccessManagementClient() {
             </Table>
           </div>
         </CardContent>
+        {itemsPerPage > 0 && totalPages > 1 && (
+          <CardFooter className="flex items-center justify-between pt-4">
+            <div className="text-sm text-muted-foreground">
+              Total de {totalUsers} usuário(s).
+            </div>
+            <div className="flex items-center space-x-2">
+              <p className="text-sm font-medium">Itens por página</p>
+              <Select
+                value={`${itemsPerPage}`}
+                onValueChange={(value) => {
+                  setItemsPerPage(Number(value));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={itemsPerPage} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[10, 30, 50].map((pageSize) => (
+                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                      {pageSize}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="0">Todos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-muted-foreground">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Próximo
+              </Button>
+            </div>
+          </CardFooter>
+        )}
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
