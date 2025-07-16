@@ -14,7 +14,6 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  writeBatch,
 } from 'firebase/firestore';
 import {
   PlusCircle,
@@ -22,10 +21,15 @@ import {
   Trash2,
   MoreHorizontal,
   Search,
-  X,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { format } from 'date-fns';
 
-import { type Product } from '@/lib/types';
+import { type Product, type CompanyInfo } from '@/lib/types';
 import { formatCurrency, cn, capitalizeFirstLetter } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -72,7 +76,6 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { db } from '@/lib/firebase';
-import { CardFooter } from './ui/card';
 import {
   Select,
   SelectContent,
@@ -99,6 +102,7 @@ export function InventoryClient() {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -114,6 +118,17 @@ export function InventoryClient() {
           (doc) => ({ id: doc.id, ...doc.data() } as Product)
         );
         setProducts(fetchedProducts);
+
+        const companiesRef = collection(db, 'companies');
+        const qCompanies = query(companiesRef, where('document', '==', id));
+        const companySnapshot = await getDocs(qCompanies);
+        if (!companySnapshot.empty) {
+          const companyDoc = companySnapshot.docs[0];
+          setCompanyInfo({
+            id: companyDoc.id,
+            ...companyDoc.data(),
+          } as CompanyInfo);
+        }
       } catch (error) {
         console.error('Failed to load products from Firestore', error);
       }
@@ -124,7 +139,7 @@ export function InventoryClient() {
     if (id) {
       fetchData(id);
     }
-  }, [companyId]);
+  }, []);
 
   useEffect(() => {
     let productsToDisplay = products.filter(
@@ -196,8 +211,6 @@ export function InventoryClient() {
 
   const confirmDelete = async () => {
     if (productToDelete) {
-      // We should also check if this product is used in any transactions
-      // For simplicity now, we just delete it. A better approach would be to archive it.
       try {
         await deleteDoc(doc(db, 'products', productToDelete.id));
         setProducts(products.filter((p) => p.id !== productToDelete.id));
@@ -223,6 +236,107 @@ export function InventoryClient() {
     form.reset({ name: '', barcode: '', quantity: 0, price: 0 });
     setIsDialogOpen(true);
   };
+
+  const handleExport = (formatType: 'Excel' | 'PDF') => {
+    if (filteredProducts.length === 0) {
+      toast({
+        title: 'Nenhum produto para exportar',
+        description: 'Não há produtos na lista para gerar o arquivo.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const totalValue = filteredProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
+
+    if (formatType === 'PDF') {
+      const doc = new jsPDF();
+      let startY = 15;
+      const leftMargin = 14;
+
+      if (companyInfo?.name) {
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(companyInfo.name, leftMargin, startY);
+      }
+      startY += 8;
+
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Relatório de Estoque', leftMargin, startY);
+      startY += 6;
+      
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy')}`, leftMargin, startY);
+      startY += 10;
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Valor Total do Estoque: ${formatCurrency(totalValue)}`, leftMargin, startY);
+      startY += 10;
+
+      const tableHead = [['Produto', 'Cód. Barras', 'Qtde.', 'Preço Venda (UN)']];
+      const tableBody = filteredProducts.map(p => [
+        p.name,
+        p.barcode || '-',
+        p.quantity,
+        formatCurrency(p.price)
+      ]);
+
+      (doc as any).autoTable({
+        head: tableHead,
+        body: tableBody,
+        startY,
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: {
+          2: { halign: 'right' },
+          3: { halign: 'right' },
+        },
+      });
+
+      const fileName = `relatorio_estoque_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      doc.save(fileName);
+      toast({ title: 'Exportação Concluída', description: `O arquivo ${fileName} foi gerado.` });
+      return;
+    }
+
+    // Excel Export
+    const dataToExport = filteredProducts.map(p => ({
+      'Produto': p.name,
+      'Código de Barras': p.barcode || '',
+      'Quantidade': p.quantity,
+      'Preço de Venda': p.price,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    XLSX.utils.sheet_add_aoa(worksheet, [['', '', 'Valor Total do Estoque:', totalValue]], { origin: -1 });
+
+    worksheet['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 15 }, { wch: 15 }];
+    const priceRange = XLSX.utils.decode_range(worksheet['!ref']!);
+    for (let R = priceRange.s.r + 1; R <= priceRange.e.r; ++R) {
+        const cell_address = { c: 3, r: R };
+        const cell_ref = XLSX.utils.encode_cell(cell_address);
+        if (worksheet[cell_ref]) {
+            worksheet[cell_ref].t = 'n';
+            worksheet[cell_ref].z = '"R$"#,##0.00';
+        }
+    }
+     const totalCellRef = XLSX.utils.encode_cell({ c: 3, r: priceRange.e.r + 1 });
+     if (worksheet[totalCellRef]) {
+        worksheet[totalCellRef].t = 'n';
+        worksheet[totalCellRef].z = '"R$"#,##0.00';
+     }
+
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Estoque');
+    const fileName = `relatorio_estoque_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    toast({ title: 'Exportação Concluída', description: `O arquivo ${fileName} foi gerado.` });
+  };
+
 
   useEffect(() => {
     setCurrentPage(1);
@@ -251,7 +365,15 @@ export function InventoryClient() {
             className="pl-8"
           />
         </div>
-        <div className="ml-auto">
+        <div className="flex flex-wrap items-center gap-2 ml-auto">
+          <Button variant="outline" onClick={() => handleExport('Excel')}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Exportar para Excel
+          </Button>
+          <Button onClick={() => handleExport('PDF')}>
+            <FileText className="mr-2 h-4 w-4" />
+            Gerar Relatório PDF
+          </Button>
           <Button onClick={openNewProductDialog}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Produto
