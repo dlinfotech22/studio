@@ -728,7 +728,6 @@ export function TransactionsClient() {
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                         <Command>
-                          <CommandInput placeholder="Pesquisar produto..." />
                           <CommandList>
                             <CommandItem
                                 value="--none--"
