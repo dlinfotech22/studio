@@ -14,6 +14,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  runTransaction,
 } from 'firebase/firestore';
 import {
   PlusCircle,
@@ -23,6 +24,7 @@ import {
   Search,
   FileSpreadsheet,
   FileText,
+  PackagePlus,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -107,6 +109,11 @@ export function InventoryClient() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  const [isRestockDialogOpen, setIsRestockDialogOpen] = useState(false);
+  const [productToRestock, setProductToRestock] = useState<Product | null>(null);
+  const [restockQuantity, setRestockQuantity] = useState<number | ''>('');
+
 
   useEffect(() => {
     const fetchData = async (id: string) => {
@@ -208,6 +215,12 @@ export function InventoryClient() {
     setProductToDelete(product);
     setIsDeleteAlertOpen(true);
   };
+  
+  const handleOpenRestockDialog = (product: Product) => {
+    setProductToRestock(product);
+    setRestockQuantity('');
+    setIsRestockDialogOpen(true);
+  };
 
   const confirmDelete = async () => {
     if (productToDelete) {
@@ -229,6 +242,50 @@ export function InventoryClient() {
     }
     setIsDeleteAlertOpen(false);
     setProductToDelete(null);
+  };
+
+  const handleConfirmRestock = async () => {
+    if (!productToRestock || !restockQuantity || restockQuantity <= 0) {
+      toast({
+        title: 'Valor inválido',
+        description: 'Por favor, insira uma quantidade positiva para repor.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const productRef = doc(db, 'products', productToRestock.id);
+      await runTransaction(db, async (transaction) => {
+        const productDoc = await transaction.get(productRef);
+        if (!productDoc.exists()) {
+          throw new Error("Produto não encontrado.");
+        }
+        const currentQuantity = productDoc.data().quantity;
+        const newQuantity = currentQuantity + Number(restockQuantity);
+        transaction.update(productRef, { quantity: newQuantity });
+      });
+
+      setProducts(products.map(p => 
+        p.id === productToRestock.id ? { ...p, quantity: p.quantity + Number(restockQuantity) } : p
+      ));
+      
+      toast({
+        title: 'Sucesso!',
+        description: `Estoque do produto ${productToRestock.name} atualizado.`,
+      });
+
+    } catch (error: any) {
+      console.error('Failed to restock product:', error);
+      toast({
+        title: 'Erro!',
+        description: error.message || 'Não foi possível repor o estoque.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRestockDialogOpen(false);
+      setProductToRestock(null);
+    }
   };
 
   const openNewProductDialog = () => {
@@ -361,7 +418,7 @@ export function InventoryClient() {
           <Input
             placeholder="Pesquisar por nome ou código..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
             className="pl-8"
           />
         </div>
@@ -417,6 +474,9 @@ export function InventoryClient() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                           <DropdownMenuItem onClick={() => handleOpenRestockDialog(item)}>
+                            <PackagePlus className="mr-2 h-4 w-4" /> Repor Estoque
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleEdit(item)}>
                             <Edit className="mr-2 h-4 w-4" /> Editar
                           </DropdownMenuItem>
@@ -577,6 +637,50 @@ export function InventoryClient() {
           </Form>
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={isRestockDialogOpen} onOpenChange={setIsRestockDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Repor Estoque</DialogTitle>
+            <DialogDescription>
+              Adicione uma quantidade ao estoque do produto selecionado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm">{productToRestock?.name}</h4>
+              <p className="text-sm text-muted-foreground">
+                Quantidade atual: {productToRestock?.quantity}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <FormLabel htmlFor="restock-quantity">
+                Quantidade a Adicionar
+              </FormLabel>
+              <Input
+                id="restock-quantity"
+                type="number"
+                min="1"
+                placeholder="0"
+                value={restockQuantity}
+                onChange={(e) =>
+                  setRestockQuantity(e.target.value === '' ? '' : Number(e.target.value))
+                }
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="ghost">
+                Cancelar
+              </Button>
+            </DialogClose>
+            <Button onClick={handleConfirmRestock}>Confirmar Reposição</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <AlertDialog
         open={isDeleteAlertOpen}
@@ -602,3 +706,4 @@ export function InventoryClient() {
     </>
   );
 }
+
