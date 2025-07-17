@@ -119,7 +119,16 @@ export function AccountsReceivableClient() {
           throw new Error('Lançamento não encontrado.');
         }
 
-        const currentTransaction = transactionDoc.data() as Transaction;
+        const currentTransactionData = transactionDoc.data();
+        const currentTransaction = {
+            ...currentTransactionData,
+            date: (currentTransactionData.date as Timestamp).toDate(),
+            installments: currentTransactionData.installments?.map((inst: any) => ({
+                ...inst,
+                dueDate: (inst.dueDate as Timestamp).toDate(),
+            })),
+        } as Transaction;
+
         const installments =
           currentTransaction.installments?.map((inst) =>
             inst.installmentNumber === installmentNumber
@@ -131,7 +140,7 @@ export function AccountsReceivableClient() {
         const newStatus = allPaid ? 'Pago' : 'Parcialmente Pago';
 
         dbTransaction.update(transactionRef, {
-          installments: installments.map(inst => ({...inst, dueDate: Timestamp.fromDate(new Date(inst.dueDate as Date))})),
+          installments: installments.map(inst => ({...inst, dueDate: Timestamp.fromDate(inst.dueDate as Date)})),
           status: newStatus,
         });
       });
