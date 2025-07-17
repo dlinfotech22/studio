@@ -147,6 +147,7 @@ export function TransactionsClient() {
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [productSearchInput, setProductSearchInput] = useState('');
 
   useEffect(() => {
     const fetchData = async (id: string) => {
@@ -550,6 +551,9 @@ export function TransactionsClient() {
   const selectedSubtype = form.watch('subtype');
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
 
+  const filteredProducts = allProducts.filter(p => p.name.toLowerCase().includes(productSearchInput.toLowerCase()));
+
+
   useEffect(() => {
     const { serviceAmount, productAmount, quantitySold, productId, subtype } = form.getValues();
     const product = allProducts.find(p => p.id === productId);
@@ -728,28 +732,19 @@ export function TransactionsClient() {
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                         <Command>
-                           <CommandInput placeholder="Pesquisar produto..." />
+                           <CommandInput 
+                             placeholder="Pesquisar produto..." 
+                             value={productSearchInput}
+                             onValueChange={setProductSearchInput}
+                           />
                           <CommandList>
                              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                            <CommandGroup>
-                              <CommandItem
-                                  value="--none--"
-                                  onSelect={() => {
-                                    form.setValue("productId", "");
-                                    form.setValue("amount", 0);
-                                    form.setValue("quantitySold", 0);
-                                    form.setValue("productAmount", 0);
-                                    setIsProductComboboxOpen(false);
-                                  }}
-                                >
-                                  Nenhum
-                                </CommandItem>
-                              {allProducts.map((prod) => (
+                              {filteredProducts.map((prod) => (
                                 <CommandItem
-                                  value={prod.id}
                                   key={prod.id}
                                   onSelect={() => {
-                                    form.setValue("productId", field.value === prod.id ? "" : prod.id);
+                                    form.setValue("productId", prod.id);
+                                    setProductSearchInput("");
                                     setIsProductComboboxOpen(false);
                                   }}
                                 >
@@ -764,7 +759,6 @@ export function TransactionsClient() {
                                   {prod.name}
                                 </CommandItem>
                               ))}
-                            </CommandGroup>
                           </CommandList>
                         </Command>
                       </PopoverContent>
