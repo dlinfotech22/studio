@@ -748,8 +748,8 @@ export function TransactionsClient() {
                                 <CommandItem
                                   value={prod.id}
                                   key={prod.id}
-                                  onSelect={(currentValue) => {
-                                    form.setValue("productId", currentValue === field.value ? "" : currentValue);
+                                  onSelect={() => {
+                                    form.setValue("productId", field.value === prod.id ? "" : prod.id);
                                     setIsProductComboboxOpen(false);
                                   }}
                                 >
