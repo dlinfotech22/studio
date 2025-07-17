@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -373,6 +374,26 @@ export function ReportsClient() {
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
   const profit = totalRevenue - totalExpenses;
 
+  const getTransactionDescription = (transaction: Transaction, products: Product[]) => {
+    const product = products.find(p => p.id === transaction.productId);
+    switch (transaction.subtype) {
+      case 'Venda':
+        if (product) {
+          const price = formatCurrency(transaction.amount / (transaction.quantitySold || 1));
+          return `VENDA: ${transaction.quantitySold}x ${product.name} (${price}/un)`;
+        }
+        return transaction.description;
+      case 'Serviço + Venda':
+        const servicePart = `SERVIÇO: ${formatCurrency(transaction.serviceAmount || 0)}`;
+        const productPart = product ? `PRODUTO: ${transaction.quantitySold}x ${product.name} (${formatCurrency(transaction.productAmount || 0)})` : '';
+        return [servicePart, productPart].filter(Boolean).join(' | ');
+      case 'Prestação de Serviço':
+      case 'Despesa':
+      default:
+        return transaction.description;
+    }
+  };
+
   const handleExport = (formatType: 'Excel' | 'PDF') => {
     if (filteredTransactions.length === 0) {
       toast({
@@ -440,21 +461,10 @@ export function ReportsClient() {
 
     // Excel Export
     const dataToExport = filteredTransactions.map((t) => {
-        const product = products.find(p => p.id === t.productId);
-        let description = t.description;
-
-        if (t.subtype === 'Venda' && product) {
-            description = `${t.description || 'Venda'}: ${t.quantitySold}x ${product.name}`;
-        } else if (t.subtype === 'Serviço + Venda') {
-            const servicePart = t.serviceAmount ? `Serviço (${formatCurrency(t.serviceAmount)})` : '';
-            const productPart = product ? `${t.quantitySold}x ${product.name} (${formatCurrency(t.productAmount || 0)})` : '';
-            description = [servicePart, productPart].filter(Boolean).join(' + ');
-        }
-        
         return {
             'Data': format(new Date(t.date), 'dd/MM/yyyy'),
-            'Descrição': description,
             'Tipo': t.subtype,
+            'Descrição': getTransactionDescription(t, products),
             'Valor': t.amount,
         };
     });
@@ -494,8 +504,8 @@ export function ReportsClient() {
 
     worksheet['!cols'] = [
       { wch: 12 },
-      { wch: 40 },
       { wch: 20 },
+      { wch: 60 },
       { wch: 15 },
     ];
 
@@ -573,89 +583,25 @@ export function ReportsClient() {
       },
     });
     startY = (doc as any).lastAutoTable.finalY + 10;
+    
+    const tableBody = filteredTransactions.map((t) => [
+        format(new Date(t.date), 'dd/MM/yyyy'),
+        t.subtype,
+        getTransactionDescription(t, products),
+        formatCurrency(t.amount),
+    ]);
 
-    let autoTableOptions: any;
-    if (selectionMode === 'month' || selectionMode === 'year') {
-      const timeUnit = selectionMode === 'month' ? 'yyyy-MM-dd' : 'yyyy-MM';
-      const headerLabel = selectionMode === 'month' ? 'Data' : 'Mês';
-      const tableHead = [[headerLabel, 'Receitas', 'Despesas', 'Saldo']];
-      const dataMap = filteredTransactions.reduce(
-        (acc, t) => {
-          const key = format(new Date(t.date), timeUnit);
-          if (!acc[key]) {
-            acc[key] = { revenue: 0, expense: 0, date: new Date(t.date) };
-          }
-          if (t.type === 'revenue') acc[key].revenue += t.amount;
-          else acc[key].expense += t.amount;
-          return acc;
-        },
-        {} as Record<string, { revenue: number; expense: number; date: Date }>
-      );
-
-      const tableBody = Object.values(dataMap)
-        .sort((a, b) => a.date.getTime() - b.date.getTime())
-        .map((d) => [
-          selectionMode === 'month'
-            ? format(d.date, 'dd/MM/yyyy')
-            : format(d.date, 'MMMM/yyyy', { locale: ptBR }),
-          Math.abs(d.revenue),
-          Math.abs(d.expense),
-          d.revenue - d.expense, // Keep expense negative for subtraction
-        ]);
-
-      autoTableOptions = {
-        head: tableHead,
-        body: tableBody,
-        startY,
-        headStyles: { fillColor: [41, 128, 185], halign: 'center' },
-        columnStyles: {
-          0: { halign: 'left' },
-          1: { halign: 'right' },
-          2: { halign: 'right' },
-          3: { halign: 'right' },
-        },
-        didParseCell: (data: any) => {
-          if (data.cell.section === 'head' && data.column.index > 0)
-            data.cell.styles.halign = 'right';
-          if (data.cell.section === 'body' && data.column.index > 0) {
-            data.cell.text = [formatCurrency(data.cell.raw)];
-            if (data.column.index === 1)
-              data.cell.styles.textColor = '#16a34a';
-            if (data.column.index === 2)
-              data.cell.styles.textColor = '#dc2626';
-            if (data.column.index === 3)
-              data.cell.styles.textColor =
-                data.cell.raw >= 0 ? '#16a34a' : '#dc2626';
-          }
-        },
-      };
-    } else {
-        const tableBody = filteredTransactions.map((t) => {
-            const product = products.find(p => p.id === t.productId);
-            let description = t.description;
-
-            if (t.subtype === 'Venda' && product) {
-                description = `${t.description || 'Venda'}: ${t.quantitySold}x ${product.name}`;
-            } else if (t.subtype === 'Serviço + Venda') {
-                const servicePart = t.serviceAmount ? `Serviço (${formatCurrency(t.serviceAmount)})` : '';
-                const productPart = product ? `${t.quantitySold}x ${product.name} (${formatCurrency(t.productAmount || 0)})` : '';
-                description = [servicePart, productPart].filter(Boolean).join(' + ');
-            }
-            
-            return [
-                format(new Date(t.date), 'dd/MM/yyyy'),
-                description,
-                t.subtype,
-                formatCurrency(t.amount),
-            ];
-        });
-
-      autoTableOptions = {
-        head: [['Data', 'Descrição', 'Tipo', 'Valor']],
+    (doc as any).autoTable({
+        head: [['Data', 'Tipo', 'Descrição', 'Valor']],
         body: tableBody,
         startY,
         headStyles: { fillColor: [41, 128, 185] },
-        columnStyles: { 3: { halign: 'right' } },
+        columnStyles: { 
+            0: { cellWidth: 25 },
+            1: { cellWidth: 35 },
+            2: { cellWidth: 'auto' },
+            3: { halign: 'right', cellWidth: 30 } 
+        },
         didParseCell: (data: any) => {
           if (data.column.index === 3 && data.cell.section === 'body') {
             const transaction = filteredTransactions[data.row.index];
@@ -663,10 +609,8 @@ export function ReportsClient() {
               transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
           }
         },
-      };
-    }
-
-    (doc as any).autoTable(autoTableOptions);
+    });
+    
     const fileName = `relatorio_financeiro_${format(
       new Date(),
       'yyyy-MM-dd'
@@ -886,9 +830,9 @@ export function ReportsClient() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Tipo</TableHead>
+                  <TableHead className="w-[100px]">Data</TableHead>
+                  <TableHead className="w-[150px]">Tipo</TableHead>
+                  <TableHead>Descrição Detalhada</TableHead>
                   <TableHead className="w-[120px] text-right">Valor</TableHead>
                 </TableRow>
               </TableHeader>
@@ -901,22 +845,10 @@ export function ReportsClient() {
                             <TableCell>
                                 {format(new Date(t.date as Date), 'dd/MM/yyyy')}
                             </TableCell>
-                            <TableCell className="font-medium">
-                                <div>{t.description}</div>
-                                {t.subtype === 'Venda' && product && (
-                                    <div className="text-xs text-muted-foreground">
-                                        {t.quantitySold}x {product.name}
-                                    </div>
-                                )}
-                                {t.subtype === 'Serviço + Venda' && (
-                                    <div className="text-xs text-muted-foreground">
-                                        {t.serviceAmount ? `Serviço: ${formatCurrency(t.serviceAmount)}` : ''}
-                                        {t.serviceAmount && t.productAmount ? ' + ' : ''}
-                                        {product && t.productAmount ? `${t.quantitySold}x ${product.name}: ${formatCurrency(t.productAmount)}` : ''}
-                                    </div>
-                                )}
-                            </TableCell>
                             <TableCell>{t.subtype}</TableCell>
+                            <TableCell className="font-medium">
+                                {getTransactionDescription(t, products)}
+                            </TableCell>
                             <TableCell
                                 className={cn(
                                 'text-right font-mono',
