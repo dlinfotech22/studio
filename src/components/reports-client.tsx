@@ -45,7 +45,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { type Transaction, type CompanyInfo } from '@/lib/types';
+import { type Transaction, type CompanyInfo, type Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
 import {
@@ -190,12 +190,13 @@ function ReportsSkeleton() {
                 <TableRow>
                   <TableHead>Data</TableHead>
                   <TableHead>Descrição</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell colSpan={3} className="h-24 text-center">
+                  <TableCell colSpan={4} className="h-24 text-center">
                     Carregando dados...
                   </TableCell>
                 </TableRow>
@@ -212,6 +213,7 @@ export function ReportsClient() {
   const { toast } = useToast();
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
@@ -243,6 +245,18 @@ export function ReportsClient() {
           } as Transaction;
         });
         setTransactions(allTransactions);
+
+        const productsRef = collection(db, 'products');
+        const qProducts = query(
+          productsRef,
+          where('companyId', '==', id)
+        );
+        const productSnapshot = await getDocs(qProducts);
+        const allProducts = productSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        } as Product));
+        setProducts(allProducts);
 
         const companiesRef = collection(db, 'companies');
         const qCompanies = query(companiesRef, where('document', '==', id));
@@ -425,12 +439,25 @@ export function ReportsClient() {
     }
 
     // Excel Export
-    const dataToExport = filteredTransactions.map((t) => ({
-      Data: format(new Date(t.date), 'dd/MM/yyyy'),
-      Descrição: t.description,
-      Tipo: t.subtype,
-      Valor: t.amount,
-    }));
+    const dataToExport = filteredTransactions.map((t) => {
+        const product = products.find(p => p.id === t.productId);
+        let description = t.description;
+
+        if (t.subtype === 'Venda' && product) {
+            description = `${t.description || 'Venda'}: ${t.quantitySold}x ${product.name}`;
+        } else if (t.subtype === 'Serviço + Venda') {
+            const servicePart = t.serviceAmount ? `Serviço (${formatCurrency(t.serviceAmount)})` : '';
+            const productPart = product ? `${t.quantitySold}x ${product.name} (${formatCurrency(t.productAmount || 0)})` : '';
+            description = [servicePart, productPart].filter(Boolean).join(' + ');
+        }
+        
+        return {
+            'Data': format(new Date(t.date), 'dd/MM/yyyy'),
+            'Descrição': description,
+            'Tipo': t.subtype,
+            'Valor': t.amount,
+        };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
 
@@ -603,14 +630,29 @@ export function ReportsClient() {
         },
       };
     } else {
+        const tableBody = filteredTransactions.map((t) => {
+            const product = products.find(p => p.id === t.productId);
+            let description = t.description;
+
+            if (t.subtype === 'Venda' && product) {
+                description = `${t.description || 'Venda'}: ${t.quantitySold}x ${product.name}`;
+            } else if (t.subtype === 'Serviço + Venda') {
+                const servicePart = t.serviceAmount ? `Serviço (${formatCurrency(t.serviceAmount)})` : '';
+                const productPart = product ? `${t.quantitySold}x ${product.name} (${formatCurrency(t.productAmount || 0)})` : '';
+                description = [servicePart, productPart].filter(Boolean).join(' + ');
+            }
+            
+            return [
+                format(new Date(t.date), 'dd/MM/yyyy'),
+                description,
+                t.subtype,
+                formatCurrency(t.amount),
+            ];
+        });
+
       autoTableOptions = {
         head: [['Data', 'Descrição', 'Tipo', 'Valor']],
-        body: filteredTransactions.map((t) => [
-          format(new Date(t.date), 'dd/MM/yyyy'),
-          t.description,
-          t.subtype,
-          formatCurrency(t.amount),
-        ]),
+        body: tableBody,
         startY,
         headStyles: { fillColor: [41, 128, 185] },
         columnStyles: { 3: { halign: 'right' } },
@@ -847,32 +889,47 @@ export function ReportsClient() {
                   <TableHead>Data</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="w-[120px] text-right">Valor</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedTransactions.length > 0 ? (
-                  paginatedTransactions.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell>
-                        {format(new Date(t.date as Date), 'dd/MM/yyyy')}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {t.description}
-                      </TableCell>
-                       <TableCell>{t.subtype}</TableCell>
-                      <TableCell
-                        className={cn(
-                          'text-right font-mono',
-                          t.type === 'revenue'
-                            ? 'text-emerald-600'
-                            : 'text-red-600'
-                        )}
-                      >
-                        {formatCurrency(t.amount)}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  paginatedTransactions.map((t) => {
+                    const product = products.find(p => p.id === t.productId);
+                    return (
+                        <TableRow key={t.id}>
+                            <TableCell>
+                                {format(new Date(t.date as Date), 'dd/MM/yyyy')}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                                <div>{t.description}</div>
+                                {t.subtype === 'Venda' && product && (
+                                    <div className="text-xs text-muted-foreground">
+                                        {t.quantitySold}x {product.name}
+                                    </div>
+                                )}
+                                {t.subtype === 'Serviço + Venda' && (
+                                    <div className="text-xs text-muted-foreground">
+                                        {t.serviceAmount ? `Serviço: ${formatCurrency(t.serviceAmount)}` : ''}
+                                        {t.serviceAmount && t.productAmount ? ' + ' : ''}
+                                        {product && t.productAmount ? `${t.quantitySold}x ${product.name}: ${formatCurrency(t.productAmount)}` : ''}
+                                    </div>
+                                )}
+                            </TableCell>
+                            <TableCell>{t.subtype}</TableCell>
+                            <TableCell
+                                className={cn(
+                                'text-right font-mono',
+                                t.type === 'revenue'
+                                    ? 'text-emerald-600'
+                                    : 'text-red-600'
+                                )}
+                            >
+                                {formatCurrency(t.amount)}
+                            </TableCell>
+                        </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">
