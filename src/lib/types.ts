@@ -7,6 +7,15 @@ export type TransactionSubtype =
   | 'Serviço + Venda'
   | 'Despesa';
 
+export type PaymentMethod = 'À Vista' | 'Parcelado' | 'A Prazo';
+export type TransactionStatus = 'Pago' | 'Pendente' | 'Parcialmente Pago';
+
+export type Installment = {
+  installmentNumber: number;
+  dueDate: Date | Timestamp;
+  amount: number;
+  status: 'Paga' | 'Pendente';
+};
 
 export type Transaction = {
   id: string;
@@ -20,6 +29,9 @@ export type Transaction = {
   quantitySold?: number;
   serviceAmount?: number;
   productAmount?: number;
+  paymentMethod?: PaymentMethod;
+  status?: TransactionStatus;
+  installments?: Installment[];
 };
 
 export type User = {

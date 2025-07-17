@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { format, getMonth, getYear } from 'date-fns';
+import { format, getMonth, getYear, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   collection,
@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
-import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo } from '@/lib/types';
+import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -107,6 +107,8 @@ const transactionSchema = z.object({
   quantitySold: z.coerce.number().optional(),
   serviceAmount: z.coerce.number().optional(),
   productAmount: z.coerce.number().optional(),
+  paymentMethod: z.enum(['À Vista', 'Parcelado', 'A Prazo']).optional(),
+  installmentsCount: z.coerce.number().optional(),
 }).refine(data => {
   if (data.subtype === 'Serviço + Venda') {
     return (data.serviceAmount ?? 0) > 0 || (data.productAmount ?? 0) > 0;
@@ -115,6 +117,14 @@ const transactionSchema = z.object({
 }, {
   message: 'Para "Serviço + Venda", o valor do serviço ou do produto deve ser informado.',
   path: ['amount'],
+}).refine(data => {
+  if(data.paymentMethod === 'Parcelado') {
+    return data.installmentsCount && data.installmentsCount > 1;
+  }
+  return true;
+}, {
+  message: 'O número de parcelas deve ser maior que 1.',
+  path: ['installmentsCount']
 });
 
 
@@ -180,7 +190,6 @@ export function TransactionsClient() {
 
         const companiesRef = collection(db, 'companies');
         const qCompany = query(companiesRef, where('document', '==', id));
-        const companySnapshot = await getDocs(qCompany);
         if(!companySnapshot.empty) {
             setCompanyInfo({id: companySnapshot.docs[0].id, ...companySnapshot.docs[0].data()} as CompanyInfo);
         }
@@ -255,6 +264,8 @@ export function TransactionsClient() {
       quantitySold: undefined,
       serviceAmount: undefined,
       productAmount: undefined,
+      paymentMethod: 'À Vista',
+      installmentsCount: undefined,
     },
   });
 
@@ -270,13 +281,14 @@ export function TransactionsClient() {
         let productRef;
         const transactionType = subtypeToTypeMap[data.subtype];
   
-        const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp }> = {
+        let payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp }> = {
           type: transactionType,
           companyId,
           amount: Math.abs(data.amount || 0),
-          description: data.description ? data.description : data.subtype,
+          description: data.description ? data.description.toUpperCase() : data.subtype,
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
+          paymentMethod: data.paymentMethod,
         };
   
         if (data.productId) payload.productId = data.productId;
@@ -286,8 +298,31 @@ export function TransactionsClient() {
   
         if (transactionType === 'expense') {
           payload.amount = -Math.abs(data.amount || 0);
+          payload.status = 'Pago';
+        } else {
+          payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
+        }
+
+        if (data.paymentMethod === 'Parcelado' && data.installmentsCount && data.amount) {
+          payload.installments = [];
+          const installmentAmount = data.amount / data.installmentsCount;
+          for (let i = 1; i <= data.installmentsCount; i++) {
+            payload.installments.push({
+              installmentNumber: i,
+              dueDate: Timestamp.fromDate(addMonths(data.date, i)),
+              amount: installmentAmount,
+              status: 'Pendente',
+            });
+          }
         }
   
+        // Remove undefined fields to prevent Firestore errors
+        Object.keys(payload).forEach(key => {
+          if (payload[key as keyof typeof payload] === undefined) {
+            delete payload[key as keyof typeof payload];
+          }
+        });
+
         if (data.productId && (data.subtype === 'Venda' || data.subtype === 'Serviço + Venda')) {
           productRef = doc(db, 'products', data.productId);
           const productDoc = await transaction.get(productRef);
@@ -343,6 +378,8 @@ export function TransactionsClient() {
         quantitySold: undefined,
         serviceAmount: undefined,
         productAmount: undefined,
+        paymentMethod: 'À Vista',
+        installmentsCount: undefined,
       });
       setIsDialogOpen(false);
   
@@ -365,6 +402,8 @@ export function TransactionsClient() {
       quantitySold: transaction.quantitySold || undefined,
       serviceAmount: transaction.serviceAmount || undefined,
       productAmount: transaction.productAmount || undefined,
+      paymentMethod: transaction.paymentMethod || 'À Vista',
+      installmentsCount: transaction.installments?.length || undefined,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -419,6 +458,8 @@ export function TransactionsClient() {
       quantitySold: undefined,
       serviceAmount: undefined,
       productAmount: undefined,
+      paymentMethod: 'À Vista',
+      installmentsCount: undefined,
     });
     setIsDialogOpen(true);
   };
@@ -566,6 +607,7 @@ export function TransactionsClient() {
   const selectedProductId = form.watch('productId');
   const selectedSubtype = form.watch('subtype');
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
+  const selectedPaymentMethod = form.watch('paymentMethod');
 
   const filteredProducts = allProducts.filter(p => p.name.toLowerCase().includes(productSearchInput.toLowerCase()));
 
@@ -577,13 +619,13 @@ export function TransactionsClient() {
   useEffect(() => {
     const product = allProducts.find(p => p.id === watchedProductId);
 
-    if (watchedSubtype === 'Venda' && product) {
-        const total = (product.price || 0) * (watchedQuantitySold || 0);
+    if (watchedSubtype === 'Venda' && product && watchedQuantitySold) {
+        const total = (product.price || 0) * watchedQuantitySold;
         form.setValue('amount', total > 0 ? total : undefined);
         if(total > 0) form.clearErrors('amount');
 
     } else if (watchedSubtype === 'Serviço + Venda') {
-        const prodAmt = product ? (product.price || 0) * (watchedQuantitySold || 0) : 0;
+        const prodAmt = product && watchedQuantitySold ? (product.price || 0) * watchedQuantitySold : 0;
         form.setValue('productAmount', prodAmt > 0 ? prodAmt : undefined);
         const total = (watchedServiceAmount || 0) + prodAmt;
         form.setValue('amount', total > 0 ? total : undefined);
@@ -682,7 +724,7 @@ export function TransactionsClient() {
           {renderTable(expenses, 'expense')}
         </TabsContent>
       </Tabs>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editingTransaction ? 'Editar' : 'Adicionar'} Lançamento
@@ -764,10 +806,10 @@ export function TransactionsClient() {
                              <CommandGroup>
                               {filteredProducts.map((prod) => (
                                 <CommandItem
-                                  value={prod.id}
+                                  value={prod.name}
                                   key={prod.id}
-                                  onSelect={(currentValue) => {
-                                    form.setValue("productId", currentValue === field.value ? "" : currentValue);
+                                  onSelect={() => {
+                                    form.setValue("productId", field.value === prod.id ? "" : prod.id);
                                     setProductSearchInput("");
                                     setIsProductComboboxOpen(false);
                                   }}
@@ -867,6 +909,50 @@ export function TransactionsClient() {
                 </FormItem>
               )}
             />
+
+            {selectedSubtype !== 'Despesa' && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="paymentMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Forma de Pagamento</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a forma de pagamento" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="À Vista">À Vista</SelectItem>
+                          <SelectItem value="A Prazo">A Prazo</SelectItem>
+                          <SelectItem value="Parcelado">Parcelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {selectedPaymentMethod === 'Parcelado' && (
+                  <FormField
+                    control={form.control}
+                    name="installmentsCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número de Parcelas</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="2" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </>
+            )}
+
+
             <FormField
               control={form.control}
               name="date"
