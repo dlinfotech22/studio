@@ -750,15 +750,6 @@ export function TransactionsClient() {
                                   key={prod.id}
                                   onSelect={(currentValue) => {
                                     form.setValue("productId", currentValue === field.value ? "" : currentValue);
-                                    const product = allProducts.find(p => p.id === currentValue);
-                                    const price = product?.price || 0;
-                                    const qty = selectedSubtype === 'Venda' ? 1 : (form.getValues('quantitySold') || 1);
-                                    if (selectedSubtype === 'Venda') {
-                                        form.setValue('amount', price * qty);
-                                        form.setValue('quantitySold', qty);
-                                    } else {
-                                        form.setValue('productAmount', price * qty);
-                                    }
                                     setIsProductComboboxOpen(false);
                                   }}
                                 >
