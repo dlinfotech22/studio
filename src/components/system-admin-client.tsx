@@ -105,17 +105,19 @@ const availableSubtypes: TransactionSubtype[] = [
 
 const companySchema = z.object({
   name: z.string().min(1, 'Nome da empresa é obrigatório.'),
-  document: z.string().min(1, 'Documento é obrigatório.'),
   allowedSubtypes: z.array(z.string()).refine(value => value.some(item => item), {
     message: 'Você deve selecionar pelo menos um tipo de lançamento.',
   }),
 });
-const initialAdminSchema = z.object({
-  adminName: z.string().min(1, 'Nome do administrador é obrigatório.'),
-  adminUsername: z.string().min(1, 'Usuário do administrador é obrigatório.'),
-  adminPassword: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres.'),
+
+const editCompanySchema = companySchema;
+
+const newCompanySchema = companySchema.extend({
+    document: z.string().min(1, 'Documento é obrigatório.'),
+    adminName: z.string().min(1, 'Nome do administrador é obrigatório.'),
+    adminUsername: z.string().min(1, 'Usuário do administrador é obrigatório.'),
+    adminPassword: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres.'),
 });
-const newCompanySchema = companySchema.merge(initialAdminSchema);
 
 const userSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -128,7 +130,8 @@ const userSchema = z.object({
   role: z.enum(['system_admin', 'company_admin', 'user']),
 });
 
-type CompanyFormValues = z.infer<typeof newCompanySchema>;
+type NewCompanyFormValues = z.infer<typeof newCompanySchema>;
+type EditCompanyFormValues = z.infer<typeof editCompanySchema>;
 type UserFormValues = z.infer<typeof userSchema>;
 
 // Sub-component to manage user list within each accordion
@@ -165,7 +168,7 @@ function CompanyUserList({
             type="search"
             placeholder="Pesquisar usuário por nome..."
             value={userSearchTerm}
-            onChange={(e) => setUserSearchTerm(e.target.value.toUpperCase())}
+            onChange={(e) => setUserSearchTerm(e.target.value)}
             className="pl-8"
             onClick={(e) => e.stopPropagation()}
           />
@@ -305,30 +308,48 @@ export function SystemAdminClient() {
     fetchData();
   }, []);
 
-  const companyForm = useForm<CompanyFormValues>({
-    resolver: zodResolver(newCompanySchema),
-    defaultValues: {
-      name: '',
-      document: '',
-      adminName: '',
-      adminUsername: '',
-      adminPassword: '',
-      allowedSubtypes: [],
-    },
+  const companyForm = useForm<NewCompanyFormValues>({
+    resolver: zodResolver(editingCompany ? editCompanySchema : newCompanySchema),
   });
+
+  useEffect(() => {
+    if (isCompanyDialogOpen) {
+        const resolver = zodResolver(editingCompany ? editCompanySchema : newCompanySchema);
+        const defaultValues = editingCompany
+            ? {
+                name: editingCompany.name,
+                document: editingCompany.document,
+                allowedSubtypes: editingCompany.allowedSubtypes || [],
+              }
+            : {
+                name: '',
+                document: '',
+                adminName: '',
+                adminUsername: '',
+                adminPassword: '',
+                allowedSubtypes: [],
+              };
+        companyForm.reset(defaultValues, {
+            // @ts-ignore
+            resolver,
+        });
+    }
+}, [isCompanyDialogOpen, editingCompany, companyForm]);
+
 
   const userForm = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
     defaultValues: { name: '', username: '', password: '', role: 'user' },
   });
 
-  const handleCompanySubmit = async (data: CompanyFormValues) => {
+  const handleCompanySubmit = async (data: NewCompanyFormValues | EditCompanyFormValues) => {
     try {
       if (editingCompany) {
+         const validatedData = editCompanySchema.parse(data);
         const companyRef = doc(db, 'companies', editingCompany.id);
         const payload = {
-          name: data.name.toUpperCase(),
-          allowedSubtypes: data.allowedSubtypes,
+          name: validatedData.name.toUpperCase(),
+          allowedSubtypes: validatedData.allowedSubtypes,
         };
         await updateDoc(companyRef, payload);
         setCompanies(
@@ -340,10 +361,11 @@ export function SystemAdminClient() {
         );
         toast({ title: 'Sucesso!', description: 'Empresa atualizada.' });
       } else {
+        const validatedData = newCompanySchema.parse(data);
         const companiesRef = collection(db, 'companies');
         const qCompany = query(
           companiesRef,
-          where('document', '==', data.document)
+          where('document', '==', validatedData.document)
         );
         if (!(await getDocs(qCompany)).empty) {
           companyForm.setError('document', {
@@ -355,7 +377,7 @@ export function SystemAdminClient() {
         const usersRef = collection(db, 'users');
         const qUser = query(
           usersRef,
-          where('username', '==', data.adminUsername.toLowerCase())
+          where('username', '==', validatedData.adminUsername.toLowerCase())
         );
         if (!(await getDocs(qUser)).empty) {
           companyForm.setError('adminUsername', {
@@ -365,17 +387,17 @@ export function SystemAdminClient() {
         }
 
         const newCompany: Omit<CompanyInfo, 'id'> = {
-          name: data.name.toUpperCase(),
-          document: data.document,
+          name: validatedData.name.toUpperCase(),
+          document: validatedData.document,
           logo: '',
-          allowedSubtypes: data.allowedSubtypes,
+          allowedSubtypes: validatedData.allowedSubtypes,
         };
         const companyDocRef = await addDoc(companiesRef, newCompany);
 
         const newAdmin: Omit<User, 'id'> = {
-          name: data.adminName.toUpperCase(),
-          username: data.adminUsername.toLowerCase(),
-          password: data.adminPassword,
+          name: validatedData.adminName.toUpperCase(),
+          username: validatedData.adminUsername.toLowerCase(),
+          password: validatedData.adminPassword,
           companyId: newCompany.document,
           role: 'company_admin',
         };
@@ -390,8 +412,16 @@ export function SystemAdminClient() {
       }
       setIsCompanyDialogOpen(false);
       setEditingCompany(null);
-      companyForm.reset();
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        console.error("Validation error:", error.flatten().fieldErrors);
+        toast({
+          title: 'Erro de Validação',
+          description: 'Por favor, verifique os campos do formulário.',
+          variant: 'destructive',
+        });
+        return;
+      }
       console.error('Failed to save company', error);
       toast({
         title: 'Erro!',
@@ -497,27 +527,15 @@ export function SystemAdminClient() {
 
   const openCompanyDialog = (company: CompanyInfo | null) => {
     setEditingCompany(company);
-    if (company) {
-      companyForm.reset({
-        name: company.name,
-        document: company.document,
-        adminName: '',
-        adminUsername: '',
-        adminPassword: '',
-        allowedSubtypes: company.allowedSubtypes || [],
-      });
-    } else {
-      companyForm.reset({
-        name: '',
-        document: '',
-        adminName: '',
-        adminUsername: '',
-        adminPassword: '',
-        allowedSubtypes: [],
-      });
-    }
     setIsCompanyDialogOpen(true);
   };
+  
+  const openNewSysAdminDialog = () => {
+    setActiveCompanyId(null);
+    setEditingUser(null);
+    userForm.reset({ name: '', username: '', password: '', role: 'system_admin' });
+    setIsUserDialogOpen(true);
+  }
 
   const openUserDialog = (
     user: User | null,
@@ -538,13 +556,6 @@ export function SystemAdminClient() {
     setIsUserDialogOpen(true);
   };
   
-  const openNewSysAdminDialog = () => {
-    setActiveCompanyId(null);
-    setEditingUser(null);
-    userForm.reset({ name: '', username: '', password: '', role: 'system_admin' });
-    setIsUserDialogOpen(true);
-  }
-
   const confirmDeleteCompany = async () => {
     if (!companyToDelete) return;
     try {
@@ -671,7 +682,7 @@ export function SystemAdminClient() {
                 type="search"
                 placeholder="Pesquisar empresa por nome ou documento..."
                 value={companySearchTerm}
-                onChange={(e) => setCompanySearchTerm(e.target.value.toUpperCase())}
+                onChange={(e) => setCompanySearchTerm(e.target.value)}
                 className="pl-8"
               />
             </div>
@@ -808,7 +819,7 @@ export function SystemAdminClient() {
                 type="search"
                 placeholder="Pesquisar administrador..."
                 value={adminSearchTerm}
-                onChange={(e) => setAdminSearchTerm(e.target.value.toUpperCase())}
+                onChange={(e) => setAdminSearchTerm(e.target.value)}
                 className="pl-8"
               />
             </div>
@@ -874,7 +885,10 @@ export function SystemAdminClient() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isCompanyDialogOpen} onOpenChange={setIsCompanyDialogOpen}>
+      <Dialog open={isCompanyDialogOpen} onOpenChange={(isOpen) => {
+          if (!isOpen) setEditingCompany(null);
+          setIsCompanyDialogOpen(isOpen);
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
