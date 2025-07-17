@@ -270,11 +270,11 @@ export function TransactionsClient() {
         let productRef;
         const transactionType = subtypeToTypeMap[data.subtype];
   
-        const payload: Omit<Transaction, 'id' | 'date'> & { date: Timestamp } = {
+        const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp }> = {
           type: transactionType,
           companyId,
           amount: Math.abs(data.amount || 0),
-          description: data.description ? data.description.toUpperCase() : data.subtype,
+          description: data.description ? data.description : data.subtype,
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
         };
@@ -313,15 +313,16 @@ export function TransactionsClient() {
           transaction.update(transactionRef, payload as any);
   
         } else {
-          const quantitySold = data.quantitySold || 0;
-          if (product && productRef) {
-            if (product.quantity < quantitySold) {
-              throw new Error(`Estoque insuficiente. Disponível: ${product.quantity}`);
+           const quantitySold = data.quantitySold || 0;
+            if (product && productRef) {
+                if (product.quantity < quantitySold) {
+                throw new Error(`Estoque insuficiente. Disponível: ${product.quantity}`);
+                }
+                transaction.update(productRef, { quantity: product.quantity - quantitySold });
             }
-            transaction.update(productRef, { quantity: product.quantity - quantitySold });
-          }
-          const newTransactionRef = doc(collection(db, 'transactions'));
-          transaction.set(newTransactionRef, payload as any);
+        
+            const newTransactionRef = doc(collection(db, 'transactions'));
+            transaction.set(newTransactionRef, payload as any);
         }
       });
   
@@ -568,20 +569,27 @@ export function TransactionsClient() {
 
   const filteredProducts = allProducts.filter(p => p.name.toLowerCase().includes(productSearchInput.toLowerCase()));
 
+  const watchedSubtype = form.watch('subtype');
+  const watchedProductId = form.watch('productId');
+  const watchedQuantitySold = form.watch('quantitySold');
+  const watchedServiceAmount = form.watch('serviceAmount');
 
   useEffect(() => {
-    const { serviceAmount, quantitySold, productId, subtype } = form.getValues();
-    const product = allProducts.find(p => p.id === productId);
+    const product = allProducts.find(p => p.id === watchedProductId);
 
-    if (subtype === 'Venda' && product) {
-        const total = (product.price || 0) * (quantitySold || 0);
-        form.setValue('amount', total);
-    } else if (subtype === 'Serviço + Venda') {
-        const prodAmt = product ? (product.price || 0) * (quantitySold || 0) : 0;
-        form.setValue('productAmount', prodAmt);
-        form.setValue('amount', (serviceAmount || 0) + prodAmt);
+    if (watchedSubtype === 'Venda' && product) {
+        const total = (product.price || 0) * (watchedQuantitySold || 0);
+        form.setValue('amount', total > 0 ? total : undefined);
+        if(total > 0) form.clearErrors('amount');
+
+    } else if (watchedSubtype === 'Serviço + Venda') {
+        const prodAmt = product ? (product.price || 0) * (watchedQuantitySold || 0) : 0;
+        form.setValue('productAmount', prodAmt > 0 ? prodAmt : undefined);
+        const total = (watchedServiceAmount || 0) + prodAmt;
+        form.setValue('amount', total > 0 ? total : undefined);
+        if(total > 0) form.clearErrors('amount');
     }
-  }, [form, allProducts]);
+  }, [form, allProducts, watchedSubtype, watchedProductId, watchedQuantitySold, watchedServiceAmount]);
 
 
   return (
@@ -592,7 +600,7 @@ export function TransactionsClient() {
           <Input
             placeholder="Pesquisar por descrição..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
           />
         </div>
@@ -756,10 +764,10 @@ export function TransactionsClient() {
                              <CommandGroup>
                               {filteredProducts.map((prod) => (
                                 <CommandItem
-                                  value={prod.name}
+                                  value={prod.id}
                                   key={prod.id}
-                                  onSelect={() => {
-                                    form.setValue("productId", prod.id === field.value ? "" : prod.id);
+                                  onSelect={(currentValue) => {
+                                    form.setValue("productId", currentValue === field.value ? "" : currentValue);
                                     setProductSearchInput("");
                                     setIsProductComboboxOpen(false);
                                   }}
@@ -798,7 +806,7 @@ export function TransactionsClient() {
                           placeholder="0"
                           {...field}
                           value={field.value ?? ''}
-                          onChange={(e) => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                          onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
                          />
                       </FormControl>
                       {selectedProduct && (
@@ -819,7 +827,7 @@ export function TransactionsClient() {
                     <FormItem>
                       <FormLabel>Valor do Serviço</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)} />
+                        <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -853,7 +861,7 @@ export function TransactionsClient() {
                 <FormItem>
                   <FormLabel>Valor Total</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
+                    <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

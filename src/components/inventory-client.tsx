@@ -174,7 +174,7 @@ export function InventoryClient() {
   const onSubmit = async (data: ProductFormValues) => {
     if (!companyId) return;
 
-    const payload = { ...data, name: data.name.toUpperCase(), companyId };
+    const payload = { ...data, name: data.name, companyId };
 
     try {
       if (editingProduct) {

@@ -348,7 +348,7 @@ export function SystemAdminClient() {
          const validatedData = editCompanySchema.parse(data);
         const companyRef = doc(db, 'companies', editingCompany.id);
         const payload = {
-          name: validatedData.name.toUpperCase(),
+          name: validatedData.name,
           allowedSubtypes: validatedData.allowedSubtypes,
         };
         await updateDoc(companyRef, payload);
@@ -387,7 +387,7 @@ export function SystemAdminClient() {
         }
 
         const newCompany: Omit<CompanyInfo, 'id'> = {
-          name: validatedData.name.toUpperCase(),
+          name: validatedData.name,
           document: validatedData.document,
           logo: '',
           allowedSubtypes: validatedData.allowedSubtypes,
@@ -395,7 +395,7 @@ export function SystemAdminClient() {
         const companyDocRef = await addDoc(companiesRef, newCompany);
 
         const newAdmin: Omit<User, 'id'> = {
-          name: validatedData.adminName.toUpperCase(),
+          name: validatedData.adminName,
           username: validatedData.adminUsername.toLowerCase(),
           password: validatedData.adminPassword,
           companyId: newCompany.document,
@@ -450,7 +450,7 @@ export function SystemAdminClient() {
       const submittedData = {
         ...data,
         username: data.username.toLowerCase(),
-        name: data.name.toUpperCase(),
+        name: data.name,
       };
       
       const usersRef = collection(db, 'users');

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -149,7 +150,7 @@ export function AccessManagementClient() {
     const submittedData = {
       ...data,
       username: data.username.toLowerCase(),
-      name: data.name.toUpperCase(),
+      name: data.name,
     };
 
     try {
