@@ -269,6 +269,12 @@ export function TransactionsClient() {
           date: Timestamp.fromDate(data.date),
         };
 
+        // Remove optional fields if they are falsy, to avoid sending `undefined` to Firestore
+        if (!payload.productId) delete payload.productId;
+        if (!payload.quantitySold) delete payload.quantitySold;
+        if (!payload.serviceAmount) delete payload.serviceAmount;
+        if (!payload.productAmount) delete payload.productAmount;
+
         if (transactionType === 'expense') {
           payload.amount = -Math.abs(data.amount || 0);
         }
@@ -744,9 +750,9 @@ export function TransactionsClient() {
                                 <CommandItem
                                   value={prod.id}
                                   key={prod.id}
-                                  onSelect={(currentValue) => {
-                                    form.setValue("productId", currentValue === field.value ? "" : currentValue);
-                                    setProductSearchInput("");
+                                  onSelect={() => {
+                                    form.setValue("productId", field.value === prod.id ? "" : prod.id);
+                                    setProductSearchInput('');
                                     setIsProductComboboxOpen(false);
                                   }}
                                 >
