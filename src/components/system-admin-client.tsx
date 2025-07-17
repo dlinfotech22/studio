@@ -25,7 +25,7 @@ import {
   Users,
   Search,
 } from 'lucide-react';
-import { type User, type CompanyInfo } from '@/lib/types';
+import { type User, type CompanyInfo, type TransactionSubtype } from '@/lib/types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Table,
@@ -92,12 +92,23 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
+
+const availableSubtypes: TransactionSubtype[] = [
+  'Prestação de Serviço',
+  'Venda',
+  'Serviço + Venda',
+  'Despesa',
+];
 
 const companySchema = z.object({
   name: z.string().min(1, 'Nome da empresa é obrigatório.'),
   document: z.string().min(1, 'Documento é obrigatório.'),
+  allowedSubtypes: z.array(z.string()).refine(value => value.some(item => item), {
+    message: 'Você deve selecionar pelo menos um tipo de lançamento.',
+  }),
 });
 const initialAdminSchema = z.object({
   adminName: z.string().min(1, 'Nome do administrador é obrigatório.'),
@@ -154,7 +165,7 @@ function CompanyUserList({
             type="search"
             placeholder="Pesquisar usuário por nome..."
             value={userSearchTerm}
-            onChange={(e) => setUserSearchTerm(e.target.value)}
+            onChange={(e) => setUserSearchTerm(e.target.value.toUpperCase())}
             className="pl-8"
             onClick={(e) => e.stopPropagation()}
           />
@@ -302,6 +313,7 @@ export function SystemAdminClient() {
       adminName: '',
       adminUsername: '',
       adminPassword: '',
+      allowedSubtypes: [],
     },
   });
 
@@ -314,11 +326,15 @@ export function SystemAdminClient() {
     try {
       if (editingCompany) {
         const companyRef = doc(db, 'companies', editingCompany.id);
-        await updateDoc(companyRef, { name: data.name.toUpperCase() });
+        const payload = {
+          name: data.name.toUpperCase(),
+          allowedSubtypes: data.allowedSubtypes,
+        };
+        await updateDoc(companyRef, payload);
         setCompanies(
           companies.map((c) =>
             c.id === editingCompany.id
-              ? { ...c, name: data.name.toUpperCase() }
+              ? { ...c, ...payload }
               : c
           )
         );
@@ -352,6 +368,7 @@ export function SystemAdminClient() {
           name: data.name.toUpperCase(),
           document: data.document,
           logo: '',
+          allowedSubtypes: data.allowedSubtypes,
         };
         const companyDocRef = await addDoc(companiesRef, newCompany);
 
@@ -487,6 +504,7 @@ export function SystemAdminClient() {
         adminName: '',
         adminUsername: '',
         adminPassword: '',
+        allowedSubtypes: company.allowedSubtypes || [],
       });
     } else {
       companyForm.reset({
@@ -495,6 +513,7 @@ export function SystemAdminClient() {
         adminName: '',
         adminUsername: '',
         adminPassword: '',
+        allowedSubtypes: [],
       });
     }
     setIsCompanyDialogOpen(true);
@@ -652,7 +671,7 @@ export function SystemAdminClient() {
                 type="search"
                 placeholder="Pesquisar empresa por nome ou documento..."
                 value={companySearchTerm}
-                onChange={(e) => setCompanySearchTerm(e.target.value)}
+                onChange={(e) => setCompanySearchTerm(e.target.value.toUpperCase())}
                 className="pl-8"
               />
             </div>
@@ -789,7 +808,7 @@ export function SystemAdminClient() {
                 type="search"
                 placeholder="Pesquisar administrador..."
                 value={adminSearchTerm}
-                onChange={(e) => setAdminSearchTerm(e.target.value)}
+                onChange={(e) => setAdminSearchTerm(e.target.value.toUpperCase())}
                 className="pl-8"
               />
             </div>
@@ -898,6 +917,54 @@ export function SystemAdminClient() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={companyForm.control}
+                name="allowedSubtypes"
+                render={() => (
+                  <FormItem>
+                    <div className="mb-4">
+                      <FormLabel className="text-base">
+                        Tipos de Lançamento Permitidos
+                      </FormLabel>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {availableSubtypes.map((item) => (
+                        <FormField
+                          key={item}
+                          control={companyForm.control}
+                          name="allowedSubtypes"
+                          render={({ field }) => (
+                            <FormItem
+                              key={item}
+                              className="flex flex-row items-start space-x-3 space-y-0"
+                            >
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(item)}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...(field.value || []), item])
+                                      : field.onChange(
+                                          (field.value || []).filter(
+                                            (value) => value !== item
+                                          )
+                                        );
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal">
+                                {item}
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               {!editingCompany && (
                 <>
                   <p className="text-sm font-medium text-muted-foreground pt-4 border-t">

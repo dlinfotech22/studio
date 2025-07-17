@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -31,7 +32,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
-import { type Transaction, type Product, type TransactionSubtype, type TransactionType } from '@/lib/types';
+import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -133,6 +134,7 @@ export function TransactionsClient() {
     Transaction[]
   >([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
@@ -175,6 +177,14 @@ export function TransactionsClient() {
           (doc) => ({ id: doc.id, ...doc.data() } as Product)
         );
         setAllProducts(products);
+
+        const companiesRef = collection(db, 'companies');
+        const qCompany = query(companiesRef, where('document', '==', id));
+        const companySnapshot = await getDocs(qCompany);
+        if(!companySnapshot.empty) {
+            setCompanyInfo({id: companySnapshot.docs[0].id, ...companySnapshot.docs[0].data()} as CompanyInfo);
+        }
+
       } catch (error) {
         console.error('Failed to load data from Firestore', error);
         setAllTransactions([]);
@@ -240,7 +250,7 @@ export function TransactionsClient() {
       description: '',
       amount: undefined,
       date: new Date(),
-      subtype: 'Prestação de Serviço',
+      subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
       productId: '',
       quantitySold: undefined,
       serviceAmount: undefined,
@@ -253,34 +263,31 @@ export function TransactionsClient() {
 
   const onSubmit = async (data: TransactionFormValues) => {
     if (!companyId) return;
-
+  
     try {
       await runTransaction(db, async (transaction) => {
         let product: Product | undefined;
         let productRef;
         const transactionType = subtypeToTypeMap[data.subtype];
-        
-        const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp }> = {
-          ...data,
+  
+        const payload: Omit<Transaction, 'id' | 'date'> & { date: Timestamp } = {
           type: transactionType,
           companyId,
           amount: Math.abs(data.amount || 0),
           description: data.description ? data.description.toUpperCase() : data.subtype,
           date: Timestamp.fromDate(data.date),
+          subtype: data.subtype,
         };
-        
+  
+        if (data.productId) payload.productId = data.productId;
+        if (data.quantitySold) payload.quantitySold = data.quantitySold;
+        if (data.serviceAmount) payload.serviceAmount = data.serviceAmount;
+        if (data.productAmount) payload.productAmount = data.productAmount;
+  
         if (transactionType === 'expense') {
           payload.amount = -Math.abs(data.amount || 0);
         }
-        
-        // Clean up undefined fields before saving
-        Object.keys(payload).forEach(key => {
-            const typedKey = key as keyof typeof payload;
-            if (payload[typedKey] === undefined) {
-                delete payload[typedKey];
-            }
-        });
-
+  
         if (data.productId && (data.subtype === 'Venda' || data.subtype === 'Serviço + Venda')) {
           productRef = doc(db, 'products', data.productId);
           const productDoc = await transaction.get(productRef);
@@ -289,25 +296,23 @@ export function TransactionsClient() {
           }
           product = productDoc.data() as Product;
         }
-
+  
         if (editingTransaction) {
-          // --- UPDATE LOGIC ---
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
           const oldQuantity = editingTransaction.quantitySold || 0;
           const newQuantity = data.quantitySold || 0;
           const quantityDiff = newQuantity - oldQuantity;
-
+  
           if (product && productRef) {
-             if (product.quantity < quantityDiff) {
+            if (product.quantity < quantityDiff) {
               throw new Error(`Estoque insuficiente. Disponível: ${product.quantity}`);
             }
             transaction.update(productRef, { quantity: product.quantity - quantityDiff });
           }
-          
+  
           transaction.update(transactionRef, payload as any);
-
+  
         } else {
-          // --- CREATE LOGIC ---
           const quantitySold = data.quantitySold || 0;
           if (product && productRef) {
             if (product.quantity < quantitySold) {
@@ -316,19 +321,17 @@ export function TransactionsClient() {
             transaction.update(productRef, { quantity: product.quantity - quantitySold });
           }
           const newTransactionRef = doc(collection(db, 'transactions'));
-          
           transaction.set(newTransactionRef, payload as any);
         }
       });
-      
-      // Manually refetch data to reflect updated stock
+  
       const productSnapshot = await getDocs(query(collection(db, 'products'), where('companyId', '==', companyId)));
       setAllProducts(productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
       const transactionSnapshot = await getDocs(query(collection(db, 'transactions'), where('companyId', '==', companyId)));
       setAllTransactions(transactionSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Transaction)));
-      
+  
       toast({ title: 'Sucesso!', description: `Lançamento ${editingTransaction ? 'atualizado' : 'adicionado'}.` });
-
+  
       setEditingTransaction(null);
       form.reset({
         description: '',
@@ -341,7 +344,7 @@ export function TransactionsClient() {
         productAmount: undefined,
       });
       setIsDialogOpen(false);
-
+  
     } catch (error: any) {
       console.error('Failed to save transaction', error);
       toast({
@@ -405,11 +408,12 @@ export function TransactionsClient() {
 
   const openNewTransactionDialog = (type: 'revenue' | 'expense') => {
     setEditingTransaction(null);
+    const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || 'Despesa';
     form.reset({
       description: '',
       amount: undefined,
       date: new Date(),
-      subtype: type === 'revenue' ? 'Prestação de Serviço' : 'Despesa',
+      subtype: defaultSubtype,
       productId: '',
       quantitySold: undefined,
       serviceAmount: undefined,
@@ -704,10 +708,9 @@ export function TransactionsClient() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="Prestação de Serviço">Prestação de Serviço</SelectItem>
-                      <SelectItem value="Venda">Venda</SelectItem>
-                      <SelectItem value="Serviço + Venda">Serviço + Venda</SelectItem>
-                      <SelectItem value="Despesa">Despesa</SelectItem>
+                      {companyInfo?.allowedSubtypes?.map(subtype => (
+                          <SelectItem key={subtype} value={subtype}>{subtype}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -753,12 +756,12 @@ export function TransactionsClient() {
                              <CommandGroup>
                               {filteredProducts.map((prod) => (
                                 <CommandItem
-                                  value={prod.id}
+                                  value={prod.name}
                                   key={prod.id}
-                                  onSelect={(currentValue) => {
-                                    form.setValue("productId", currentValue === field.value ? "" : currentValue);
+                                  onSelect={() => {
+                                    form.setValue("productId", prod.id === field.value ? "" : prod.id);
+                                    setProductSearchInput("");
                                     setIsProductComboboxOpen(false);
-                                    setProductSearchInput('');
                                   }}
                                 >
                                   <Check
