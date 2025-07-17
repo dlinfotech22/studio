@@ -25,6 +25,7 @@ export type Transaction = {
   type: TransactionType;
   subtype: TransactionSubtype;
   companyId: string;
+  customerId?: string;
   productId?: string;
   quantitySold?: number;
   serviceAmount?: number;
@@ -57,5 +58,14 @@ export type Product = {
   barcode?: string;
   quantity: number;
   price: number;
+  companyId: string;
+};
+
+export type Customer = {
+  id: string;
+  name: string;
+  document?: string;
+  email?: string;
+  phone?: string;
   companyId: string;
 };

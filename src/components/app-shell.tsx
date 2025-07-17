@@ -13,6 +13,7 @@ import {
   User,
   Package,
   ClipboardList,
+  Contact,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -153,6 +154,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                     >
                       <ArrowRightLeft />
                       <span>Lançamentos</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                 <SidebarMenuItem>
+                  <Link href="/customers">
+                    <SidebarMenuButton
+                      tooltip="Clientes"
+                      isActive={pathname === '/customers'}
+                    >
+                      <Contact />
+                      <span>Clientes</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>

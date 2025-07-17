@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
-import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus } from '@/lib/types';
+import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -103,6 +103,7 @@ const transactionSchema = z.object({
   amount: z.coerce.number().positive('O valor deve ser positivo.'),
   date: z.date(),
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
+  customerId: z.string().optional(),
   productId: z.string().optional(),
   quantitySold: z.coerce.number().optional(),
   serviceAmount: z.coerce.number().optional(),
@@ -153,6 +154,7 @@ export function TransactionsClient() {
     Transaction[]
   >([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] =
@@ -161,6 +163,7 @@ export function TransactionsClient() {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isFirstDueDatePickerOpen, setIsFirstDueDatePickerOpen] = useState(false);
   const [isProductComboboxOpen, setIsProductComboboxOpen] = useState(false);
+  const [isCustomerComboboxOpen, setIsCustomerComboboxOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -170,6 +173,8 @@ export function TransactionsClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [productSearchInput, setProductSearchInput] = useState('');
+  const [customerSearchInput, setCustomerSearchInput] = useState('');
+
 
   useEffect(() => {
     const fetchData = async (id: string) => {
@@ -197,6 +202,14 @@ export function TransactionsClient() {
           (doc) => ({ id: doc.id, ...doc.data() } as Product)
         );
         setAllProducts(products);
+        
+        const customersRef = collection(db, 'customers');
+        const qCustomers = query(customersRef, where('companyId', '==', id));
+        const customerSnapshot = await getDocs(qCustomers);
+        const customers = customerSnapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as Customer)
+        );
+        setAllCustomers(customers);
 
         const companiesRef = collection(db, 'companies');
         const qCompany = query(companiesRef, where('document', '==', id));
@@ -271,6 +284,7 @@ export function TransactionsClient() {
       amount: undefined,
       date: new Date(),
       subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
+      customerId: '',
       productId: '',
       quantitySold: undefined,
       serviceAmount: undefined,
@@ -292,14 +306,24 @@ export function TransactionsClient() {
         let product: Product | undefined;
         let productRef;
         const transactionType = subtypeToTypeMap[data.subtype];
+        
+        let description = data.description ? data.description.toUpperCase() : data.subtype;
+        if(data.customerId) {
+            const customer = allCustomers.find(c => c.id === data.customerId);
+            if (customer) {
+                description = `${data.subtype} - ${customer.name}`
+            }
+        }
+
   
         let payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
           companyId,
           amount: Math.abs(data.amount || 0),
-          description: data.description ? data.description.toUpperCase() : data.subtype,
+          description: description,
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
+          customerId: data.customerId,
           paymentMethod: data.paymentMethod,
           productId: data.productId,
           quantitySold: data.quantitySold,
@@ -403,6 +427,7 @@ export function TransactionsClient() {
         amount: undefined,
         date: new Date(),
         subtype: data.subtype,
+        customerId: '',
         productId: '',
         quantitySold: undefined,
         serviceAmount: undefined,
@@ -491,6 +516,7 @@ export function TransactionsClient() {
       amount: undefined,
       date: new Date(),
       subtype: defaultSubtype,
+      customerId: '',
       productId: '',
       quantitySold: undefined,
       serviceAmount: undefined,
@@ -648,6 +674,7 @@ export function TransactionsClient() {
   const selectedPaymentMethod = form.watch('paymentMethod');
 
   const filteredProducts = allProducts.filter(p => p.name.toLowerCase().includes(productSearchInput.toLowerCase()));
+  const filteredCustomers = allCustomers.filter(c => c.name.toLowerCase().includes(customerSearchInput.toLowerCase()));
 
   const watchedSubtype = form.watch('subtype');
   const watchedProductId = form.watch('productId');
@@ -805,6 +832,46 @@ export function TransactionsClient() {
                 </FormItem>
               )}
             />
+
+            {selectedSubtype !== 'Despesa' && (
+                <FormField
+                    control={form.control}
+                    name="customerId"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                        <FormLabel>Cliente</FormLabel>
+                        <Popover open={isCustomerComboboxOpen} onOpenChange={setIsCustomerComboboxOpen}>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                            <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                                {field.value ? allCustomers.find(c => c.id === field.value)?.name : "Selecione um cliente"}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                            <CommandInput placeholder="Digite para filtrar" value={customerSearchInput} onValueChange={setCustomerSearchInput} />
+                            <CommandList>
+                                <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                {filteredCustomers.map((cust) => (
+                                    <CommandItem value={cust.name} key={cust.id} onSelect={() => { form.setValue("customerId", cust.id); setIsCustomerComboboxOpen(false); }}>
+                                    <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
+                                    {cust.name}
+                                    </CommandItem>
+                                ))}
+                                </CommandGroup>
+                            </CommandList>
+                            </Command>
+                        </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+            )}
+
              {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
               <FormField
                 control={form.control}
@@ -847,8 +914,7 @@ export function TransactionsClient() {
                                   value={prod.name}
                                   key={prod.id}
                                   onSelect={() => {
-                                    form.setValue("productId", field.value === prod.id ? "" : prod.id);
-                                    setProductSearchInput("");
+                                    form.setValue("productId", prod.id);
                                     setIsProductComboboxOpen(false);
                                   }}
                                 >

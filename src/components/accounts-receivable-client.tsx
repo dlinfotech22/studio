@@ -14,7 +14,7 @@ import {
 import { format } from 'date-fns';
 import { CircleDollarSign, CheckCircle2, Hourglass } from 'lucide-react';
 
-import { type Transaction, type Installment } from '@/lib/types';
+import { type Transaction, type Installment, type Customer } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,6 +49,7 @@ import { db } from '@/lib/firebase';
 export function AccountsReceivableClient() {
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [paymentToConfirm, setPaymentToConfirm] = useState<{
@@ -84,6 +85,12 @@ export function AccountsReceivableClient() {
             (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
           );
         setTransactions(fetchedTransactions);
+        
+        const customersRef = collection(db, 'customers');
+        const qCustomers = query(customersRef, where('companyId', '==', id));
+        const customerSnapshot = await getDocs(qCustomers);
+        setCustomers(customerSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Customer)))
+
       } catch (error) {
         console.error('Failed to load accounts receivable:', error);
         toast({
@@ -187,6 +194,11 @@ export function AccountsReceivableClient() {
     }
   };
 
+  const getTransactionTitle = (transaction: Transaction) => {
+    const customer = customers.find(c => c.id === transaction.customerId);
+    return customer ? `${transaction.description} - ${customer.name}` : transaction.description;
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -224,7 +236,7 @@ export function AccountsReceivableClient() {
               <div className="flex justify-between items-center w-full">
                 <div className="flex flex-col items-start text-left gap-1">
                   <p className="font-semibold text-card-foreground">
-                    {transaction.description}
+                    {getTransactionTitle(transaction)}
                   </p>
                   <p className="text-sm text-muted-foreground font-normal">
                     {formatCurrency(transaction.amount)} em{' '}
