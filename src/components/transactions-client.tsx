@@ -798,7 +798,7 @@ export function TransactionsClient() {
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                         <Command>
                            <CommandInput 
-                             placeholder="Pesquisar produto..." 
+                             placeholder="Digite para filtrar" 
                              value={productSearchInput}
                              onValueChange={setProductSearchInput}
                            />
