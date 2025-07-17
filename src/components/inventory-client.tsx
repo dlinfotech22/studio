@@ -85,6 +85,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import { Label } from './ui/label';
 
 const productSchema = z.object({
   name: z.string().min(1, 'O nome do produto é obrigatório.'),
@@ -418,7 +419,7 @@ export function InventoryClient() {
           <Input
             placeholder="Pesquisar por nome ou código..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
           />
         </div>
@@ -654,9 +655,9 @@ export function InventoryClient() {
               </p>
             </div>
             <div className="space-y-2">
-              <FormLabel htmlFor="restock-quantity">
+              <Label htmlFor="restock-quantity">
                 Quantidade a Adicionar
-              </FormLabel>
+              </Label>
               <Input
                 id="restock-quantity"
                 type="number"
@@ -706,4 +707,3 @@ export function InventoryClient() {
     </>
   );
 }
-
