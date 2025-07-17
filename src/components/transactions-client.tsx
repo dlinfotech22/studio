@@ -32,7 +32,7 @@ import {
 import { DateRange } from 'react-day-picker';
 
 import { type Transaction, type Product, type TransactionSubtype, type TransactionType } from '@/lib/types';
-import { formatCurrency, cn, capitalizeFirstLetter } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -265,7 +265,7 @@ export function TransactionsClient() {
           type: transactionType,
           companyId,
           amount: Math.abs(data.amount || 0),
-          description: data.description || data.subtype,
+          description: data.description ? data.description.toUpperCase() : data.subtype,
           date: Timestamp.fromDate(data.date),
         };
 
@@ -312,7 +312,8 @@ export function TransactionsClient() {
             }
             transaction.update(productRef, { quantity: product.quantity - quantitySold });
           }
-          transaction.set(doc(collection(db, 'transactions')), payload as any);
+          const newTransactionRef = doc(collection(db, 'transactions'));
+          transaction.set(newTransactionRef, payload as any);
         }
       });
       
@@ -789,8 +790,8 @@ export function TransactionsClient() {
                           type="number"
                           placeholder="0"
                           {...field}
-                          value={field.value || ''}
-                          onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(parseInt(e.target.value, 10) || undefined)}
                          />
                       </FormControl>
                       {selectedProduct && (
@@ -811,7 +812,7 @@ export function TransactionsClient() {
                     <FormItem>
                       <FormLabel>Valor do Serviço</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0.00" {...field} value={field.value || ''} onChange={(e) => field.onChange(parseFloat(e.target.value))} />
+                        <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -830,7 +831,7 @@ export function TransactionsClient() {
                       {...field}
                       value={field.value || ''}
                       onChange={(e) =>
-                        field.onChange(capitalizeFirstLetter(e.target.value))
+                        field.onChange(e.target.value.toUpperCase())
                       }
                     />
                   </FormControl>
@@ -845,7 +846,7 @@ export function TransactionsClient() {
                 <FormItem>
                   <FormLabel>Valor Total</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0.00" {...field} value={field.value || ''} onChange={(e) => field.onChange(parseFloat(e.target.value))} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
+                    <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -30,7 +30,7 @@ import 'jspdf-autotable';
 import { format } from 'date-fns';
 
 import { type Product, type CompanyInfo } from '@/lib/types';
-import { formatCurrency, cn, capitalizeFirstLetter } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -166,7 +166,7 @@ export function InventoryClient() {
   const onSubmit = async (data: ProductFormValues) => {
     if (!companyId) return;
 
-    const payload = { ...data, name: capitalizeFirstLetter(data.name), companyId };
+    const payload = { ...data, name: data.name.toUpperCase(), companyId };
 
     try {
       if (editingProduct) {
@@ -516,7 +516,7 @@ export function InventoryClient() {
                         placeholder="Ex: Camiseta Branca M"
                         {...field}
                         onChange={(e) =>
-                          field.onChange(capitalizeFirstLetter(e.target.value))
+                          field.onChange(e.target.value.toUpperCase())
                         }
                       />
                     </FormControl>
