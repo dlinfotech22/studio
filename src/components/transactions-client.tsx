@@ -109,6 +109,7 @@ const transactionSchema = z.object({
   productAmount: z.coerce.number().optional(),
   paymentMethod: z.enum(['À Vista', 'Parcelado', 'A Prazo']).optional(),
   installmentsCount: z.coerce.number().optional(),
+  firstDueDate: z.date().optional(),
 }).refine(data => {
   if (data.subtype === 'Serviço + Venda') {
     return (data.serviceAmount ?? 0) > 0 || (data.productAmount ?? 0) > 0;
@@ -118,13 +119,21 @@ const transactionSchema = z.object({
   message: 'Para "Serviço + Venda", o valor do serviço ou do produto deve ser informado.',
   path: ['amount'],
 }).refine(data => {
-  if(data.paymentMethod === 'Parcelado') {
-    return data.installmentsCount && data.installmentsCount > 1;
+  if (data.paymentMethod === 'Parcelado' && (!data.installmentsCount || data.installmentsCount <= 1)) {
+    return false;
   }
   return true;
 }, {
   message: 'O número de parcelas deve ser maior que 1.',
   path: ['installmentsCount']
+}).refine(data => {
+    if ((data.paymentMethod === 'Parcelado' || data.paymentMethod === 'A Prazo') && !data.firstDueDate) {
+        return false;
+    }
+    return true;
+}, {
+    message: 'A data de vencimento é obrigatória para esta forma de pagamento.',
+    path: ['firstDueDate']
 });
 
 
@@ -150,6 +159,7 @@ export function TransactionsClient() {
     useState<Transaction | null>(null);
   const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isFirstDueDatePickerOpen, setIsFirstDueDatePickerOpen] = useState(false);
   const [isProductComboboxOpen, setIsProductComboboxOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
@@ -267,6 +277,7 @@ export function TransactionsClient() {
       productAmount: undefined,
       paymentMethod: 'À Vista',
       installmentsCount: undefined,
+      firstDueDate: undefined,
     },
   });
 
@@ -282,7 +293,7 @@ export function TransactionsClient() {
         let productRef;
         const transactionType = subtypeToTypeMap[data.subtype];
   
-        let payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp }> = {
+        let payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
           companyId,
           amount: Math.abs(data.amount || 0),
@@ -303,27 +314,28 @@ export function TransactionsClient() {
           payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
         }
 
-        if (data.paymentMethod === 'Parcelado' && data.installmentsCount && data.amount) {
+        if (data.paymentMethod === 'A Prazo' && data.firstDueDate && data.amount) {
+            payload.installments = [{
+                installmentNumber: 1,
+                dueDate: Timestamp.fromDate(data.firstDueDate),
+                amount: data.amount,
+                status: 'Pendente'
+            }];
+        }
+
+        if (data.paymentMethod === 'Parcelado' && data.installmentsCount && data.amount && data.firstDueDate) {
           payload.installments = [];
           const installmentAmount = data.amount / data.installmentsCount;
-          for (let i = 1; i <= data.installmentsCount; i++) {
+          for (let i = 0; i < data.installmentsCount; i++) {
             payload.installments.push({
-              installmentNumber: i,
-              dueDate: Timestamp.fromDate(addMonths(data.date, i)),
+              installmentNumber: i + 1,
+              dueDate: Timestamp.fromDate(addMonths(data.firstDueDate, i)),
               amount: installmentAmount,
               status: 'Pendente',
             });
           }
         }
   
-        // Remove undefined fields to prevent Firestore errors
-        Object.keys(payload).forEach(key => {
-          const typedKey = key as keyof typeof payload;
-          if (payload[typedKey] === undefined || payload[typedKey] === '') {
-            delete payload[typedKey];
-          }
-        });
-
         if (data.productId && (data.subtype === 'Venda' || data.subtype === 'Serviço + Venda')) {
           productRef = doc(db, 'products', data.productId);
           const productDoc = await transaction.get(productRef);
@@ -345,6 +357,14 @@ export function TransactionsClient() {
             }
             transaction.update(productRef, { quantity: product.quantity - quantityDiff });
           }
+
+          // Remove undefined fields to prevent Firestore errors
+          Object.keys(payload).forEach(key => {
+            const typedKey = key as keyof typeof payload;
+            if (payload[typedKey] === undefined || payload[typedKey] === '') {
+              delete payload[typedKey];
+            }
+          });
   
           transaction.update(transactionRef, payload as any);
   
@@ -356,6 +376,14 @@ export function TransactionsClient() {
                 }
                 transaction.update(productRef, { quantity: product.quantity - quantitySold });
             }
+
+            // Remove undefined fields to prevent Firestore errors
+            Object.keys(payload).forEach(key => {
+              const typedKey = key as keyof typeof payload;
+              if (payload[typedKey] === undefined || payload[typedKey] === '') {
+                delete payload[typedKey];
+              }
+            });
         
             const newTransactionRef = doc(collection(db, 'transactions'));
             transaction.set(newTransactionRef, payload as any);
@@ -381,6 +409,7 @@ export function TransactionsClient() {
         productAmount: undefined,
         paymentMethod: 'À Vista',
         installmentsCount: undefined,
+        firstDueDate: undefined,
       });
       setIsDialogOpen(false);
   
@@ -395,6 +424,12 @@ export function TransactionsClient() {
   };
 
   const handleEdit = (transaction: Transaction) => {
+    let firstDueDate: Date | undefined;
+    if (transaction.installments && transaction.installments.length > 0) {
+        const firstInstallmentDueDate = transaction.installments[0].dueDate;
+        firstDueDate = (firstInstallmentDueDate as Timestamp).toDate();
+    }
+
     setEditingTransaction(transaction);
     form.reset({
       ...transaction,
@@ -405,6 +440,7 @@ export function TransactionsClient() {
       productAmount: transaction.productAmount || undefined,
       paymentMethod: transaction.paymentMethod || 'À Vista',
       installmentsCount: transaction.installments?.length || undefined,
+      firstDueDate: firstDueDate,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -461,6 +497,7 @@ export function TransactionsClient() {
       productAmount: undefined,
       paymentMethod: 'À Vista',
       installmentsCount: undefined,
+      firstDueDate: undefined,
     });
     setIsDialogOpen(true);
   };
@@ -919,7 +956,13 @@ export function TransactionsClient() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Forma de Pagamento</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select 
+                        onValueChange={(value: PaymentMethod) => {
+                          field.onChange(value);
+                          form.setValue('installmentsCount', undefined);
+                          form.setValue('firstDueDate', undefined);
+                        }} 
+                        value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione a forma de pagamento" />
@@ -950,6 +993,45 @@ export function TransactionsClient() {
                     )}
                   />
                 )}
+                 {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
+                   <FormField
+                    control={form.control}
+                    name="firstDueDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>{selectedPaymentMethod === 'Parcelado' ? 'Vencimento da 1ª Parcela' : 'Data de Vencimento'}</FormLabel>
+                        <Popover open={isFirstDueDatePickerOpen} onOpenChange={setIsFirstDueDatePickerOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={'outline'}
+                                className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                              >
+                                {field.value ? (
+                                  format(field.value, 'PPP', { locale: ptBR })
+                                ) : (
+                                  <span>Escolha uma data</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={(date) => {
+                                if (date) field.onChange(date);
+                                setIsFirstDueDatePickerOpen(false);
+                              }}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                 )}
               </>
             )}
 
@@ -959,7 +1041,7 @@ export function TransactionsClient() {
               name="date"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Data</FormLabel>
+                  <FormLabel>Data do Lançamento</FormLabel>
                   <Popover
                     open={isDatePickerOpen}
                     onOpenChange={setIsDatePickerOpen}
