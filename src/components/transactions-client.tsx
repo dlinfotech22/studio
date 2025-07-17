@@ -238,13 +238,13 @@ export function TransactionsClient() {
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       description: '',
-      amount: 0,
+      amount: undefined,
       date: new Date(),
       subtype: 'Prestação de Serviço',
       productId: '',
-      quantitySold: 0,
-      serviceAmount: 0,
-      productAmount: 0
+      quantitySold: undefined,
+      serviceAmount: undefined,
+      productAmount: undefined,
     },
   });
 
@@ -264,13 +264,13 @@ export function TransactionsClient() {
           ...data,
           type: transactionType,
           companyId,
-          amount: Math.abs(data.amount),
+          amount: Math.abs(data.amount || 0),
           description: data.description || data.subtype,
           date: Timestamp.fromDate(data.date),
         };
 
         if (transactionType === 'expense') {
-          payload.amount = -Math.abs(data.amount);
+          payload.amount = -Math.abs(data.amount || 0);
         }
 
         if (data.productId && (data.subtype === 'Venda' || data.subtype === 'Serviço + Venda')) {
@@ -321,13 +321,13 @@ export function TransactionsClient() {
       setEditingTransaction(null);
       form.reset({
         description: '',
-        amount: 0,
+        amount: undefined,
         date: new Date(),
         subtype: data.subtype,
         productId: '',
-        quantitySold: 0,
-        serviceAmount: 0,
-        productAmount: 0,
+        quantitySold: undefined,
+        serviceAmount: undefined,
+        productAmount: undefined,
       });
       setIsDialogOpen(false);
 
@@ -347,9 +347,9 @@ export function TransactionsClient() {
       ...transaction,
       date: new Date(transaction.date as Date),
       amount: Math.abs(transaction.amount),
-      quantitySold: transaction.quantitySold || 0,
-      serviceAmount: transaction.serviceAmount || 0,
-      productAmount: transaction.productAmount || 0,
+      quantitySold: transaction.quantitySold || undefined,
+      serviceAmount: transaction.serviceAmount || undefined,
+      productAmount: transaction.productAmount || undefined,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -396,13 +396,13 @@ export function TransactionsClient() {
     setEditingTransaction(null);
     form.reset({
       description: '',
-      amount: 0,
+      amount: undefined,
       date: new Date(),
       subtype: type === 'revenue' ? 'Prestação de Serviço' : 'Despesa',
       productId: '',
-      quantitySold: 0,
-      serviceAmount: 0,
-      productAmount: 0,
+      quantitySold: undefined,
+      serviceAmount: undefined,
+      productAmount: undefined,
     });
     setIsDialogOpen(true);
   };
@@ -555,7 +555,7 @@ export function TransactionsClient() {
 
 
   useEffect(() => {
-    const { serviceAmount, productAmount, quantitySold, productId, subtype } = form.getValues();
+    const { serviceAmount, quantitySold, productId, subtype } = form.getValues();
     const product = allProducts.find(p => p.id === productId);
 
     if (subtype === 'Venda' && product) {
@@ -566,7 +566,7 @@ export function TransactionsClient() {
         form.setValue('productAmount', prodAmt);
         form.setValue('amount', (serviceAmount || 0) + prodAmt);
     }
-  }, [form.watch('serviceAmount'), form.watch('productAmount'), form.watch('quantitySold'), form.watch('productId'), form.watch('subtype'), allProducts, form]);
+  }, [form.watch('serviceAmount'), form.watch('quantitySold'), form.watch('productId'), form.watch('subtype'), allProducts, form]);
 
 
   return (
@@ -680,10 +680,10 @@ export function TransactionsClient() {
                     onValueChange={(value: TransactionSubtype) => {
                       field.onChange(value);
                       form.setValue('productId', '');
-                      form.setValue('quantitySold', 0);
-                      form.setValue('serviceAmount', 0);
-                      form.setValue('productAmount', 0);
-                      form.setValue('amount', 0);
+                      form.setValue('quantitySold', undefined);
+                      form.setValue('serviceAmount', undefined);
+                      form.setValue('productAmount', undefined);
+                      form.setValue('amount', undefined);
                     }}
                     value={field.value}
                   >
@@ -739,11 +739,13 @@ export function TransactionsClient() {
                            />
                           <CommandList>
                              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                             <CommandGroup>
                               {filteredProducts.map((prod) => (
                                 <CommandItem
+                                  value={prod.id}
                                   key={prod.id}
-                                  onSelect={() => {
-                                    form.setValue("productId", prod.id);
+                                  onSelect={(currentValue) => {
+                                    form.setValue("productId", currentValue === field.value ? "" : currentValue);
                                     setProductSearchInput("");
                                     setIsProductComboboxOpen(false);
                                   }}
@@ -759,6 +761,7 @@ export function TransactionsClient() {
                                   {prod.name}
                                 </CommandItem>
                               ))}
+                              </CommandGroup>
                           </CommandList>
                         </Command>
                       </PopoverContent>
@@ -780,8 +783,8 @@ export function TransactionsClient() {
                           type="number"
                           placeholder="0"
                           {...field}
-                          value={field.value ?? 0}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
                          />
                       </FormControl>
                       {selectedProduct && (
@@ -802,7 +805,7 @@ export function TransactionsClient() {
                     <FormItem>
                       <FormLabel>Valor do Serviço</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0.00" {...field} value={field.value ?? 0} onChange={(e) => field.onChange(e.target.valueAsNumber)} />
+                        <Input type="number" placeholder="0.00" {...field} value={field.value || ''} onChange={(e) => field.onChange(parseFloat(e.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -836,7 +839,7 @@ export function TransactionsClient() {
                 <FormItem>
                   <FormLabel>Valor Total</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0.00" {...field} value={field.value ?? 0} onChange={(e) => field.onChange(e.target.valueAsNumber)} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
+                    <Input type="number" placeholder="0.00" {...field} value={field.value || ''} onChange={(e) => field.onChange(parseFloat(e.target.value))} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
