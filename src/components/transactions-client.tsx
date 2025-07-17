@@ -260,7 +260,7 @@ export function TransactionsClient() {
         let productRef;
         const transactionType = subtypeToTypeMap[data.subtype];
         
-        const payload: Omit<Transaction, 'id' | 'date'> & { date: Timestamp } = {
+        const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp }> = {
           ...data,
           type: transactionType,
           companyId,
@@ -268,13 +268,7 @@ export function TransactionsClient() {
           description: data.description ? data.description.toUpperCase() : data.subtype,
           date: Timestamp.fromDate(data.date),
         };
-
-        // Remove optional fields if they are falsy, to avoid sending `undefined` to Firestore
-        if (!payload.productId) delete payload.productId;
-        if (!payload.quantitySold) delete payload.quantitySold;
-        if (!payload.serviceAmount) delete payload.serviceAmount;
-        if (!payload.productAmount) delete payload.productAmount;
-
+        
         if (transactionType === 'expense') {
           payload.amount = -Math.abs(data.amount || 0);
         }
@@ -301,6 +295,8 @@ export function TransactionsClient() {
             }
             transaction.update(productRef, { quantity: product.quantity - quantityDiff });
           }
+          // Clean up undefined fields before updating
+          Object.keys(payload).forEach(key => payload[key as keyof typeof payload] === undefined && delete payload[key as keyof typeof payload]);
           transaction.update(transactionRef, payload as any);
 
         } else {
@@ -313,6 +309,8 @@ export function TransactionsClient() {
             transaction.update(productRef, { quantity: product.quantity - quantitySold });
           }
           const newTransactionRef = doc(collection(db, 'transactions'));
+          // Clean up undefined fields before creating
+          Object.keys(payload).forEach(key => payload[key as keyof typeof payload] === undefined && delete payload[key as keyof typeof payload]);
           transaction.set(newTransactionRef, payload as any);
         }
       });
@@ -749,11 +747,10 @@ export function TransactionsClient() {
                              <CommandGroup>
                               {filteredProducts.map((prod) => (
                                 <CommandItem
-                                  value={prod.id}
+                                  value={prod.name}
                                   key={prod.id}
                                   onSelect={() => {
-                                    form.setValue("productId", field.value === prod.id ? "" : prod.id);
-                                    setProductSearchInput('');
+                                    form.setValue("productId", prod.id);
                                     setIsProductComboboxOpen(false);
                                   }}
                                 >
@@ -790,7 +787,7 @@ export function TransactionsClient() {
                           type="number"
                           placeholder="0"
                           {...field}
-                          value={field.value ?? ''}
+                          value={field.value || ''}
                           onChange={(e) => field.onChange(parseInt(e.target.value, 10) || undefined)}
                          />
                       </FormControl>
@@ -812,7 +809,7 @@ export function TransactionsClient() {
                     <FormItem>
                       <FormLabel>Valor do Serviço</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)} />
+                        <Input type="number" placeholder="0.00" {...field} value={field.value || ''} onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -846,7 +843,7 @@ export function TransactionsClient() {
                 <FormItem>
                   <FormLabel>Valor Total</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
+                    <Input type="number" placeholder="0.00" {...field} value={field.value || ''} onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
