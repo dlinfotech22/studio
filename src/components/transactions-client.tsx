@@ -190,6 +190,7 @@ export function TransactionsClient() {
 
         const companiesRef = collection(db, 'companies');
         const qCompany = query(companiesRef, where('document', '==', id));
+        const companySnapshot = await getDocs(qCompany);
         if(!companySnapshot.empty) {
             setCompanyInfo({id: companySnapshot.docs[0].id, ...companySnapshot.docs[0].data()} as CompanyInfo);
         }
@@ -289,12 +290,11 @@ export function TransactionsClient() {
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
           paymentMethod: data.paymentMethod,
+          productId: data.productId,
+          quantitySold: data.quantitySold,
+          serviceAmount: data.serviceAmount,
+          productAmount: data.productAmount,
         };
-  
-        if (data.productId) payload.productId = data.productId;
-        if (data.quantitySold) payload.quantitySold = data.quantitySold;
-        if (data.serviceAmount) payload.serviceAmount = data.serviceAmount;
-        if (data.productAmount) payload.productAmount = data.productAmount;
   
         if (transactionType === 'expense') {
           payload.amount = -Math.abs(data.amount || 0);
@@ -318,8 +318,9 @@ export function TransactionsClient() {
   
         // Remove undefined fields to prevent Firestore errors
         Object.keys(payload).forEach(key => {
-          if (payload[key as keyof typeof payload] === undefined) {
-            delete payload[key as keyof typeof payload];
+          const typedKey = key as keyof typeof payload;
+          if (payload[typedKey] === undefined || payload[typedKey] === '') {
+            delete payload[typedKey];
           }
         });
 
@@ -642,7 +643,7 @@ export function TransactionsClient() {
           <Input
             placeholder="Pesquisar por descrição..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
             className="pl-8"
           />
         </div>
