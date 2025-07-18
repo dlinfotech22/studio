@@ -161,10 +161,6 @@ export function TransactionsClient() {
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
   const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [isFirstDueDatePickerOpen, setIsFirstDueDatePickerOpen] = useState(false);
-  const [isProductComboboxOpen, setIsProductComboboxOpen] = useState(false);
-  const [isCustomerComboboxOpen, setIsCustomerComboboxOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
@@ -705,6 +701,150 @@ export function TransactionsClient() {
   }, [form, allProducts, watchedSubtype, watchedProductId, watchedQuantitySold, watchedServiceAmount]);
 
 
+  const CustomerCombobox = () => {
+    const [open, setOpen] = useState(false);
+    return (
+      <FormField
+        control={form.control}
+        name="customerId"
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>Cliente</FormLabel>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <FormControl>
+                  <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                    {field.value ? allCustomers.find(c => c.id === field.value)?.name : "Selecione um cliente"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                  <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+                  <CommandList>
+                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      {allCustomers.map((cust) => (
+                        <CommandItem
+                          value={cust.name}
+                          key={cust.id}
+                          onSelect={() => {
+                            form.setValue("customerId", cust.id);
+                            setOpen(false);
+                          }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
+                          {cust.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  };
+
+  const ProductCombobox = () => {
+    const [open, setOpen] = useState(false);
+    return (
+      <FormField
+        control={form.control}
+        name="productId"
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>Produto Vinculado</FormLabel>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <FormControl>
+                  <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                    {field.value ? allProducts.find(p => p.id === field.value)?.name : "Selecione um produto"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                  <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+                  <CommandList>
+                    <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      {allProducts.map((prod) => (
+                        <CommandItem
+                          value={prod.name}
+                          key={prod.id}
+                          onSelect={() => {
+                            form.setValue("productId", prod.id);
+                            setOpen(false);
+                          }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", prod.id === field.value ? "opacity-100" : "opacity-0")} />
+                          {prod.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  };
+
+  const DatePicker = ({fieldName}: {fieldName: "date" | "firstDueDate"}) => {
+    const [open, setOpen] = useState(false);
+    return (
+       <FormField
+        control={form.control}
+        name={fieldName}
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>{fieldName === 'date' ? 'Data do Lançamento' : (selectedPaymentMethod === 'Parcelado' ? 'Vencimento da 1ª Parcela' : 'Data de Vencimento')}</FormLabel>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <FormControl>
+                  <Button
+                    variant={'outline'}
+                    className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                  >
+                    {field.value ? (
+                      format(field.value, 'PPP', { locale: ptBR })
+                    ) : (
+                      <span>Escolha uma data</span>
+                    )}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={field.value}
+                  onSelect={(date) => {
+                    if (date) field.onChange(date);
+                    setOpen(false);
+                  }}
+                  disabled={(date) =>
+                    fieldName === 'date' ? (date > new Date() || date < new Date('1900-01-01')) : false
+                  }
+                />
+              </PopoverContent>
+            </Popover>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    )
+  }
+
   return (
     <>
       <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
@@ -842,115 +982,10 @@ export function TransactionsClient() {
                 )}
               />
 
-              {selectedSubtype !== 'Despesa' && (
-                  <FormField
-                      control={form.control}
-                      name="customerId"
-                      render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                          <FormLabel>Cliente</FormLabel>
-                          <Popover open={isCustomerComboboxOpen} onOpenChange={setIsCustomerComboboxOpen}>
-                          <PopoverTrigger asChild>
-                              <FormControl>
-                              <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                                  {field.value ? allCustomers.find(c => c.id === field.value)?.name : "Selecione um cliente"}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                              </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                              <Command>
-                              <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-                              <CommandList>
-                                  <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                                  <CommandGroup>
-                                  {allCustomers.map((cust) => (
-                                      <CommandItem
-                                        value={cust.name}
-                                        key={cust.id}
-                                        onSelect={() => {
-                                          form.setValue("customerId", cust.id);
-                                          setIsCustomerComboboxOpen(false);
-                                        }}
-                                      >
-                                        <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
-                                        {cust.name}
-                                      </CommandItem>
-                                  ))}
-                                  </CommandGroup>
-                              </CommandList>
-                              </Command>
-                          </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                      </FormItem>
-                      )}
-                  />
-              )}
+              {selectedSubtype !== 'Despesa' && <CustomerCombobox />}
 
-              {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
-                <FormField
-                  control={form.control}
-                  name="productId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Produto Vinculado</FormLabel>
-                      <Popover open={isProductComboboxOpen} onOpenChange={setIsProductComboboxOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className={cn(
-                                "w-full justify-between",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value
-                                ? allProducts.find(
-                                    (prod) => prod.id === field.value
-                                  )?.name
-                                : "Selecione um produto"}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                          <Command>
-                            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-                            <CommandList>
-                              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                              <CommandGroup>
-                                {allProducts.map((prod) => (
-                                  <CommandItem
-                                    value={prod.name}
-                                    key={prod.id}
-                                    onSelect={() => {
-                                      form.setValue("productId", prod.id);
-                                      setIsProductComboboxOpen(false);
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        prod.id === field.value
-                                          ? "opacity-100"
-                                          : "opacity-0"
-                                      )}
-                                    />
-                                    {prod.name}
-                                  </CommandItem>
-                                ))}
-                                </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
+              {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && <ProductCombobox />}
+              
               {selectedProductId && (selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
                   <FormField
                     control={form.control}
@@ -1074,94 +1109,13 @@ export function TransactionsClient() {
                     />
                   )}
                   {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
-                    <FormField
-                      control={form.control}
-                      name="firstDueDate"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>{selectedPaymentMethod === 'Parcelado' ? 'Vencimento da 1ª Parcela' : 'Data de Vencimento'}</FormLabel>
-                          <Popover open={isFirstDueDatePickerOpen} onOpenChange={setIsFirstDueDatePickerOpen}>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant={'outline'}
-                                  className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
-                                >
-                                  {field.value ? (
-                                    format(field.value, 'PPP', { locale: ptBR })
-                                  ) : (
-                                    <span>Escolha uma data</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={(date) => {
-                                  if (date) field.onChange(date);
-                                  setIsFirstDueDatePickerOpen(false);
-                                }}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <DatePicker fieldName="firstDueDate" />
                   )}
                 </>
               )}
 
+              <DatePicker fieldName="date" />
 
-              <FormField
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Data do Lançamento</FormLabel>
-                    <Popover
-                      open={isDatePickerOpen}
-                      onOpenChange={setIsDatePickerOpen}
-                    >
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={'outline'}
-                            className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, 'PPP', { locale: ptBR })
-                            ) : (
-                              <span>Escolha uma data</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={(date) => {
-                            if (date) field.onChange(date);
-                            setIsDatePickerOpen(false);
-                          }}
-                          disabled={(date) =>
-                            date > new Date() || date < new Date('1900-01-01')
-                          }
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <DialogFooter>
                 <DialogClose asChild>
                   <Button type="button" variant="ghost">
