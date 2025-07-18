@@ -175,8 +175,6 @@ export function TransactionsClient() {
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [productSearchInput, setProductSearchInput] = useState('');
-  const [customerSearchInput, setCustomerSearchInput] = useState('');
 
 
   useEffect(() => {
@@ -349,6 +347,7 @@ export function TransactionsClient() {
                 amount: data.amount,
                 status: 'Pendente'
             }];
+            payload.installmentsCount = 1;
         }
 
         if (data.paymentMethod === 'Parcelado' && data.installmentsCount && data.amount && data.firstDueDate) {
@@ -362,6 +361,7 @@ export function TransactionsClient() {
               status: 'Pendente',
             });
           }
+          payload.installmentsCount = data.installmentsCount;
         }
   
         if (data.productId && (data.subtype === 'Venda' || data.subtype === 'Serviço + Venda')) {
@@ -394,7 +394,7 @@ export function TransactionsClient() {
           });
   
           transaction.update(transactionRef, payload as any);
-          finalTransaction = { ...editingTransaction, ...data, date: data.date } as Transaction;
+          finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType } as Transaction;
 
         } else {
            const quantitySold = data.quantitySold || 0;
@@ -414,7 +414,7 @@ export function TransactionsClient() {
         
             const newTransactionRef = doc(collection(db, 'transactions'));
             transaction.set(newTransactionRef, payload as any);
-            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date } as Transaction;
+            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType } as Transaction;
         }
       });
   
@@ -473,7 +473,7 @@ export function TransactionsClient() {
       serviceAmount: transaction.serviceAmount || undefined,
       productAmount: transaction.productAmount || undefined,
       paymentMethod: transaction.paymentMethod || 'À Vista',
-      installmentsCount: transaction.installments?.length || undefined,
+      installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
       firstDueDate: firstDueDate,
     });
     setActiveTab(transaction.type);
@@ -682,9 +682,6 @@ export function TransactionsClient() {
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
   const selectedPaymentMethod = form.watch('paymentMethod');
 
-  const filteredProducts = allProducts.filter(p => p.name.toLowerCase().includes(productSearchInput.toLowerCase()));
-  const filteredCustomers = allCustomers.filter(c => c.name.toLowerCase().includes(customerSearchInput.toLowerCase()));
-
   const watchedSubtype = form.watch('subtype');
   const watchedProductId = form.watch('productId');
   const watchedQuantitySold = form.watch('quantitySold');
@@ -863,14 +860,21 @@ export function TransactionsClient() {
                           </PopoverTrigger>
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                               <Command>
-                              <CommandInput placeholder="Digite para filtrar" value={customerSearchInput} onValueChange={setCustomerSearchInput} autoComplete="off" />
+                              <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
                               <CommandList>
                                   <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                                   <CommandGroup>
-                                  {filteredCustomers.map((cust) => (
-                                      <CommandItem value={cust.id} key={cust.id} onSelect={() => { form.setValue("customerId", cust.id); setIsCustomerComboboxOpen(false); }}>
-                                      <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
-                                      {cust.name}
+                                  {allCustomers.map((cust) => (
+                                      <CommandItem
+                                        value={cust.name}
+                                        key={cust.id}
+                                        onSelect={() => {
+                                          form.setValue("customerId", cust.id);
+                                          setIsCustomerComboboxOpen(false);
+                                        }}
+                                      >
+                                        <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
+                                        {cust.name}
                                       </CommandItem>
                                   ))}
                                   </CommandGroup>
@@ -913,18 +917,13 @@ export function TransactionsClient() {
                         </PopoverTrigger>
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                           <Command>
-                            <CommandInput 
-                              placeholder="Digite para filtrar" 
-                              value={productSearchInput}
-                              onValueChange={setProductSearchInput}
-                              autoComplete="off"
-                            />
+                            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
                             <CommandList>
                               <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                               <CommandGroup>
-                                {filteredProducts.map((prod) => (
+                                {allProducts.map((prod) => (
                                   <CommandItem
-                                    value={prod.id}
+                                    value={prod.name}
                                     key={prod.id}
                                     onSelect={() => {
                                       form.setValue("productId", prod.id);

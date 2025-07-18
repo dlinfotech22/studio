@@ -33,6 +33,7 @@ export type Transaction = {
   paymentMethod?: PaymentMethod;
   status?: TransactionStatus;
   installments?: Installment[];
+  installmentsCount?: number;
 };
 
 export type User = {
