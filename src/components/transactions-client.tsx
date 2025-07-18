@@ -863,7 +863,7 @@ export function TransactionsClient() {
                           </PopoverTrigger>
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                               <Command>
-                              <CommandInput placeholder="Digite para filtrar" value={customerSearchInput} onValueChange={setCustomerSearchInput} />
+                              <CommandInput placeholder="Digite para filtrar" value={customerSearchInput} onValueChange={setCustomerSearchInput} autoComplete="off" />
                               <CommandList>
                                   <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                                   <CommandGroup>
@@ -917,6 +917,7 @@ export function TransactionsClient() {
                               placeholder="Digite para filtrar" 
                               value={productSearchInput}
                               onValueChange={setProductSearchInput}
+                              autoComplete="off"
                             />
                             <CommandList>
                               <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
