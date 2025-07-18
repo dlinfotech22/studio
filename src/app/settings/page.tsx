@@ -57,6 +57,7 @@ import { useToast } from '@/hooks/use-toast';
 import { type User, type CompanyInfo } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { db, storage } from '@/lib/firebase';
 
 // Schemas
@@ -395,18 +396,18 @@ function AppearanceSettings() {
           onValueChange={setTheme}
           className="space-y-2"
         >
-          <FormLabel>Tema</FormLabel>
+          <Label>Tema</Label>
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="light" id="light" />
-            <FormLabel htmlFor="light" className="flex items-center gap-2 font-normal">
+            <Label htmlFor="light" className="flex items-center gap-2 font-normal">
               <Sun className="h-4 w-4" /> Claro
-            </FormLabel>
+            </Label>
           </div>
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="dark" id="dark" />
-            <FormLabel htmlFor="dark" className="flex items-center gap-2 font-normal">
+            <Label htmlFor="dark" className="flex items-center gap-2 font-normal">
               <Moon className="h-4 w-4" /> Escuro
-            </FormLabel>
+            </Label>
           </div>
         </RadioGroup>
       </CardContent>
