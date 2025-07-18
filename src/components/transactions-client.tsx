@@ -868,7 +868,7 @@ export function TransactionsClient() {
                                   <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                                   <CommandGroup>
                                   {filteredCustomers.map((cust) => (
-                                      <CommandItem value={cust.id} key={cust.id} onSelect={(currentValue) => { form.setValue("customerId", currentValue); setIsCustomerComboboxOpen(false); }}>
+                                      <CommandItem value={cust.id} key={cust.id} onSelect={() => { form.setValue("customerId", cust.id); setIsCustomerComboboxOpen(false); }}>
                                       <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
                                       {cust.name}
                                       </CommandItem>
@@ -926,8 +926,8 @@ export function TransactionsClient() {
                                   <CommandItem
                                     value={prod.id}
                                     key={prod.id}
-                                    onSelect={(currentValue) => {
-                                      form.setValue("productId", currentValue);
+                                    onSelect={() => {
+                                      form.setValue("productId", prod.id);
                                       setIsProductComboboxOpen(false);
                                     }}
                                   >
