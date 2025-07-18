@@ -421,6 +421,7 @@ export function InventoryClient() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
+            autoComplete="off"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 ml-auto">
@@ -579,6 +580,7 @@ export function InventoryClient() {
                         onChange={(e) =>
                           field.onChange(e.target.value.toUpperCase())
                         }
+                        autoComplete="off"
                       />
                     </FormControl>
                     <FormMessage />
@@ -592,7 +594,7 @@ export function InventoryClient() {
                   <FormItem>
                     <FormLabel>Código de Barras (Opcional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: 7891234567890" {...field} />
+                      <Input placeholder="Ex: 7891234567890" {...field} autoComplete="off" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -605,7 +607,7 @@ export function InventoryClient() {
                   <FormItem>
                     <FormLabel>Quantidade em Estoque</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0" {...field} />
+                      <Input type="number" placeholder="0" {...field} autoComplete="off" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -618,7 +620,7 @@ export function InventoryClient() {
                   <FormItem>
                     <FormLabel>Preço de Venda (R$)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0.00" {...field} />
+                      <Input type="number" placeholder="0.00" {...field} autoComplete="off" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -668,6 +670,7 @@ export function InventoryClient() {
                   setRestockQuantity(e.target.value === '' ? '' : Number(e.target.value))
                 }
                 autoFocus
+                autoComplete="off"
               />
             </div>
           </div>

@@ -273,6 +273,7 @@ export function CustomersClient() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-8"
+                    autoComplete="off"
                   />
                 </div>
                 <Button onClick={() => { setEditingCustomer(null); form.reset({ name: '', document: '', email: '', phone: '' }); setIsDialogOpen(true); }} className="w-full md:w-auto">
@@ -401,30 +402,28 @@ export function CustomersClient() {
               <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nome Completo / Razão Social</FormLabel>
-                  <FormControl>
-                    <Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())}/>
-                  </FormControl>
+                  <FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} autoComplete="off" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="document" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Documento (CPF/CNPJ)</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl><Input {...field} autoComplete="off" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="email" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Email</FormLabel>
-                  <FormControl><Input type="email" {...field} /></FormControl>
+                  <FormControl><Input type="email" {...field} autoComplete="off" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="phone" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Telefone</FormLabel>
-                  <FormControl><Input {...field} onChange={(e) => field.onChange(formatPhone(e.target.value))} /></FormControl>
+                  <FormControl><Input {...field} onChange={(e) => field.onChange(formatPhone(e.target.value))} autoComplete="off" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />

@@ -718,6 +718,7 @@ export function TransactionsClient() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
             className="pl-8"
+            autoComplete="off"
           />
         </div>
         <Input
@@ -726,6 +727,7 @@ export function TransactionsClient() {
           value={amountFilter}
           onChange={(e) => setAmountFilter(e.target.value)}
           className="w-full md:w-52"
+          autoComplete="off"
         />
         <Popover
           open={isFilterDatePickerOpen}
@@ -963,6 +965,7 @@ export function TransactionsClient() {
                             {...field}
                             value={field.value ?? ''}
                             onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                            autoComplete="off"
                           />
                         </FormControl>
                         {selectedProduct && (
@@ -983,7 +986,7 @@ export function TransactionsClient() {
                       <FormItem>
                         <FormLabel>Valor do Serviço</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+                          <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} autoComplete="off" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1004,6 +1007,7 @@ export function TransactionsClient() {
                         onChange={(e) =>
                           field.onChange(e.target.value.toUpperCase())
                         }
+                        autoComplete="off"
                       />
                     </FormControl>
                     <FormMessage />
@@ -1017,7 +1021,7 @@ export function TransactionsClient() {
                   <FormItem>
                     <FormLabel>Valor Total</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
+                      <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } autoComplete="off" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1062,7 +1066,7 @@ export function TransactionsClient() {
                         <FormItem>
                           <FormLabel>Número de Parcelas</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="2" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} />
+                            <Input type="number" placeholder="2" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} autoComplete="off" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

@@ -171,6 +171,7 @@ function CompanyUserList({
             onChange={(e) => setUserSearchTerm(e.target.value)}
             className="pl-8"
             onClick={(e) => e.stopPropagation()}
+            autoComplete="off"
           />
         </div>
         <Button
@@ -684,6 +685,7 @@ export function SystemAdminClient() {
                 value={companySearchTerm}
                 onChange={(e) => setCompanySearchTerm(e.target.value)}
                 className="pl-8"
+                autoComplete="off"
               />
             </div>
             <Button
@@ -821,6 +823,7 @@ export function SystemAdminClient() {
                 value={adminSearchTerm}
                 onChange={(e) => setAdminSearchTerm(e.target.value)}
                 className="pl-8"
+                autoComplete="off"
               />
             </div>
             <Button
@@ -912,6 +915,7 @@ export function SystemAdminClient() {
                         onChange={(e) =>
                           field.onChange(e.target.value.toUpperCase())
                         }
+                        autoComplete="off"
                       />
                     </FormControl>
                     <FormMessage />
@@ -925,7 +929,7 @@ export function SystemAdminClient() {
                   <FormItem>
                     <FormLabel>Documento (CNPJ/CPF)</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={!!editingCompany} />
+                      <Input {...field} disabled={!!editingCompany} autoComplete="off" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -996,6 +1000,7 @@ export function SystemAdminClient() {
                             onChange={(e) =>
                               field.onChange(e.target.value.toUpperCase())
                             }
+                            autoComplete="off"
                           />
                         </FormControl>
                         <FormMessage />
@@ -1009,7 +1014,7 @@ export function SystemAdminClient() {
                       <FormItem>
                         <FormLabel>Usuário do Admin</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} autoComplete="off" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1022,7 +1027,7 @@ export function SystemAdminClient() {
                       <FormItem>
                         <FormLabel>Senha do Admin</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} />
+                          <Input type="password" {...field} autoComplete="off" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1069,6 +1074,7 @@ export function SystemAdminClient() {
                         onChange={(e) =>
                           field.onChange(e.target.value.toUpperCase())
                         }
+                        autoComplete="off"
                       />
                     </FormControl>
                     <FormMessage />
@@ -1082,7 +1088,7 @@ export function SystemAdminClient() {
                   <FormItem>
                     <FormLabel>Nome de Usuário</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} autoComplete="off" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1103,6 +1109,7 @@ export function SystemAdminClient() {
                             : '••••••••'
                         }
                         {...field}
+                        autoComplete="off"
                       />
                     </FormControl>
                     <FormMessage />

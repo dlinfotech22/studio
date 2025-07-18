@@ -144,6 +144,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={isLoading}
+                autoComplete="off"
               />
             </div>
             <div className="grid gap-2">
@@ -156,6 +157,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
+                autoComplete="off"
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>

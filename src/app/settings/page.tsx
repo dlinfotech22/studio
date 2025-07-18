@@ -159,7 +159,7 @@ function UserProfile() {
                 <FormItem>
                   <FormLabel>Senha Atual</FormLabel>
                   <FormControl>
-                    <Input type="password" {...field} />
+                    <Input type="password" {...field} autoComplete="off" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -172,7 +172,7 @@ function UserProfile() {
                 <FormItem>
                   <FormLabel>Nova Senha</FormLabel>
                   <FormControl>
-                    <Input type="password" {...field} />
+                    <Input type="password" {...field} autoComplete="off" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -185,7 +185,7 @@ function UserProfile() {
                 <FormItem>
                   <FormLabel>Confirmar Nova Senha</FormLabel>
                   <FormControl>
-                    <Input type="password" {...field} />
+                    <Input type="password" {...field} autoComplete="off" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -332,6 +332,7 @@ function CompanyProfile() {
                 accept="image/png, image/jpeg"
                 onChange={handleLogoChange}
                 disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}
+                autoComplete="off"
               />
             </div>
             <div className="max-w-md space-y-4">
@@ -346,6 +347,7 @@ function CompanyProfile() {
                         {...field}
                         onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         disabled={!isSystemAdmin}
+                        autoComplete="off"
                       />
                     </FormControl>
                     <FormMessage />
@@ -359,7 +361,7 @@ function CompanyProfile() {
                   <FormItem>
                     <FormLabel>CNPJ / CPF</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={true} />
+                      <Input {...field} disabled={true} autoComplete="off" />
                     </FormControl>
                     <FormDescription>
                       O documento é o identificador único da empresa e não pode ser alterado.

@@ -315,6 +315,7 @@ export function AccessManagementClient() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8"
+                autoComplete="off"
               />
             </div>
             <Button onClick={openNewUserDialog} className="w-full md:w-auto">
@@ -464,6 +465,7 @@ export function AccessManagementClient() {
                         onChange={(e) =>
                           field.onChange(e.target.value.toUpperCase())
                         }
+                        autoComplete="off"
                       />
                     </FormControl>
                     <FormMessage />
@@ -482,6 +484,7 @@ export function AccessManagementClient() {
                         {...field}
                         value={field.value || ''}
                         disabled={editingUser?.role === 'system_admin'}
+                        autoComplete="off"
                       />
                     </FormControl>
                     <FormMessage />
@@ -504,6 +507,7 @@ export function AccessManagementClient() {
                         }
                         {...field}
                         value={field.value || ''}
+                        autoComplete="off"
                       />
                     </FormControl>
                     <FormMessage />
