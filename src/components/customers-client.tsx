@@ -94,6 +94,20 @@ type DelinquentCustomer = Customer & {
   totalOwed: number;
 }
 
+const formatPhone = (value: string) => {
+    if (!value) return "";
+    value = value.replace(/\D/g, ''); 
+    value = value.substring(0, 11); 
+    if (value.length > 6) {
+      value = value.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3');
+    } else if (value.length > 2) {
+      value = value.replace(/^(\d{2})(\d*)/, '($1) $2');
+    } else if (value.length > 0) {
+      value = value.replace(/^(\d*)/, '($1');
+    }
+    return value;
+}
+
 export function CustomersClient() {
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -179,7 +193,12 @@ export function CustomersClient() {
 
   const onSubmit = async (data: CustomerFormValues) => {
     if (!companyId) return;
-    const payload = { ...data, companyId, name: data.name };
+    const payload = { 
+        ...data, 
+        companyId, 
+        name: data.name, 
+        phone: data.phone?.replace(/\D/g, '') || '' 
+    };
     try {
       if (editingCustomer) {
         await updateDoc(doc(db, 'customers', editingCustomer.id), payload);
@@ -199,7 +218,10 @@ export function CustomersClient() {
 
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer);
-    form.reset(customer);
+    form.reset({
+      ...customer,
+      phone: formatPhone(customer.phone || ''),
+    });
     setIsDialogOpen(true);
   };
 
@@ -253,7 +275,7 @@ export function CustomersClient() {
                     className="pl-8"
                   />
                 </div>
-                <Button onClick={() => { setEditingCustomer(null); form.reset(); setIsDialogOpen(true); }} className="w-full md:w-auto">
+                <Button onClick={() => { setEditingCustomer(null); form.reset({ name: '', document: '', email: '', phone: '' }); setIsDialogOpen(true); }} className="w-full md:w-auto">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Adicionar Cliente
                 </Button>
@@ -276,7 +298,7 @@ export function CustomersClient() {
                           <TableCell className="font-medium">{customer.name}</TableCell>
                           <TableCell>{customer.document || '-'}</TableCell>
                           <TableCell>{customer.email || '-'}</TableCell>
-                          <TableCell>{customer.phone || '-'}</TableCell>
+                          <TableCell>{customer.phone ? formatPhone(customer.phone) : '-'}</TableCell>
                           <TableCell className="text-center">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -402,7 +424,7 @@ export function CustomersClient() {
               <FormField control={form.control} name="phone" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Telefone</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl><Input {...field} onChange={(e) => field.onChange(formatPhone(e.target.value))} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
