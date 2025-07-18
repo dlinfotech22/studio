@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -97,6 +97,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { PrintableDocument } from './printable-document';
 
 const transactionSchema = z.object({
   description: z.string().optional(),
@@ -165,6 +166,8 @@ export function TransactionsClient() {
   const [isProductComboboxOpen, setIsProductComboboxOpen] = useState(false);
   const [isCustomerComboboxOpen, setIsCustomerComboboxOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [amountFilter, setAmountFilter] = useState('');
@@ -301,6 +304,8 @@ export function TransactionsClient() {
   const onSubmit = async (data: TransactionFormValues) => {
     if (!companyId) return;
   
+    let finalTransaction: Transaction | null = null;
+
     try {
       await runTransaction(db, async (transaction) => {
         let product: Product | undefined;
@@ -314,7 +319,6 @@ export function TransactionsClient() {
                 description = `${data.subtype} - ${customer.name}`
             }
         }
-
   
         let payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
@@ -382,7 +386,6 @@ export function TransactionsClient() {
             transaction.update(productRef, { quantity: product.quantity - quantityDiff });
           }
 
-          // Remove undefined fields to prevent Firestore errors
           Object.keys(payload).forEach(key => {
             const typedKey = key as keyof typeof payload;
             if (payload[typedKey] === undefined || payload[typedKey] === '') {
@@ -391,7 +394,8 @@ export function TransactionsClient() {
           });
   
           transaction.update(transactionRef, payload as any);
-  
+          finalTransaction = { ...editingTransaction, ...data, date: data.date } as Transaction;
+
         } else {
            const quantitySold = data.quantitySold || 0;
             if (product && productRef) {
@@ -401,7 +405,6 @@ export function TransactionsClient() {
                 transaction.update(productRef, { quantity: product.quantity - quantitySold });
             }
 
-            // Remove undefined fields to prevent Firestore errors
             Object.keys(payload).forEach(key => {
               const typedKey = key as keyof typeof payload;
               if (payload[typedKey] === undefined || payload[typedKey] === '') {
@@ -411,6 +414,7 @@ export function TransactionsClient() {
         
             const newTransactionRef = doc(collection(db, 'transactions'));
             transaction.set(newTransactionRef, payload as any);
+            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date } as Transaction;
         }
       });
   
@@ -420,8 +424,9 @@ export function TransactionsClient() {
       setAllTransactions(transactionSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Transaction)));
   
       toast({ title: 'Sucesso!', description: `Lançamento ${editingTransaction ? 'atualizado' : 'adicionado'}.` });
-  
+      
       setEditingTransaction(null);
+      setIsDialogOpen(false);
       form.reset({
         description: '',
         amount: undefined,
@@ -436,7 +441,11 @@ export function TransactionsClient() {
         installmentsCount: undefined,
         firstDueDate: undefined,
       });
-      setIsDialogOpen(false);
+
+      if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
+        setTransactionToPrint(finalTransaction);
+        setIsPrintDialogOpen(true);
+      }
   
     } catch (error: any) {
       console.error('Failed to save transaction', error);
@@ -700,7 +709,7 @@ export function TransactionsClient() {
 
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <>
       <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
         <div className="relative w-full md:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -789,378 +798,401 @@ export function TransactionsClient() {
           {renderTable(expenses, 'expense')}
         </TabsContent>
       </Tabs>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {editingTransaction ? 'Editar' : 'Adicionar'} Lançamento
-          </DialogTitle>
-          <DialogDescription>
-            Preencha os detalhes do seu lançamento financeiro.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="subtype"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo de Lançamento</FormLabel>
-                  <Select
-                    onValueChange={(value: TransactionSubtype) => {
-                      field.onChange(value);
-                      form.setValue('productId', '');
-                      form.setValue('quantitySold', undefined);
-                      form.setValue('serviceAmount', undefined);
-                      form.setValue('productAmount', undefined);
-                      form.setValue('amount', undefined);
-                    }}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {companyInfo?.allowedSubtypes?.map(subtype => (
-                          <SelectItem key={subtype} value={subtype}>{subtype}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingTransaction ? 'Editar' : 'Adicionar'} Lançamento
+            </DialogTitle>
+            <DialogDescription>
+              Preencha os detalhes do seu lançamento financeiro.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="subtype"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Lançamento</FormLabel>
+                    <Select
+                      onValueChange={(value: TransactionSubtype) => {
+                        field.onChange(value);
+                        form.setValue('productId', '');
+                        form.setValue('quantitySold', undefined);
+                        form.setValue('serviceAmount', undefined);
+                        form.setValue('productAmount', undefined);
+                        form.setValue('amount', undefined);
+                      }}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {companyInfo?.allowedSubtypes?.map(subtype => (
+                            <SelectItem key={subtype} value={subtype}>{subtype}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {selectedSubtype !== 'Despesa' && (
+              {selectedSubtype !== 'Despesa' && (
+                  <FormField
+                      control={form.control}
+                      name="customerId"
+                      render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                          <FormLabel>Cliente</FormLabel>
+                          <Popover open={isCustomerComboboxOpen} onOpenChange={setIsCustomerComboboxOpen}>
+                          <PopoverTrigger asChild>
+                              <FormControl>
+                              <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                                  {field.value ? allCustomers.find(c => c.id === field.value)?.name : "Selecione um cliente"}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                              </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                              <Command>
+                              <CommandInput placeholder="Digite para filtrar" value={customerSearchInput} onValueChange={setCustomerSearchInput} />
+                              <CommandList>
+                                  <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                                  <CommandGroup>
+                                  {filteredCustomers.map((cust) => (
+                                      <CommandItem value={cust.name} key={cust.id} onSelect={() => { form.setValue("customerId", cust.id); setIsCustomerComboboxOpen(false); }}>
+                                      <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
+                                      {cust.name}
+                                      </CommandItem>
+                                  ))}
+                                  </CommandGroup>
+                              </CommandList>
+                              </Command>
+                          </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                      </FormItem>
+                      )}
+                  />
+              )}
+
+              {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
                 <FormField
-                    control={form.control}
-                    name="customerId"
-                    render={({ field }) => (
+                  control={form.control}
+                  name="productId"
+                  render={({ field }) => (
                     <FormItem className="flex flex-col">
-                        <FormLabel>Cliente</FormLabel>
-                        <Popover open={isCustomerComboboxOpen} onOpenChange={setIsCustomerComboboxOpen}>
+                      <FormLabel>Produto Vinculado</FormLabel>
+                      <Popover open={isProductComboboxOpen} onOpenChange={setIsProductComboboxOpen}>
                         <PopoverTrigger asChild>
-                            <FormControl>
-                            <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                                {field.value ? allCustomers.find(c => c.id === field.value)?.name : "Selecione um cliente"}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn(
+                                "w-full justify-between",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value
+                                ? allProducts.find(
+                                    (prod) => prod.id === field.value
+                                  )?.name
+                                : "Selecione um produto"}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
-                            </FormControl>
+                          </FormControl>
                         </PopoverTrigger>
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                            <CommandInput placeholder="Digite para filtrar" value={customerSearchInput} onValueChange={setCustomerSearchInput} />
+                          <Command>
+                            <CommandInput 
+                              placeholder="Digite para filtrar" 
+                              value={productSearchInput}
+                              onValueChange={setProductSearchInput}
+                            />
                             <CommandList>
-                                <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                                <CommandGroup>
-                                {filteredCustomers.map((cust) => (
-                                    <CommandItem value={cust.name} key={cust.id} onSelect={() => { form.setValue("customerId", cust.id); setIsCustomerComboboxOpen(false); }}>
-                                    <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
-                                    {cust.name}
-                                    </CommandItem>
+                              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                {filteredProducts.map((prod) => (
+                                  <CommandItem
+                                    value={prod.name}
+                                    key={prod.id}
+                                    onSelect={() => {
+                                      form.setValue("productId", prod.id);
+                                      setIsProductComboboxOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        prod.id === field.value
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    {prod.name}
+                                  </CommandItem>
                                 ))}
                                 </CommandGroup>
                             </CommandList>
-                            </Command>
+                          </Command>
                         </PopoverContent>
-                        </Popover>
-                        <FormMessage />
+                      </Popover>
+                      <FormMessage />
                     </FormItem>
-                    )}
+                  )}
                 />
-            )}
-
-             {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
+              )}
+              {selectedProductId && (selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
+                  <FormField
+                    control={form.control}
+                    name="quantitySold"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantidade Vendida</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                          />
+                        </FormControl>
+                        {selectedProduct && (
+                          <FormDescription>
+                            Estoque disponível: {selectedProduct.quantity}
+                          </FormDescription>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+              )}
+              {selectedSubtype === 'Serviço + Venda' && (
+                  <FormField
+                    control={form.control}
+                    name="serviceAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Valor do Serviço</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+              )}
               <FormField
                 control={form.control}
-                name="productId"
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ex: Pagamento de aluguel"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.toUpperCase())
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor Total</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {selectedSubtype !== 'Despesa' && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="paymentMethod"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Forma de Pagamento</FormLabel>
+                        <Select 
+                          onValueChange={(value: PaymentMethod) => {
+                            field.onChange(value);
+                            form.setValue('installmentsCount', undefined);
+                            form.setValue('firstDueDate', undefined);
+                          }} 
+                          value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a forma de pagamento" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="À Vista">À Vista</SelectItem>
+                            <SelectItem value="A Prazo">A Prazo</SelectItem>
+                            <SelectItem value="Parcelado">Parcelado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {selectedPaymentMethod === 'Parcelado' && (
+                    <FormField
+                      control={form.control}
+                      name="installmentsCount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Número de Parcelas</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="2" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                  {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
+                    <FormField
+                      control={form.control}
+                      name="firstDueDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>{selectedPaymentMethod === 'Parcelado' ? 'Vencimento da 1ª Parcela' : 'Data de Vencimento'}</FormLabel>
+                          <Popover open={isFirstDueDatePickerOpen} onOpenChange={setIsFirstDueDatePickerOpen}>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={'outline'}
+                                  className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                                >
+                                  {field.value ? (
+                                    format(field.value, 'PPP', { locale: ptBR })
+                                  ) : (
+                                    <span>Escolha uma data</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={(date) => {
+                                  if (date) field.onChange(date);
+                                  setIsFirstDueDatePickerOpen(false);
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </>
+              )}
+
+
+              <FormField
+                control={form.control}
+                name="date"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Produto Vinculado</FormLabel>
-                     <Popover open={isProductComboboxOpen} onOpenChange={setIsProductComboboxOpen}>
+                    <FormLabel>Data do Lançamento</FormLabel>
+                    <Popover
+                      open={isDatePickerOpen}
+                      onOpenChange={setIsDatePickerOpen}
+                    >
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
-                            variant="outline"
-                            role="combobox"
+                            variant={'outline'}
                             className={cn(
-                              "w-full justify-between",
-                              !field.value && "text-muted-foreground"
+                              'w-full pl-3 text-left font-normal',
+                              !field.value && 'text-muted-foreground'
                             )}
                           >
-                            {field.value
-                              ? allProducts.find(
-                                  (prod) => prod.id === field.value
-                                )?.name
-                              : "Selecione um produto"}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            {field.value ? (
+                              format(field.value, 'PPP', { locale: ptBR })
+                            ) : (
+                              <span>Escolha uma data</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                        <Command>
-                           <CommandInput 
-                             placeholder="Digite para filtrar" 
-                             value={productSearchInput}
-                             onValueChange={setProductSearchInput}
-                           />
-                          <CommandList>
-                             <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                             <CommandGroup>
-                              {filteredProducts.map((prod) => (
-                                <CommandItem
-                                  value={prod.name}
-                                  key={prod.id}
-                                  onSelect={() => {
-                                    form.setValue("productId", prod.id);
-                                    setIsProductComboboxOpen(false);
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      prod.id === field.value
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    )}
-                                  />
-                                  {prod.name}
-                                </CommandItem>
-                              ))}
-                              </CommandGroup>
-                          </CommandList>
-                        </Command>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={(date) => {
+                            if (date) field.onChange(date);
+                            setIsDatePickerOpen(false);
+                          }}
+                          disabled={(date) =>
+                            date > new Date() || date < new Date('1900-01-01')
+                          }
+                        />
                       </PopoverContent>
                     </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            )}
-            {selectedProductId && (selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
-                <FormField
-                  control={form.control}
-                  name="quantitySold"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantidade Vendida</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          {...field}
-                          value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                         />
-                      </FormControl>
-                      {selectedProduct && (
-                        <FormDescription>
-                          Estoque disponível: {selectedProduct.quantity}
-                        </FormDescription>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-            )}
-             {selectedSubtype === 'Serviço + Venda' && (
-                <FormField
-                  control={form.control}
-                  name="serviceAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Valor do Serviço</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-             )}
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descrição (Opcional)</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Ex: Pagamento de aluguel"
-                      {...field}
-                      value={field.value || ''}
-                      onChange={(e) =>
-                        field.onChange(e.target.value.toUpperCase())
-                      }
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Valor Total</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {selectedSubtype !== 'Despesa' && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="paymentMethod"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Forma de Pagamento</FormLabel>
-                      <Select 
-                        onValueChange={(value: PaymentMethod) => {
-                          field.onChange(value);
-                          form.setValue('installmentsCount', undefined);
-                          form.setValue('firstDueDate', undefined);
-                        }} 
-                        value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a forma de pagamento" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="À Vista">À Vista</SelectItem>
-                          <SelectItem value="A Prazo">A Prazo</SelectItem>
-                          <SelectItem value="Parcelado">Parcelado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {selectedPaymentMethod === 'Parcelado' && (
-                  <FormField
-                    control={form.control}
-                    name="installmentsCount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Número de Parcelas</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="2" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-                 {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
-                   <FormField
-                    control={form.control}
-                    name="firstDueDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>{selectedPaymentMethod === 'Parcelado' ? 'Vencimento da 1ª Parcela' : 'Data de Vencimento'}</FormLabel>
-                        <Popover open={isFirstDueDatePickerOpen} onOpenChange={setIsFirstDueDatePickerOpen}>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={'outline'}
-                                className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
-                              >
-                                {field.value ? (
-                                  format(field.value, 'PPP', { locale: ptBR })
-                                ) : (
-                                  <span>Escolha uma data</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={(date) => {
-                                if (date) field.onChange(date);
-                                setIsFirstDueDatePickerOpen(false);
-                              }}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                 )}
-              </>
-            )}
-
-
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Data do Lançamento</FormLabel>
-                  <Popover
-                    open={isDatePickerOpen}
-                    onOpenChange={setIsDatePickerOpen}
-                  >
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'PPP', { locale: ptBR })
-                          ) : (
-                            <span>Escolha uma data</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={(date) => {
-                          if (date) field.onChange(date);
-                          setIsDatePickerOpen(false);
-                        }}
-                        disabled={(date) =>
-                          date > new Date() || date < new Date('1900-01-01')
-                        }
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="ghost">
-                  Cancelar
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="ghost">
+                    Cancelar
+                  </Button>
+                </DialogClose>
+                <Button type="submit">
+                  {editingTransaction ? 'Salvar Alterações' : 'Adicionar'}
                 </Button>
-              </DialogClose>
-              <Button type="submit">
-                {editingTransaction ? 'Salvar Alterações' : 'Adicionar'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Gerar Documento</DialogTitle>
+            <DialogDescription>
+              Revise as informações e clique em imprimir para gerar o documento.
+            </DialogDescription>
+          </DialogHeader>
+          <PrintableDocument
+            transaction={transactionToPrint}
+            customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
+            product={allProducts.find(p => p.id === transactionToPrint?.productId)}
+            companyInfo={companyInfo}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>Fechar</Button>
+            <Button onClick={() => window.print()}>Imprimir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
