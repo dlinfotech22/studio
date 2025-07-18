@@ -701,106 +701,85 @@ export function TransactionsClient() {
   }, [form, allProducts, watchedSubtype, watchedProductId, watchedQuantitySold, watchedServiceAmount]);
 
 
-  const CustomerCombobox = () => {
+  const CustomerCombobox = ({ field }: { field: any }) => {
     const [open, setOpen] = useState(false);
     return (
-      <FormField
-        control={form.control}
-        name="customerId"
-        render={({ field }) => (
-          <FormItem className="flex flex-col">
-            <FormLabel>Cliente</FormLabel>
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                <FormControl>
-                  <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                    {field.value ? allCustomers.find(c => c.id === field.value)?.name : "Selecione um cliente"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </FormControl>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
-                  <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-                  <CommandList>
-                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                    <CommandGroup>
-                      {allCustomers.map((cust) => (
-                        <CommandItem
-                          value={cust.name}
-                          key={cust.id}
-                          onSelect={() => {
-                            form.setValue("customerId", cust.id);
-                            setOpen(false);
-                          }}
-                        >
-                          <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
-                          {cust.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <FormControl>
+            <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+              {field.value ? allCustomers.find(c => c.id === field.value)?.name : "Selecione um cliente"}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </FormControl>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+          <Command>
+            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+            <CommandList>
+              <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+              <CommandGroup>
+                {allCustomers.map((cust) => (
+                  <CommandItem
+                    value={cust.name}
+                    key={cust.id}
+                    onSelect={() => {
+                      field.onChange(cust.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
+                    {cust.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     );
   };
 
-  const ProductCombobox = () => {
+  const ProductCombobox = ({ field }: { field: any }) => {
     const [open, setOpen] = useState(false);
     return (
-      <FormField
-        control={form.control}
-        name="productId"
-        render={({ field }) => (
-          <FormItem className="flex flex-col">
-            <FormLabel>Produto Vinculado</FormLabel>
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                <FormControl>
-                  <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                    {field.value ? allProducts.find(p => p.id === field.value)?.name : "Selecione um produto"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </FormControl>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
-                  <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-                  <CommandList>
-                    <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                    <CommandGroup>
-                      {allProducts.map((prod) => (
-                        <CommandItem
-                          value={prod.name}
-                          key={prod.id}
-                          onSelect={() => {
-                            form.setValue("productId", prod.id);
-                            setOpen(false);
-                          }}
-                        >
-                          <Check className={cn("mr-2 h-4 w-4", prod.id === field.value ? "opacity-100" : "opacity-0")} />
-                          {prod.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <FormControl>
+            <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+              {field.value ? allProducts.find(p => p.id === field.value)?.name : "Selecione um produto"}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </FormControl>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+          <Command>
+            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+            <CommandList>
+              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+              <CommandGroup>
+                {allProducts.map((prod) => (
+                  <CommandItem
+                    value={prod.name}
+                    key={prod.id}
+                    onSelect={() => {
+                      field.onChange(prod.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", prod.id === field.value ? "opacity-100" : "opacity-0")} />
+                    {prod.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     );
   };
 
   const DatePicker = ({fieldName}: {fieldName: "date" | "firstDueDate"}) => {
-    const [open, setOpen] = useState(false);
     return (
        <FormField
         control={form.control}
@@ -808,7 +787,7 @@ export function TransactionsClient() {
         render={({ field }) => (
           <FormItem className="flex flex-col">
             <FormLabel>{fieldName === 'date' ? 'Data do Lançamento' : (selectedPaymentMethod === 'Parcelado' ? 'Vencimento da 1ª Parcela' : 'Data de Vencimento')}</FormLabel>
-            <Popover open={open} onOpenChange={setOpen}>
+            <Popover>
               <PopoverTrigger asChild>
                 <FormControl>
                   <Button
@@ -828,10 +807,7 @@ export function TransactionsClient() {
                 <Calendar
                   mode="single"
                   selected={field.value}
-                  onSelect={(date) => {
-                    if (date) field.onChange(date);
-                    setOpen(false);
-                  }}
+                  onSelect={field.onChange}
                   disabled={(date) =>
                     fieldName === 'date' ? (date > new Date() || date < new Date('1900-01-01')) : false
                   }
@@ -982,9 +958,33 @@ export function TransactionsClient() {
                 )}
               />
 
-              {selectedSubtype !== 'Despesa' && <CustomerCombobox />}
+              {selectedSubtype !== 'Despesa' && (
+                <FormField
+                  control={form.control}
+                  name="customerId"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Cliente</FormLabel>
+                      <CustomerCombobox field={field} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
-              {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && <ProductCombobox />}
+              {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
+                <FormField
+                  control={form.control}
+                  name="productId"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Produto Vinculado</FormLabel>
+                      <ProductCombobox field={field} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               
               {selectedProductId && (selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
                   <FormField
