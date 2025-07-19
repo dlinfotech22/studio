@@ -781,18 +781,26 @@ export function TransactionsClient() {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" onBlur={() => {
-                  form.setValue("customerName", searchValue.toUpperCase());
-                  const existingCustomer = allCustomers.find(c => c.name.toLowerCase() === searchValue.toLowerCase());
-                  if (!existingCustomer) {
-                    form.setValue("customerId", undefined);
-                  }
-              }}>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"
+                onCloseAutoFocus={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (!target.closest('[cmdk-root]')) {
+                        e.preventDefault();
+                    }
+                }}
+              >
                 <Command>
                   <CommandInput
                     placeholder="Buscar cliente..."
                     value={searchValue}
-                    onValueChange={setSearchValue}
+                    onValueChange={(value) => {
+                        setSearchValue(value);
+                        form.setValue("customerName", value.toUpperCase());
+                        const existingCustomer = allCustomers.find(c => c.name.toLowerCase() === value.toLowerCase());
+                         if (!existingCustomer) {
+                           form.setValue("customerId", undefined);
+                         }
+                    }}
                     autoComplete="off"
                   />
                   <CommandList>
@@ -802,7 +810,6 @@ export function TransactionsClient() {
                         <CommandItem
                           value={client.name}
                           key={client.id}
-                          onMouseDown={(e) => e.preventDefault()}
                           onSelect={() => {
                             form.setValue("customerId", client.id);
                             form.setValue("customerName", client.name);
@@ -1018,7 +1025,7 @@ export function TransactionsClient() {
 
               {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-2">
                         <CardTitle className="text-lg">Itens do Lançamento</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
