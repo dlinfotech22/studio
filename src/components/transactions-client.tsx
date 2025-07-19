@@ -748,17 +748,21 @@ export function TransactionsClient() {
     const [searchValue, setSearchValue] = useState("");
   
     useEffect(() => {
-        const selectedCustomerName = form.getValues('customerName');
-        if (selectedCustomerName) {
-            setSearchValue(selectedCustomerName);
-        } else {
-            setSearchValue("");
+        const customerName = form.getValues('customerName');
+        if (customerName) {
+            setSearchValue(customerName);
         }
-    }, [form.getValues('customerName')]);
+    }, []);
 
-    const filteredCustomers = allCustomers.filter(customer => 
-        customer.name.toLowerCase().includes(searchValue.toLowerCase())
-    );
+    useEffect(() => {
+        const customerName = form.getValues('customerName');
+        if (!open && searchValue !== customerName) {
+           form.setValue('customerName', searchValue.toUpperCase());
+           if (!allCustomers.some(c => c.name.toLowerCase() === searchValue.toLowerCase())) {
+               form.setValue('customerId', undefined);
+           }
+        }
+    }, [open, searchValue]);
 
     return (
       <FormField
@@ -772,41 +776,26 @@ export function TransactionsClient() {
                   <Button
                     variant="outline"
                     role="combobox"
-                    className={cn(
-                      "w-full justify-between",
-                      !form.getValues("customerName") && "text-muted-foreground"
-                    )}
+                    className={cn("w-full justify-between", !form.getValues("customerName") && "text-muted-foreground")}
                   >
                     {form.getValues("customerName") || "Selecione ou digite um cliente"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"
-                onCloseAutoFocus={(e) => {
-                    const target = e.target as HTMLElement;
-                    if (!target.closest('[cmdk-root]')) {
-                        e.preventDefault();
-                    }
-                }}
-              >
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                 <Command>
                   <CommandInput
                     placeholder="Buscar cliente..."
                     value={searchValue}
-                    onValueChange={(value) => {
-                        setSearchValue(value);
-                        form.setValue("customerName", value.toUpperCase());
-                        const existingCustomer = allCustomers.find(c => c.name.toLowerCase() === value.toLowerCase());
-                         if (!existingCustomer) {
-                           form.setValue("customerId", undefined);
-                         }
-                    }}
+                    onValueChange={setSearchValue}
                     autoComplete="off"
                   />
                   <CommandList>
                     <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                     <CommandGroup>
-                      {filteredCustomers.map((client) => (
+                      {allCustomers
+                        .filter(c => c.name.toLowerCase().includes(searchValue.toLowerCase()))
+                        .map((client) => (
                         <CommandItem
                           value={client.name}
                           key={client.id}
@@ -817,14 +806,7 @@ export function TransactionsClient() {
                             setOpen(false);
                           }}
                         >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              client.id === form.getValues("customerId")
-                                ? "opacity-100"
-                                : "opacity-0"
-                            )}
-                          />
+                          <Check className={cn("mr-2 h-4 w-4", client.id === form.getValues("customerId") ? "opacity-100" : "opacity-0")}/>
                           {client.name}
                         </CommandItem>
                       ))}
@@ -1025,7 +1007,7 @@ export function TransactionsClient() {
 
               {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
                 <Card>
-                    <CardHeader className="pb-2">
+                    <CardHeader className="px-6 pt-4 pb-2">
                         <CardTitle className="text-lg">Itens do Lançamento</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
