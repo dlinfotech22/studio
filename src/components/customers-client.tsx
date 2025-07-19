@@ -481,21 +481,21 @@ export function CustomersClient() {
               )} />
               <FormField control={form.control} name="document" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Documento (CPF/CNPJ)</FormLabel>
+                  <FormLabel>Documento (CPF/CNPJ) <span className="text-xs text-muted-foreground">(Opcional)</span></FormLabel>
                   <FormControl><Input {...field} autoComplete="off" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="email" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Email <span className="text-xs text-muted-foreground">(Opcional)</span></FormLabel>
                   <FormControl><Input type="email" {...field} autoComplete="off" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="phone" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Telefone</FormLabel>
+                  <FormLabel>Telefone <span className="text-xs text-muted-foreground">(Opcional)</span></FormLabel>
                   <FormControl><Input {...field} onChange={(e) => field.onChange(formatPhone(e.target.value))} autoComplete="off" /></FormControl>
                   <FormMessage />
                 </FormItem>
