@@ -72,6 +72,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import { Checkbox } from './ui/checkbox';
 
 const userSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -82,6 +83,7 @@ const userSchema = z.object({
     .or(z.literal(''))
     .optional(),
   role: z.enum(['company_admin', 'user']),
+  hasDashboardAccess: z.boolean().default(false).optional(),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -141,6 +143,7 @@ export function AccessManagementClient() {
       username: '',
       password: '',
       role: 'user',
+      hasDashboardAccess: false,
     },
   });
 
@@ -151,6 +154,7 @@ export function AccessManagementClient() {
       ...data,
       username: data.username.toLowerCase(),
       name: data.name,
+      hasDashboardAccess: data.role === 'company_admin' ? true : data.hasDashboardAccess,
     };
 
     try {
@@ -177,6 +181,7 @@ export function AccessManagementClient() {
           name: submittedData.name,
           username: submittedData.username,
           role: submittedData.role,
+          hasDashboardAccess: submittedData.hasDashboardAccess,
         };
         if (submittedData.password) {
           payload.password = submittedData.password;
@@ -201,6 +206,7 @@ export function AccessManagementClient() {
           password: submittedData.password,
           companyId: companyId,
           role: submittedData.role,
+          hasDashboardAccess: submittedData.hasDashboardAccess,
         };
         const docRef = await addDoc(collection(db, 'users'), newUserPayload);
         setUsers([...users, { id: docRef.id, ...newUserPayload }]);
@@ -208,7 +214,7 @@ export function AccessManagementClient() {
       }
 
       setEditingUser(null);
-      form.reset({ name: '', username: '', password: '', role: 'user' });
+      form.reset({ name: '', username: '', password: '', role: 'user', hasDashboardAccess: false });
       setIsDialogOpen(false);
     } catch (error: any) {
       console.error('Failed to save user:', error);
@@ -230,6 +236,7 @@ export function AccessManagementClient() {
       username: user.username,
       password: '',
       role: user.role === 'system_admin' ? 'company_admin' : user.role,
+      hasDashboardAccess: user.hasDashboardAccess || user.role === 'company_admin',
     });
     setIsDialogOpen(true);
   };
@@ -278,7 +285,7 @@ export function AccessManagementClient() {
 
   const openNewUserDialog = () => {
     setEditingUser(null);
-    form.reset({ name: '', username: '', password: '', role: 'user' });
+    form.reset({ name: '', username: '', password: '', role: 'user', hasDashboardAccess: false });
     setIsDialogOpen(true);
   };
 
@@ -301,6 +308,8 @@ export function AccessManagementClient() {
           currentPage * itemsPerPage
         )
       : filteredUsers;
+  
+  const selectedRole = form.watch('role');
 
   return (
     <>
@@ -538,6 +547,26 @@ export function AccessManagementClient() {
                       </RadioGroup>
                     </FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="hasDashboardAccess"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={selectedRole === 'company_admin'}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Acesso ao Dashboard
+                      </FormLabel>
+                    </div>
                   </FormItem>
                 )}
               />

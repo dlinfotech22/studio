@@ -50,6 +50,7 @@ export type User = {
   password: string;
   companyId?: string;
   role: 'system_admin' | 'company_admin' | 'user';
+  hasDashboardAccess?: boolean;
 };
 
 export type CompanyInfo = {
