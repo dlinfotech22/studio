@@ -176,8 +176,6 @@ export function TransactionsClient() {
   // States for the product multi-select UI in the form
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [currentQuantity, setCurrentQuantity] = useState<number | ''>(1);
-  const [isProductComboboxOpen, setIsProductComboboxOpen] = useState(false);
-  const [isCustomerComboboxOpen, setIsCustomerComboboxOpen] = useState(false);
 
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -680,8 +678,6 @@ export function TransactionsClient() {
   
   const selectedSubtype = form.watch('subtype');
   const selectedPaymentMethod = form.watch('paymentMethod');
-  const watchedItems = form.watch('items');
-  const watchedServiceAmount = form.watch('serviceAmount');
 
   const handleAddProduct = () => {
     if (currentProduct && currentQuantity) {
@@ -700,13 +696,24 @@ export function TransactionsClient() {
   };
 
   const CustomerCombobox = () => {
+    const [open, setOpen] = useState(false);
     const value = form.watch('customerId');
+  
     return (
-      <Popover open={isCustomerComboboxOpen} onOpenChange={setIsCustomerComboboxOpen}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <FormControl>
-            <Button variant="outline" role="combobox" className={cn("w-full justify-between", !value && "text-muted-foreground")}>
-              {value ? allCustomers.find(c => c.id === value)?.name : "Selecione um cliente"}
+            <Button
+              variant="outline"
+              role="combobox"
+              className={cn(
+                "w-full justify-between",
+                !value && "text-muted-foreground"
+              )}
+            >
+              {value
+                ? allCustomers.find((c) => c.id === value)?.name
+                : "Selecione um cliente"}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </FormControl>
@@ -722,11 +729,16 @@ export function TransactionsClient() {
                     value={cust.name}
                     key={cust.id}
                     onSelect={() => {
-                      form.setValue('customerId', cust.id);
-                      setIsCustomerComboboxOpen(false);
+                      form.setValue("customerId", cust.id);
+                      setOpen(false);
                     }}
                   >
-                    <Check className={cn("mr-2 h-4 w-4", cust.id === value ? "opacity-100" : "opacity-0")} />
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        cust.id === value ? "opacity-100" : "opacity-0"
+                      )}
+                    />
                     {cust.name}
                   </CommandItem>
                 ))}
@@ -737,6 +749,43 @@ export function TransactionsClient() {
       </Popover>
     );
   };
+
+  const ProductCombobox = () => {
+    const [open, setOpen] = useState(false);
+    return (
+       <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")}>
+              {currentProduct ? currentProduct.name : "Selecione um produto"}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+          <Command>
+              <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+              <CommandList>
+              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+              <CommandGroup>
+                  {allProducts.map((prod) => (
+                  <CommandItem
+                      value={prod.name}
+                      key={prod.id}
+                      onSelect={() => {
+                          setCurrentProduct(prod);
+                          setOpen(false);
+                      }}
+                  >
+                      <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
+                      {prod.name}
+                  </CommandItem>
+                  ))}
+              </CommandGroup>
+              </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    )
+  }
 
   const DatePicker = ({fieldName}: {fieldName: "date" | "firstDueDate"}) => {
     return (
@@ -917,11 +966,17 @@ export function TransactionsClient() {
                   />
 
                   {selectedSubtype !== 'Despesa' && (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Cliente</FormLabel>
-                      <CustomerCombobox />
-                      <FormMessage />
-                    </FormItem>
+                    <FormField
+                      control={form.control}
+                      name="customerId"
+                      render={() => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Cliente</FormLabel>
+                          <CustomerCombobox />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
               </div>
 
@@ -934,37 +989,7 @@ export function TransactionsClient() {
                         <div className="flex flex-col md:flex-row gap-2 items-end">
                              <div className="flex-1 w-full">
                                 <Label>Produto</Label>
-                                <Popover open={isProductComboboxOpen} onOpenChange={setIsProductComboboxOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")}>
-                                            {currentProduct ? currentProduct.name : "Selecione um produto"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-                                            <CommandList>
-                                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                                            <CommandGroup>
-                                                {allProducts.map((prod) => (
-                                                <CommandItem
-                                                    value={prod.name}
-                                                    key={prod.id}
-                                                    onSelect={() => {
-                                                        setCurrentProduct(prod);
-                                                        setIsProductComboboxOpen(false);
-                                                    }}
-                                                >
-                                                    <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
-                                                    {prod.name}
-                                                </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
+                                <ProductCombobox />
                              </div>
                             <div className="w-full md:w-24">
                                 <Label>Qtde.</Label>
