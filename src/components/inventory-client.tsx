@@ -53,13 +53,6 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { db } from '@/lib/firebase';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
@@ -260,7 +253,6 @@ export function InventoryClient() {
     toast({ title: 'Exportação Concluída', description: `O arquivo ${fileName} foi gerado.` });
   };
   
-  const minimumStockLevel = companyInfo?.minimumStock ?? 0;
 
   const filteredProducts = products.filter(
     (p) =>
@@ -268,7 +260,7 @@ export function InventoryClient() {
       p.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
   ).sort((a, b) => a.name.localeCompare(b.name));
 
-  const lowStockProducts = filteredProducts.filter(p => p.quantity <= minimumStockLevel);
+  const lowStockProducts = filteredProducts.filter(p => p.quantity <= (p.minimumStock ?? 0));
 
 
   const renderTable = (productsToShow: Product[]) => {
@@ -307,7 +299,7 @@ export function InventoryClient() {
                     <TableCell>{item.barcode || '-'}</TableCell>
                     <TableCell className={cn(
                         "text-right font-semibold",
-                        item.quantity <= minimumStockLevel && "text-red-500"
+                        item.quantity <= (item.minimumStock ?? 0) && "text-red-500"
                     )}>
                         {item.quantity}
                     </TableCell>

@@ -76,12 +76,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import { FormDescription } from './ui/form';
 
 const productSchema = z.object({
   name: z.string().min(1, 'O nome do produto é obrigatório.'),
   barcode: z.string().optional(),
   price: z.coerce.number().positive('O preço deve ser um valor positivo.'),
   quantity: z.coerce.number().min(0, 'A quantidade inicial não pode ser negativa.').default(0),
+  minimumStock: z.coerce.number().min(0, 'O estoque mínimo não pode ser negativo.').default(0),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -141,6 +143,7 @@ export function ProductsClient() {
       barcode: '',
       quantity: 0,
       price: 0,
+      minimumStock: 0,
     },
   });
 
@@ -215,7 +218,7 @@ export function ProductsClient() {
 
   const openNewProductDialog = () => {
     setEditingProduct(null);
-    form.reset({ name: '', barcode: '', quantity: 0, price: 0 });
+    form.reset({ name: '', barcode: '', quantity: 0, price: 0, minimumStock: 0 });
     setIsDialogOpen(true);
   };
 
@@ -421,8 +424,8 @@ export function ProductsClient() {
                   </FormItem>
                 )}
               />
-               {!editingProduct && (
-                 <FormField
+              {!editingProduct && (
+                <FormField
                   control={form.control}
                   name="quantity"
                   render={({ field }) => (
@@ -435,7 +438,23 @@ export function ProductsClient() {
                     </FormItem>
                   )}
                 />
-               )}
+              )}
+              <FormField
+                control={form.control}
+                name="minimumStock"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estoque Mínimo</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="0" {...field} autoComplete="off" />
+                    </FormControl>
+                     <FormDescription>
+                        Quando o estoque atingir este valor, será considerado baixo.
+                      </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <DialogFooter>
                 <DialogClose asChild>
                   <Button type="button" variant="ghost">
