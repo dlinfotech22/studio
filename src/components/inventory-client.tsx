@@ -80,7 +80,7 @@ export function InventoryClient() {
   const [restockQuantity, setRestockQuantity] = useState<number | ''>('');
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchData = async (id: string) => {
@@ -295,7 +295,7 @@ export function InventoryClient() {
     .filter(
       (p) =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.barcode || '').toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => a.name.localeCompare(b.name));
 

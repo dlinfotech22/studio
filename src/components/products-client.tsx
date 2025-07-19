@@ -128,7 +128,7 @@ export function ProductsClient() {
     let productsToDisplay = products.filter(
       (p) =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.barcode || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     setFilteredProducts(

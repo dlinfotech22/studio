@@ -74,9 +74,16 @@ import {
 } from './ui/alert-dialog';
 import { db } from '@/lib/firebase';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from './ui/card';
 import { Badge } from './ui/badge';
 import { format } from 'date-fns';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 const customerSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -120,6 +127,8 @@ export function CustomersClient() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -187,9 +196,23 @@ export function CustomersClient() {
     return customers.filter(
       (c) =>
         c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.document?.includes(searchTerm)
+        (c.document || '').includes(searchTerm)
     ).sort((a, b) => a.name.localeCompare(b.name));
   }, [customers, searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, itemsPerPage]);
+
+  const totalCustomers = filteredCustomers.length;
+  const totalPages = itemsPerPage > 0 ? Math.ceil(totalCustomers / itemsPerPage) : 1;
+  const paginatedCustomers =
+    itemsPerPage > 0
+      ? filteredCustomers.slice(
+          (currentPage - 1) * itemsPerPage,
+          currentPage * itemsPerPage
+        )
+      : filteredCustomers;
 
   const onSubmit = async (data: CustomerFormValues) => {
     if (!companyId) return;
@@ -293,8 +316,8 @@ export function CustomersClient() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCustomers.length > 0 ? (
-                      filteredCustomers.map((customer) => (
+                    {paginatedCustomers.length > 0 ? (
+                      paginatedCustomers.map((customer) => (
                         <TableRow key={customer.id}>
                           <TableCell className="font-medium">{customer.name}</TableCell>
                           <TableCell>{customer.document || '-'}</TableCell>
@@ -330,6 +353,56 @@ export function CustomersClient() {
                 </Table>
               </div>
             </CardContent>
+            {itemsPerPage > 0 && totalPages > 1 && (
+            <CardFooter className="flex items-center justify-between pt-4">
+                <div className="text-sm text-muted-foreground">
+                Total de {totalCustomers} cliente(s).
+                </div>
+                <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium">Itens por página</p>
+                <Select
+                    value={`${itemsPerPage}`}
+                    onValueChange={(value) => {
+                    setItemsPerPage(Number(value));
+                    setCurrentPage(1);
+                    }}
+                >
+                    <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue placeholder={itemsPerPage} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                    {[10, 30, 50].map((pageSize) => (
+                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                        {pageSize}
+                        </SelectItem>
+                    ))}
+                    <SelectItem value="0">Todos</SelectItem>
+                    </SelectContent>
+                </Select>
+                </div>
+                <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground">
+                    Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                >
+                    Anterior
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                >
+                    Próximo
+                </Button>
+                </div>
+            </CardFooter>
+            )}
           </Card>
         </TabsContent>
 
