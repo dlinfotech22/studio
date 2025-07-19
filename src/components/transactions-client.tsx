@@ -745,80 +745,98 @@ export function TransactionsClient() {
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const customerName = form.watch('customerName');
+    const [searchValue, setSearchValue] = useState("");
 
+    useEffect(() => {
+      // Sync search value with form value when editing
+      const customerName = form.getValues("customerName");
+      if (customerName) {
+        setSearchValue(customerName);
+      }
+    }, [form.getValues("customerName")]);
+  
     return (
-        <FormField
-            control={form.control}
-            name="customerName"
-            render={({ field }) => (
-                <FormItem className="flex flex-col pt-2">
-                    <FormLabel>Cliente (Opcional)</FormLabel>
-                    <Popover open={open} onOpenChange={setOpen}>
-                        <PopoverTrigger asChild>
-                            <FormControl>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                >
-                                    {field.value || "Selecione ou digite um cliente"}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                                <CommandInput
-                                    placeholder="Buscar cliente..."
-                                    value={customerName || ''}
-                                    onValueChange={(search) => {
-                                        form.setValue('customerName', search, { shouldValidate: true });
-                                        if (allCustomers.find(c => c.name === search)) {
-                                          // Se o nome corresponder exatamente a um cliente, não limpe o ID.
-                                        } else {
-                                          form.setValue('customerId', undefined);
-                                        }
-                                    }}
-                                    autoComplete="off"
-                                />
-                                <CommandList>
-                                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                                    <CommandGroup>
-                                        {allCustomers
-                                            .filter(c => c.name.toLowerCase().includes((customerName || '').toLowerCase()))
-                                            .map((client) => (
-                                                <CommandItem
-                                                    value={client.name}
-                                                    key={client.id}
-                                                    onSelect={() => {
-                                                        form.setValue("customerId", client.id);
-                                                        form.setValue("customerName", client.name);
-                                                        setOpen(false);
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            client.id === form.getValues("customerId")
-                                                                ? "opacity-100"
-                                                                : "opacity-0"
-                                                        )}
-                                                    />
-                                                    {client.name}
-                                                </CommandItem>
-                                            ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
+      <FormField
+        control={form.control}
+        name="customerName"
+        render={() => (
+          <FormItem className="flex flex-col pt-2">
+            <FormLabel>Cliente (Opcional)</FormLabel>
+            <Popover open={open} onOpenChange={(isOpen) => {
+              setOpen(isOpen);
+              if (!isOpen) {
+                  // If user clicks away, set the form value to the typed text
+                  const existingCustomer = allCustomers.find(c => c.name.toLowerCase() === searchValue.toLowerCase());
+                  if (!existingCustomer) {
+                    form.setValue("customerName", searchValue.toUpperCase());
+                    form.setValue("customerId", undefined);
+                  }
+              }
+            }}>
+              <PopoverTrigger asChild>
+                <FormControl>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between",
+                      !form.getValues("customerName") && "text-muted-foreground"
+                    )}
+                  >
+                    {form.getValues("customerName") || "Selecione ou digite um cliente"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                  <CommandInput
+                    placeholder="Buscar cliente..."
+                    value={searchValue}
+                    onValueChange={setSearchValue}
+                    autoComplete="off"
+                  />
+                  <CommandList>
+                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      {allCustomers
+                        .filter((c) =>
+                          c.name.toLowerCase().includes(searchValue.toLowerCase())
+                        )
+                        .map((client) => (
+                          <CommandItem
+                            value={client.name}
+                            key={client.id}
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                form.setValue("customerId", client.id);
+                                form.setValue("customerName", client.name);
+                                setSearchValue(client.name);
+                                setOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                client.id === form.getValues("customerId")
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            {client.name}
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
     );
-};
+  };
   
   const DatePicker = ({fieldName}: {fieldName: "date" | "firstDueDate"}) => {
     return (
