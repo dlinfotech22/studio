@@ -745,79 +745,67 @@ export function TransactionsClient() {
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const [searchValue, setSearchValue] = useState("");
-  
-    const customerName = form.watch("customerName");
-  
-    useEffect(() => {
-      setSearchValue(customerName || "");
-    }, [customerName]);
-  
-    const handleSelect = (client: Customer) => {
-      form.setValue("customerId", client.id);
-      form.setValue("customerName", client.name);
-      setOpen(false);
-    };
   
     return (
       <FormField
         control={form.control}
         name="customerName"
-        render={() => (
+        render={({ field }) => (
           <FormItem className="flex flex-col pt-2">
             <FormLabel>Cliente (Opcional)</FormLabel>
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
-                <FormControl>
-                  <Input
-                    placeholder="Selecione ou digite um cliente"
-                    value={searchValue}
-                    onChange={(e) => setSearchValue(e.target.value)}
-                    onBlur={() => {
-                      // Update form only on blur to allow free typing
-                      form.setValue("customerName", searchValue.toUpperCase());
-                      // If the typed name doesn't match any customer, clear the ID
-                      const matchedCustomer = allCustomers.find(c => c.name.toUpperCase() === searchValue.toUpperCase());
-                      if (!matchedCustomer) {
-                        form.setValue("customerId", undefined);
-                      }
-                    }}
-                    autoComplete="off"
-                  />
-                </FormControl>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between",
+                      !field.value && "text-muted-foreground"
+                    )}
+                  >
+                    {field.value || "Selecione ou digite um cliente"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                 <Command>
                   <CommandInput
                     placeholder="Buscar cliente..."
-                    value={searchValue}
-                    onValueChange={setSearchValue}
+                    value={field.value || ''}
+                    onValueChange={(search) => {
+                      const capitalized = search.toUpperCase();
+                      form.setValue("customerName", capitalized);
+                      const existingCustomer = allCustomers.find(c => c.name === capitalized);
+                      if (!existingCustomer) {
+                        form.setValue("customerId", undefined);
+                      }
+                    }}
                     autoComplete="off"
                   />
                   <CommandList>
                     <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                     <CommandGroup>
-                      {allCustomers
-                        .filter((c) =>
-                          c.name.toLowerCase().includes(searchValue.toLowerCase())
-                        )
-                        .map((client) => (
-                          <CommandItem
-                            value={client.name}
-                            key={client.id}
-                            onSelect={() => handleSelect(client)}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                client.id === form.getValues("customerId")
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            {client.name}
-                          </CommandItem>
-                        ))}
+                      {allCustomers.map((client) => (
+                        <CommandItem
+                          value={client.name}
+                          key={client.id}
+                          onSelect={() => {
+                            form.setValue("customerId", client.id);
+                            form.setValue("customerName", client.name);
+                            setOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              client.id === form.getValues("customerId")
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {client.name}
+                        </CommandItem>
+                      ))}
                     </CommandGroup>
                   </CommandList>
                 </Command>
