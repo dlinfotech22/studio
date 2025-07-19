@@ -752,17 +752,17 @@ export function TransactionsClient() {
         if (customerName) {
             setSearchValue(customerName);
         }
-    }, []);
+    }, [form]);
 
     useEffect(() => {
         const customerName = form.getValues('customerName');
-        if (!open && searchValue !== customerName) {
+        if (!open && searchValue.toUpperCase() !== customerName) {
            form.setValue('customerName', searchValue.toUpperCase());
            if (!allCustomers.some(c => c.name.toLowerCase() === searchValue.toLowerCase())) {
                form.setValue('customerId', undefined);
            }
         }
-    }, [open, searchValue]);
+    }, [open, searchValue, form, allCustomers]);
 
     return (
       <FormField
@@ -1010,7 +1010,7 @@ export function TransactionsClient() {
                     <CardHeader className="px-6 pt-4 pb-2">
                         <CardTitle className="text-lg">Itens do Lançamento</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-2">
                         <div className="flex flex-col md:flex-row gap-2 items-end">
                              <div className="flex-1 w-full">
                                 <Label>Produto</Label>
