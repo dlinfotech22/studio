@@ -99,6 +99,8 @@ import {
 } from '@/components/ui/command';
 import { PrintableDocument } from './printable-document';
 import { Separator } from './ui/separator';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Label } from './ui/label';
 
 const transactionItemSchema = z.object({
     productId: z.string().min(1),
@@ -175,6 +177,7 @@ export function TransactionsClient() {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [currentQuantity, setCurrentQuantity] = useState<number | ''>(1);
   const [isProductComboboxOpen, setIsProductComboboxOpen] = useState(false);
+  const [isCustomerComboboxOpen, setIsCustomerComboboxOpen] = useState(false);
 
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -222,6 +225,7 @@ export function TransactionsClient() {
 
         const companiesRef = collection(db, 'companies');
         const qCompany = query(companiesRef, where('document', '==', id));
+        const companySnapshot = await getDocs(qCompany);
         if(!companySnapshot.empty) {
             setCompanyInfo({id: companySnapshot.docs[0].id, ...companySnapshot.docs[0].data()} as CompanyInfo);
         }
@@ -696,12 +700,9 @@ export function TransactionsClient() {
   };
 
   const CustomerCombobox = () => {
-    const [open, setOpen] = useState(false);
-    const field = form.control.getFieldState('customerId');
     const value = form.watch('customerId');
-
     return (
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={isCustomerComboboxOpen} onOpenChange={setIsCustomerComboboxOpen}>
         <PopoverTrigger asChild>
           <FormControl>
             <Button variant="outline" role="combobox" className={cn("w-full justify-between", !value && "text-muted-foreground")}>
@@ -722,7 +723,7 @@ export function TransactionsClient() {
                     key={cust.id}
                     onSelect={() => {
                       form.setValue('customerId', cust.id);
-                      setOpen(false);
+                      setIsCustomerComboboxOpen(false);
                     }}
                   >
                     <Check className={cn("mr-2 h-4 w-4", cust.id === value ? "opacity-100" : "opacity-0")} />
