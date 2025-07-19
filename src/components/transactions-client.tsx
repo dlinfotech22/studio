@@ -425,7 +425,7 @@ export function TransactionsClient() {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
           Object.keys(payload).forEach(key => {
             const typedKey = key as keyof typeof payload;
-            if (payload[typedKey] === undefined || Number.isNaN(payload[typedKey])) {
+            if (payload[typedKey] === undefined || (typeof payload[typedKey] === 'number' && isNaN(payload[typedKey] as number))) {
               // @ts-ignore
               delete payload[typedKey];
             }
@@ -435,7 +435,7 @@ export function TransactionsClient() {
         } else {
             Object.keys(payload).forEach(key => {
               const typedKey = key as keyof typeof payload;
-              if (payload[typedKey] === undefined || Number.isNaN(payload[typedKey])) {
+               if (payload[typedKey] === undefined || (typeof payload[typedKey] === 'number' && isNaN(payload[typedKey] as number))) {
                 // @ts-ignore
                 delete payload[typedKey];
               }
@@ -749,7 +749,6 @@ export function TransactionsClient() {
     const [open, setOpen] = useState(false);
     const [searchValue, setSearchValue] = useState("");
   
-    // Effect to sync searchValue with form state when dialog opens for editing
     useEffect(() => {
         if (isDialogOpen) {
             setSearchValue(form.getValues('customerName') || "");
@@ -762,11 +761,8 @@ export function TransactionsClient() {
 
     const handleOpenChange = (isOpen: boolean) => {
         setOpen(isOpen);
-        if (!isOpen) {
-            // When closing, if no customerId is set, it means it's a manual entry.
-            if (!form.getValues('customerId')) {
-                form.setValue('customerName', searchValue.toUpperCase());
-            }
+        if (!isOpen && !form.getValues('customerId')) {
+            form.setValue('customerName', searchValue.toUpperCase());
         }
     }
   
@@ -1072,8 +1068,8 @@ export function TransactionsClient() {
                            <Input
                             type="number"
                             placeholder="0.00"
-                            value={isNaN(field.value ?? NaN) ? '' : field.value}
-                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                            value={isNaN(field.value as number) ? '' : field.value}
+                            onChange={(e) => field.onChange(e.target.value === '' ? NaN : e.target.valueAsNumber)}
                             autoComplete="off"
                            />
                         </FormControl>
@@ -1113,8 +1109,8 @@ export function TransactionsClient() {
                       <Input
                         type="number"
                         placeholder="0.00"
-                        value={isNaN(field.value ?? NaN) ? '' : field.value}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        value={isNaN(field.value as number) ? '' : field.value}
+                        onChange={(e) => field.onChange(e.target.value === '' ? NaN : e.target.valueAsNumber)}
                         disabled={selectedSubtype !== 'Despesa' && selectedSubtype !== 'Prestação de Serviço'}
                         autoComplete="off"
                       />
@@ -1165,8 +1161,8 @@ export function TransactionsClient() {
                              <Input
                               type="number"
                               placeholder="2"
-                              value={isNaN(field.value ?? NaN) ? '' : field.value}
-                              onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                              value={isNaN(field.value as number) ? '' : field.value}
+                              onChange={(e) => field.onChange(e.target.value === '' ? NaN : e.target.valueAsNumber)}
                               autoComplete="off"
                              />
                           </FormControl>
