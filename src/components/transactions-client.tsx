@@ -699,40 +699,65 @@ export function TransactionsClient() {
 
   const CustomerCombobox = ({ field }: { field: any }) => {
     const [open, setOpen] = useState(false);
+    const [filter, setFilter] = useState('');
+  
+    const filteredCustomers = allCustomers.filter(customer => 
+      customer.name.toLowerCase().includes(filter.toLowerCase())
+    );
+  
     return (
-       <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-            {field.value ? allCustomers.find(c => c.id === field.value)?.name : "Selecione um cliente"}
+          <Button
+            variant="outline"
+            role="combobox"
+            className={cn(
+              'w-full justify-between',
+              !field.value && 'text-muted-foreground'
+            )}
+          >
+            {field.value
+              ? allCustomers.find((c) => c.id === field.value)?.name
+              : 'Selecione um cliente'}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
           <Command>
-              <CommandInput placeholder="Pesquisar cliente..." autoComplete="off" />
-              <CommandList>
+            <CommandInput
+              placeholder="Pesquisar cliente..."
+              value={filter}
+              onValueChange={setFilter}
+              autoComplete="off"
+            />
+            <CommandList>
               <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
               <CommandGroup>
-                  {allCustomers.map((cust) => (
+                {filteredCustomers.map((cust) => (
                   <CommandItem
-                      value={cust.name}
-                      key={cust.id}
-                      onSelect={() => {
-                        field.onChange(cust.id);
-                        setOpen(false);
-                      }}
+                    value={cust.name}
+                    key={cust.id}
+                    onSelect={() => {
+                      field.onChange(cust.id);
+                      setOpen(false);
+                    }}
                   >
-                      <Check className={cn("mr-2 h-4 w-4", field.value === cust.id ? "opacity-100" : "opacity-0")} />
-                      {cust.name}
+                    <Check
+                      className={cn(
+                        'mr-2 h-4 w-4',
+                        field.value === cust.id ? 'opacity-100' : 'opacity-0'
+                      )}
+                    />
+                    {cust.name}
                   </CommandItem>
-                  ))}
+                ))}
               </CommandGroup>
-              </CommandList>
+            </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
-    )
-  }
+    );
+  };
 
   const ProductCombobox = () => {
     const [open, setOpen] = useState(false);
