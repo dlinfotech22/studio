@@ -114,7 +114,7 @@ const transactionSchema = z.object({
   amount: z.coerce.number().positive('O valor total deve ser positivo.'),
   date: z.date(),
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
-  customerId: z.string().optional(),
+  customerName: z.string().optional(),
   paymentMethod: z.enum(['À Vista', 'Parcelado', 'A Prazo']).optional(),
   installmentsCount: z.coerce.number().optional(),
   firstDueDate: z.date().optional(),
@@ -295,7 +295,7 @@ export function TransactionsClient() {
       amount: undefined,
       date: new Date(),
       subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
-      customerId: undefined,
+      customerName: undefined,
       paymentMethod: 'À Vista',
       installmentsCount: undefined,
       firstDueDate: undefined,
@@ -333,15 +333,14 @@ export function TransactionsClient() {
     if (!companyId) return;
   
     let finalTransaction: Transaction | null = null;
-    const selectedCustomer = allCustomers.find(c => c.id === data.customerId);
-
+    
     try {
       await runTransaction(db, async (transaction) => {
         const transactionType = subtypeToTypeMap[data.subtype];
         
         let description = data.description ? data.description.toUpperCase() : data.subtype.toUpperCase();
-        if (selectedCustomer) {
-            description = `${description} - ${selectedCustomer.name}`;
+        if (data.customerName) {
+            description = `${description} - ${data.customerName}`;
         }
   
         let payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
@@ -351,8 +350,7 @@ export function TransactionsClient() {
           description: description,
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
-          customerId: data.customerId,
-          customerName: selectedCustomer?.name,
+          customerName: data.customerName,
           paymentMethod: data.paymentMethod,
           serviceAmount: data.serviceAmount,
           items: data.items,
@@ -422,7 +420,7 @@ export function TransactionsClient() {
             }
           });
           transaction.update(transactionRef, payload as any);
-          finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType, customerName: selectedCustomer?.name } as Transaction;
+          finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType, customerName: data.customerName } as Transaction;
         } else {
             Object.keys(payload).forEach(key => {
               const typedKey = key as keyof typeof payload;
@@ -433,7 +431,7 @@ export function TransactionsClient() {
             });
             const newTransactionRef = doc(collection(db, 'transactions'));
             transaction.set(newTransactionRef, payload as any);
-            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType, customerName: selectedCustomer?.name } as Transaction;
+            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType, customerName: data.customerName } as Transaction;
         }
       });
   
@@ -449,7 +447,7 @@ export function TransactionsClient() {
       setIsDialogOpen(false);
       form.reset({
         description: '', amount: undefined, date: new Date(), subtype: data.subtype,
-        customerId: undefined, paymentMethod: 'À Vista', installmentsCount: undefined, firstDueDate: undefined, serviceAmount: undefined, items: []
+        customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined, firstDueDate: undefined, serviceAmount: undefined, items: []
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
@@ -532,7 +530,7 @@ export function TransactionsClient() {
     const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || 'Despesa';
     form.reset({
       description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
-      customerId: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
+      customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
       firstDueDate: undefined, serviceAmount: undefined, items: []
     });
     setIsDialogOpen(true);
@@ -695,81 +693,6 @@ export function TransactionsClient() {
             setCurrentQuantity(1);
         }
     }
-  };
-
-  const CustomerCombobox = ({ field }: { field: any }) => {
-    const [open, setOpen] = useState(false);
-    const [searchValue, setSearchValue] = useState(
-      allCustomers.find((c) => c.id === field.value)?.name || ''
-    );
-  
-    useEffect(() => {
-      if (field.value) {
-        const selectedName = allCustomers.find((c) => c.id === field.value)?.name;
-        setSearchValue(selectedName || '');
-      } else {
-        setSearchValue('');
-      }
-    }, [field.value]);
-  
-    const filteredCustomers = allCustomers.filter((customer) =>
-      customer.name.toLowerCase().includes(searchValue.toLowerCase())
-    );
-  
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            className={cn(
-              'w-full justify-between',
-              !field.value && 'text-muted-foreground'
-            )}
-          >
-            {field.value
-              ? allCustomers.find((c) => c.id === field.value)?.name
-              : 'Selecione um cliente'}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-          <Command>
-            <CommandInput
-              placeholder="Pesquisar cliente..."
-              value={searchValue}
-              onValueChange={setSearchValue}
-              autoComplete="off"
-            />
-            <CommandList>
-              <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-              <CommandGroup>
-                {filteredCustomers.map((cust) => (
-                  <CommandItem
-                    value={cust.name}
-                    key={cust.id}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      field.onChange(cust.id);
-                      setSearchValue(cust.name);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-4 w-4',
-                        field.value === cust.id ? 'opacity-100' : 'opacity-0'
-                      )}
-                    />
-                    {cust.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    );
   };
 
   const ProductCombobox = () => {
@@ -986,14 +909,16 @@ export function TransactionsClient() {
                       </FormItem>
                     )}
                   />
-                   {selectedSubtype !== 'Despesa' && (
+                  {selectedSubtype !== 'Despesa' && (
                     <FormField
                       control={form.control}
-                      name="customerId"
+                      name="customerName"
                       render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                           <FormLabel>Cliente</FormLabel>
-                          <CustomerCombobox field={field} />
+                        <FormItem>
+                          <FormLabel>Nome do Cliente (Opcional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: João da Silva" {...field} autoComplete="off" />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1167,7 +1092,7 @@ export function TransactionsClient() {
           </DialogHeader>
           <PrintableDocument
             transaction={transactionToPrint}
-            customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
+            customer={allCustomers.find(c => c.name === transactionToPrint?.customerName)}
             companyInfo={companyInfo}
           />
           <DialogFooter>

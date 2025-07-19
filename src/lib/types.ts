@@ -33,7 +33,6 @@ export type Transaction = {
   type: TransactionType;
   subtype: TransactionSubtype;
   companyId: string;
-  customerId?: string;
   customerName?: string; // Denormalized for easier display
   paymentMethod?: PaymentMethod;
   status?: TransactionStatus;

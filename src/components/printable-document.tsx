@@ -86,6 +86,15 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
         </section>
       )}
 
+      {!customer && transaction.customerName && (
+        <section className="mt-6">
+          <h3 className="text-lg font-semibold border-b border-gray-200 pb-2 mb-2 text-gray-700">Informações do Cliente</h3>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
+              <p><span className="font-semibold">Nome:</span> {transaction.customerName}</p>
+          </div>
+        </section>
+      )}
+
 
       <section className="mt-6">
         <h3 className="text-lg font-semibold border-b border-gray-200 pb-2 mb-4 text-gray-700">Detalhes da Operação</h3>
