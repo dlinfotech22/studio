@@ -94,9 +94,7 @@ export function CompanyDashboard() {
         const annualTransactions = allTransactions.filter(
           (t) => new Date(t.date) >= currentYearStart && new Date(t.date) <= currentYearEnd
         );
-        const annualRevenue = annualTransactions
-          .filter((t) => t.type === 'revenue')
-          .reduce((acc, t) => acc + Math.abs(t.amount), 0);
+        const annualMetrics = calculateMetrics(annualTransactions);
 
         const prevYear = subMonths(now, 12);
         const prevYearStart = startOfYear(prevYear);
@@ -104,9 +102,7 @@ export function CompanyDashboard() {
         const prevAnnualTransactions = allTransactions.filter(
           (t) => new Date(t.date) >= prevYearStart && new Date(t.date) <= prevYearEnd
         );
-        const prevAnnualRevenue = prevAnnualTransactions
-          .filter((t) => t.type === 'revenue')
-          .reduce((acc, t) => acc + Math.abs(t.amount), 0);
+        const prevAnnualMetrics = calculateMetrics(prevAnnualTransactions);
 
         const newKpis = [
           {
@@ -133,10 +129,25 @@ export function CompanyDashboard() {
           },
           {
             title: 'Faturamento Anual',
-            value: annualRevenue,
-            previousValue: prevAnnualRevenue,
+            value: annualMetrics.revenue,
+            previousValue: prevAnnualMetrics.revenue,
             icon: TrendingUp,
             iconColor: 'text-emerald-500',
+          },
+          {
+            title: 'Despesas Anuais',
+            value: annualMetrics.expenses,
+            previousValue: prevAnnualMetrics.expenses,
+            icon: TrendingDown,
+            iconColor: 'text-red-500',
+            invertComparison: true,
+          },
+          {
+            title: 'Lucro Anual',
+            value: annualMetrics.profit,
+            previousValue: prevAnnualMetrics.profit,
+            icon: DollarSign,
+            iconColor: 'text-primary',
           },
         ];
         setKpis(newKpis);
@@ -171,7 +182,9 @@ export function CompanyDashboard() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-[125px]" />
+          <Skeleton className="h-[125px]" />
           <Skeleton className="h-[125px]" />
           <Skeleton className="h-[125px]" />
           <Skeleton className="h-[125px]" />
@@ -198,7 +211,7 @@ export function CompanyDashboard() {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {kpis.map((kpi) => {
           const percentageChange =
             kpi.previousValue !== 0
