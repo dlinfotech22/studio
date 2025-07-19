@@ -747,20 +747,15 @@ export function TransactionsClient() {
     const [open, setOpen] = useState(false);
     const [searchValue, setSearchValue] = useState("");
   
+    const customerName = form.watch("customerName");
+  
     useEffect(() => {
-      // Sync search value with form value when editing
-      const customerName = form.getValues("customerName");
-      if (customerName) {
-        setSearchValue(customerName);
-      } else {
-        setSearchValue("");
-      }
-    }, [form.getValues("customerName")]);
+      setSearchValue(customerName || "");
+    }, [customerName]);
   
     const handleSelect = (client: Customer) => {
       form.setValue("customerId", client.id);
       form.setValue("customerName", client.name);
-      setSearchValue(client.name);
       setOpen(false);
     };
   
@@ -777,27 +772,26 @@ export function TransactionsClient() {
                   <Input
                     placeholder="Selecione ou digite um cliente"
                     value={searchValue}
-                    onChange={(e) => {
-                      setSearchValue(e.target.value);
-                      if (!open) setOpen(true);
-                      form.setValue("customerName", e.target.value.toUpperCase());
-                      form.setValue("customerId", undefined);
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    onBlur={() => {
+                      // Update form only on blur to allow free typing
+                      form.setValue("customerName", searchValue.toUpperCase());
+                      // If the typed name doesn't match any customer, clear the ID
+                      const matchedCustomer = allCustomers.find(c => c.name.toUpperCase() === searchValue.toUpperCase());
+                      if (!matchedCustomer) {
+                        form.setValue("customerId", undefined);
+                      }
                     }}
-                    onFocus={() => setOpen(true)}
                     autoComplete="off"
                   />
                 </FormControl>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                 <Command>
                   <CommandInput
                     placeholder="Buscar cliente..."
                     value={searchValue}
-                    onValueChange={(value) => {
-                      setSearchValue(value);
-                      form.setValue("customerName", value.toUpperCase());
-                      form.setValue("customerId", undefined);
-                    }}
+                    onValueChange={setSearchValue}
                     autoComplete="off"
                   />
                   <CommandList>
@@ -1216,4 +1210,3 @@ export function TransactionsClient() {
     </>
   );
 }
-
