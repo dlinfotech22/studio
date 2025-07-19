@@ -982,7 +982,13 @@ export function TransactionsClient() {
                       <FormItem>
                         <FormLabel>Valor do Serviço</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} autoComplete="off" />
+                           <Input
+                            type="number"
+                            placeholder="0.00"
+                            value={isNaN(field.value ?? NaN) ? '' : field.value}
+                            onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                            autoComplete="off"
+                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1017,7 +1023,14 @@ export function TransactionsClient() {
                   <FormItem>
                     <FormLabel>Valor Total</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} disabled={selectedSubtype !== 'Despesa' && selectedSubtype !== 'Prestação de Serviço'} autoComplete="off" />
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        value={isNaN(field.value ?? NaN) ? '' : field.value}
+                        onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                        disabled={selectedSubtype !== 'Despesa' && selectedSubtype !== 'Prestação de Serviço'}
+                        autoComplete="off"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1062,7 +1075,13 @@ export function TransactionsClient() {
                         <FormItem>
                           <FormLabel>Número de Parcelas</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="2" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} autoComplete="off" />
+                             <Input
+                              type="number"
+                              placeholder="2"
+                              value={isNaN(field.value ?? NaN) ? '' : field.value}
+                              onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                              autoComplete="off"
+                             />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1115,3 +1134,6 @@ export function TransactionsClient() {
   );
 }
 
+
+
+    
