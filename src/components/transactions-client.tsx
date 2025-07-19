@@ -292,14 +292,14 @@ export function TransactionsClient() {
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       description: '',
-      amount: undefined,
+      amount: NaN,
       date: new Date(),
       subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
-      customerName: undefined,
+      customerName: '',
       paymentMethod: 'À Vista',
-      installmentsCount: undefined,
+      installmentsCount: NaN,
       firstDueDate: undefined,
-      serviceAmount: undefined,
+      serviceAmount: NaN,
       items: [],
     },
   });
@@ -319,12 +319,21 @@ export function TransactionsClient() {
               form.setValue('amount', totalAmount);
               form.clearErrors('amount');
             } else {
-              form.setValue('amount', undefined);
+              form.setValue('amount', NaN);
             }
         }
     });
     return () => subscription.unsubscribe();
   }, [form]);
+
+  useEffect(() => {
+    if (companyInfo?.allowedSubtypes) {
+      form.reset({
+        ...form.getValues(),
+        subtype: companyInfo.allowedSubtypes[0] || 'Prestação de Serviço',
+      });
+    }
+  }, [companyInfo, form]);
 
   const revenue = filteredTransactions.filter((t) => t.type === 'revenue');
   const expenses = filteredTransactions.filter((t) => t.type === 'expense');
@@ -414,7 +423,7 @@ export function TransactionsClient() {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
           Object.keys(payload).forEach(key => {
             const typedKey = key as keyof typeof payload;
-            if (payload[typedKey] === undefined || payload[typedKey] === '') {
+            if (payload[typedKey] === undefined || payload[typedKey] === '' || Number.isNaN(payload[typedKey])) {
               // @ts-ignore
               delete payload[typedKey];
             }
@@ -424,7 +433,7 @@ export function TransactionsClient() {
         } else {
             Object.keys(payload).forEach(key => {
               const typedKey = key as keyof typeof payload;
-              if (payload[typedKey] === undefined || payload[typedKey] === '') {
+              if (payload[typedKey] === undefined || payload[typedKey] === '' || Number.isNaN(payload[typedKey])) {
                 // @ts-ignore
                 delete payload[typedKey];
               }
@@ -446,8 +455,8 @@ export function TransactionsClient() {
       setEditingTransaction(null);
       setIsDialogOpen(false);
       form.reset({
-        description: '', amount: undefined, date: new Date(), subtype: data.subtype,
-        customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined, firstDueDate: undefined, serviceAmount: undefined, items: []
+        description: '', amount: NaN, date: new Date(), subtype: data.subtype,
+        customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN, firstDueDate: undefined, serviceAmount: NaN, items: []
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
@@ -477,11 +486,12 @@ export function TransactionsClient() {
       ...transaction,
       date: new Date(transaction.date as Date),
       amount: Math.abs(transaction.amount),
+      customerName: transaction.customerName || '',
       paymentMethod: transaction.paymentMethod || 'À Vista',
-      installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
+      installmentsCount: transaction.installmentsCount || transaction.installments?.length || NaN,
       firstDueDate: firstDueDate,
       items: transaction.items || [],
-      serviceAmount: transaction.serviceAmount || undefined,
+      serviceAmount: transaction.serviceAmount || NaN,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -529,9 +539,9 @@ export function TransactionsClient() {
     setEditingTransaction(null);
     const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || 'Despesa';
     form.reset({
-      description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
-      customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
-      firstDueDate: undefined, serviceAmount: undefined, items: []
+      description: '', amount: NaN, date: new Date(), subtype: defaultSubtype,
+      customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN,
+      firstDueDate: undefined, serviceAmount: NaN, items: []
     });
     setIsDialogOpen(true);
   };
@@ -889,8 +899,8 @@ export function TransactionsClient() {
                           onValueChange={(value: TransactionSubtype) => {
                             field.onChange(value);
                             form.setValue('items', []);
-                            form.setValue('serviceAmount', undefined);
-                            form.setValue('amount', undefined);
+                            form.setValue('serviceAmount', NaN);
+                            form.setValue('amount', NaN);
                           }}
                           value={field.value}
                         >
@@ -910,19 +920,19 @@ export function TransactionsClient() {
                     )}
                   />
                   {selectedSubtype !== 'Despesa' && (
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nome do Cliente (Opcional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Ex: João da Silva" {...field} autoComplete="off" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                     <FormField
+                        control={form.control}
+                        name="customerName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nome do Cliente (Opcional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: João da Silva" {...field} value={field.value ?? ''} autoComplete="off" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                   )}
               </div>
 
@@ -989,7 +999,7 @@ export function TransactionsClient() {
                       <Input
                         placeholder="Ex: Pagamento de aluguel"
                         {...field}
-                        value={field.value || ''}
+                        value={field.value ?? ''}
                         onChange={(e) =>
                           field.onChange(e.target.value.toUpperCase())
                         }
@@ -1025,7 +1035,7 @@ export function TransactionsClient() {
                         <Select 
                           onValueChange={(value: PaymentMethod) => {
                             field.onChange(value);
-                            form.setValue('installmentsCount', undefined);
+                            form.setValue('installmentsCount', NaN);
                             form.setValue('firstDueDate', undefined);
                           }} 
                           value={field.value}>
@@ -1104,3 +1114,4 @@ export function TransactionsClient() {
     </>
   );
 }
+
