@@ -18,6 +18,7 @@ import {
   MoreHorizontal,
   PackageX,
   Archive,
+  DollarSign,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -55,7 +56,7 @@ import {
 import { db } from '@/lib/firebase';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Card, CardContent, CardFooter } from './ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card';
 import {
   Select,
   SelectContent,
@@ -459,9 +460,42 @@ export function InventoryClient() {
   const productsForCurrentTab =
     activeTab === 'all' ? filteredProducts : lowStockProducts;
 
+  const totalProductsCount = products.length;
+  const totalStockValue = products.reduce(
+    (acc, product) => acc + product.quantity * product.price,
+    0
+  );
+
   return (
-    <>
-      <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Produtos Cadastrados
+            </CardTitle>
+            <Archive className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalProductsCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Valor Total do Estoque
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(totalStockValue)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-center">
         <div className="relative w-full md:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -551,6 +585,6 @@ export function InventoryClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
