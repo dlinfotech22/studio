@@ -350,8 +350,8 @@ export function TransactionsClient() {
         const transactionType = subtypeToTypeMap[data.subtype];
         
         let description = data.description ? data.description.toUpperCase() : data.subtype.toUpperCase();
-        if (data.customerName) {
-            description = `${description} - ${data.customerName}`;
+        if (data.customerName && data.subtype !== 'Despesa') {
+            description = `${description} - ${data.customerName.toUpperCase()}`;
         }
   
         let payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
@@ -362,7 +362,7 @@ export function TransactionsClient() {
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
           customerId: data.customerId,
-          customerName: data.customerName,
+          customerName: data.customerName ? data.customerName.toUpperCase() : '',
           paymentMethod: data.paymentMethod,
           serviceAmount: data.serviceAmount,
           items: data.items,
@@ -747,74 +747,76 @@ export function TransactionsClient() {
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const [searchValue, setSearchValue] = useState("");
+    const [searchValue, setSearchValue] = useState(form.watch('customerName') || "");
   
     useEffect(() => {
-      const customer = allCustomers.find(c => c.id === form.watch('customerId'));
-      setSearchValue(customer?.name || "");
-    }, [form.watch('customerId')]);
-  
+        setSearchValue(form.watch('customerName') || '');
+    }, [form.watch('customerName')]);
+
+    const handleSelectCustomer = (client: Customer) => {
+        form.setValue("customerId", client.id);
+        form.setValue("customerName", client.name);
+        setSearchValue(client.name);
+        setOpen(false);
+    };
+
+    const handleManualEntry = (value: string) => {
+        setSearchValue(value);
+        form.setValue("customerName", value);
+        form.setValue("customerId", "");
+    };
+
+    const filteredClients = allCustomers.filter(client =>
+      client.name.toLowerCase().includes(searchValue.toLowerCase())
+    );
+
     return (
       <FormField
         control={form.control}
-        name="customerId"
+        name="customerName"
         render={() => (
           <FormItem className="flex flex-col pt-2">
             <FormLabel>Cliente (Opcional)</FormLabel>
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
-                <FormControl>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className={cn(
-                      "w-full justify-between",
-                      !form.getValues("customerId") && "text-muted-foreground"
-                    )}
-                  >
-                    {form.getValues("customerName") || "Selecione um cliente"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </FormControl>
+                  <FormControl>
+                    <Input
+                        placeholder="Selecione ou digite o nome do cliente"
+                        value={searchValue}
+                        onChange={(e) => handleManualEntry(e.target.value)}
+                        onClick={() => setOpen(true)}
+                        className="w-full"
+                        autoComplete="off"
+                    />
+                  </FormControl>
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command
-                  filter={(value, search) => {
-                    const extendedValue = `${value} ${allCustomers.find(c => c.name.toLowerCase() === value)?.document || ''}`;
-                    if (extendedValue.toLowerCase().includes(search.toLowerCase())) return 1;
-                    return 0;
-                  }}
-                >
-                  <CommandInput placeholder="Buscar cliente..." />
-                  <CommandList>
-                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                    <CommandGroup>
-                      {allCustomers.map((client) => (
-                        <CommandItem
-                          value={client.name}
-                          key={client.id}
-                          onSelect={(currentValue) => {
-                            const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue);
-                            if (selectedClient) {
-                                form.setValue("customerId", selectedClient.id);
-                                form.setValue("customerName", selectedClient.name);
-                            }
-                            setOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              client.id === form.getValues("customerId")
-                                ? "opacity-100"
-                                : "opacity-0"
-                            )}
-                          />
-                          {client.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
+                <Command>
+                    <CommandEmpty>Nenhum cliente encontrado. Digite para adicionar.</CommandEmpty>
+                    <CommandList>
+                        <CommandGroup>
+                        {filteredClients.map((client) => (
+                            <CommandItem
+                            key={client.id}
+                            value={client.name}
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleSelectCustomer(client);
+                            }}
+                            >
+                            <Check
+                                className={cn(
+                                "mr-2 h-4 w-4",
+                                client.id === form.getValues("customerId")
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                            />
+                            {client.name}
+                            </CommandItem>
+                        ))}
+                        </CommandGroup>
+                    </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
@@ -1057,7 +1059,7 @@ export function TransactionsClient() {
                            <Input
                             type="number"
                             placeholder="0.00"
-                            value={isNaN(field.value ?? NaN) ? '' : field.value}
+                            value={isNaN(field.value as number) ? '' : field.value}
                             onChange={(e) => field.onChange(e.target.value === '' ? NaN : parseFloat(e.target.value))}
                             autoComplete="off"
                            />
@@ -1098,7 +1100,7 @@ export function TransactionsClient() {
                       <Input
                         type="number"
                         placeholder="0.00"
-                        value={isNaN(field.value ?? NaN) ? '' : field.value}
+                        value={isNaN(field.value as number) ? '' : field.value}
                         onChange={(e) => field.onChange(e.target.value === '' ? NaN : parseFloat(e.target.value))}
                         disabled={selectedSubtype !== 'Despesa' && selectedSubtype !== 'Prestação de Serviço'}
                         autoComplete="off"
@@ -1150,7 +1152,7 @@ export function TransactionsClient() {
                              <Input
                               type="number"
                               placeholder="2"
-                              value={isNaN(field.value ?? NaN) ? '' : field.value}
+                              value={isNaN(field.value as number) ? '' : field.value}
                               onChange={(e) => field.onChange(e.target.value === '' ? NaN : parseInt(e.target.value, 10))}
                               autoComplete="off"
                              />
