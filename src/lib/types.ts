@@ -17,6 +17,13 @@ export type Installment = {
   status: 'Paga' | 'Pendente';
 };
 
+export type TransactionItem = {
+  productId: string;
+  productName: string; // Denormalized for easier display
+  quantity: number;
+  price: number; // Price at the time of transaction
+};
+
 export type Transaction = {
   id: string;
   date: Date | Timestamp;
@@ -26,14 +33,13 @@ export type Transaction = {
   subtype: TransactionSubtype;
   companyId: string;
   customerId?: string;
-  productId?: string;
-  quantitySold?: number;
-  serviceAmount?: number;
-  productAmount?: number;
   paymentMethod?: PaymentMethod;
   status?: TransactionStatus;
   installments?: Installment[];
   installmentsCount?: number;
+  // Fields for multi-item transactions
+  items?: TransactionItem[];
+  serviceAmount?: number;
 };
 
 export type User = {

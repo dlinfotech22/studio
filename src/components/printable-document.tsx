@@ -10,11 +10,10 @@ import { Building } from 'lucide-react';
 interface PrintableDocumentProps {
   transaction: Transaction | null;
   customer: Customer | undefined;
-  product: Product | undefined;
   companyInfo: CompanyInfo | null;
 }
 
-export function PrintableDocument({ transaction, customer, product, companyInfo }: PrintableDocumentProps) {
+export function PrintableDocument({ transaction, customer, companyInfo }: PrintableDocumentProps) {
   if (!transaction) return null;
 
   const getTitle = () => {
@@ -27,7 +26,9 @@ export function PrintableDocument({ transaction, customer, product, companyInfo 
   };
 
   const hasService = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
-  const hasProduct = transaction.subtype === 'Venda' || transaction.subtype === 'Serviço + Venda';
+  const hasProducts = transaction.subtype === 'Venda' || transaction.subtype === 'Serviço + Venda';
+  const items = transaction.items || [];
+  const productTotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
 
   return (
     <div className="bg-white text-black p-8 font-sans printable-area">
@@ -96,11 +97,11 @@ export function PrintableDocument({ transaction, customer, product, companyInfo 
               <p className="p-2 bg-gray-50 rounded">{transaction.description || 'Serviço prestado'}</p>
             </div>
           )}
-          {hasProduct && product && (
+          {hasProducts && items.length > 0 && (
             <div>
               <h4 className="font-semibold text-gray-600 mb-1">Produtos Vendidos</h4>
               <table className="w-full text-left">
-                <thead>
+                <thead className="border-b">
                   <tr className="bg-gray-100">
                     <th className="p-2 font-semibold">Produto</th>
                     <th className="p-2 font-semibold text-center">Qtde.</th>
@@ -109,12 +110,14 @@ export function PrintableDocument({ transaction, customer, product, companyInfo 
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td className="p-2">{product.name}</td>
-                    <td className="p-2 text-center">{transaction.quantitySold}</td>
-                    <td className="p-2 text-right">{formatCurrency(product.price)}</td>
-                    <td className="p-2 text-right">{formatCurrency((transaction.quantitySold || 0) * product.price)}</td>
-                  </tr>
+                  {items.map(item => (
+                    <tr key={item.productId} className="border-b">
+                      <td className="p-2">{item.productName}</td>
+                      <td className="p-2 text-center">{item.quantity}</td>
+                      <td className="p-2 text-right">{formatCurrency(item.price)}</td>
+                      <td className="p-2 text-right font-mono">{formatCurrency(item.quantity * item.price)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -132,7 +135,7 @@ export function PrintableDocument({ transaction, customer, product, companyInfo 
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal (Produtos):</span>
-                <span className="font-medium text-gray-800">{formatCurrency(transaction.productAmount || 0)}</span>
+                <span className="font-medium text-gray-800">{formatCurrency(productTotal)}</span>
               </div>
             </>
           )}

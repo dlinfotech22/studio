@@ -374,24 +374,23 @@ export function ReportsClient() {
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
   const profit = totalRevenue - totalExpenses;
 
-  const getTransactionDescription = (transaction: Transaction, products: Product[]) => {
-    const product = products.find(p => p.id === transaction.productId);
-    switch (transaction.subtype) {
-      case 'Venda':
-        if (product) {
-          const price = formatCurrency(transaction.amount / (transaction.quantitySold || 1));
-          return `VENDA: ${transaction.quantitySold}x ${product.name} (${price}/un)`;
-        }
-        return transaction.description;
-      case 'Serviço + Venda':
-        const servicePart = `SERVIÇO: ${formatCurrency(transaction.serviceAmount || 0)}`;
-        const productPart = product ? `PRODUTO: ${transaction.quantitySold}x ${product.name} (${formatCurrency(transaction.productAmount || 0)})` : '';
-        return [servicePart, productPart].filter(Boolean).join(' | ');
-      case 'Prestação de Serviço':
-      case 'Despesa':
-      default:
-        return transaction.description;
+  const getTransactionDescription = (transaction: Transaction) => {
+    let details = [];
+    if (transaction.subtype === 'Prestação de Serviço') {
+      return transaction.description;
     }
+    if (transaction.subtype === 'Serviço + Venda' && transaction.serviceAmount) {
+      details.push(`SERVIÇO: ${formatCurrency(transaction.serviceAmount)}`);
+    }
+    if (transaction.items && transaction.items.length > 0) {
+      const itemDetails = transaction.items.map(
+        (item) => `${item.quantity}x ${item.productName}`
+      ).join(', ');
+      details.push(`PRODUTOS: ${itemDetails}`);
+    }
+    if (details.length > 0) return details.join(' | ');
+
+    return transaction.description;
   };
 
   const handleExport = (formatType: 'Excel' | 'PDF') => {
@@ -413,8 +412,6 @@ export function ReportsClient() {
       let logoRenderedSuccessfully = false;
       if (companyInfo?.logo) {
         try {
-          // Note: Adding images from URL might be blocked by CORS in some environments.
-          // A server-side proxy or fetching the image as a blob might be needed.
           const img = new Image();
           img.crossOrigin = 'Anonymous';
           img.src = companyInfo.logo;
@@ -464,7 +461,7 @@ export function ReportsClient() {
         return {
             'Data': format(new Date(t.date), 'dd/MM/yyyy'),
             'Tipo': t.subtype,
-            'Descrição': getTransactionDescription(t, products),
+            'Descrição': getTransactionDescription(t),
             'Valor': t.amount,
         };
     });
@@ -587,7 +584,7 @@ export function ReportsClient() {
     const tableBody = filteredTransactions.map((t) => [
         format(new Date(t.date), 'dd/MM/yyyy'),
         t.subtype,
-        getTransactionDescription(t, products),
+        getTransactionDescription(t),
         formatCurrency(t.amount),
     ]);
 
@@ -839,7 +836,6 @@ export function ReportsClient() {
               <TableBody>
                 {paginatedTransactions.length > 0 ? (
                   paginatedTransactions.map((t) => {
-                    const product = products.find(p => p.id === t.productId);
                     return (
                         <TableRow key={t.id}>
                             <TableCell>
@@ -847,7 +843,7 @@ export function ReportsClient() {
                             </TableCell>
                             <TableCell>{t.subtype}</TableCell>
                             <TableCell className="font-medium">
-                                {getTransactionDescription(t, products)}
+                                {getTransactionDescription(t)}
                             </TableCell>
                             <TableCell
                                 className={cn(

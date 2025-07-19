@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { format, getMonth, getYear, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
-import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer } from '@/lib/types';
+import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer, type TransactionItem } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -98,28 +98,34 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { PrintableDocument } from './printable-document';
+import { Separator } from './ui/separator';
+
+const transactionItemSchema = z.object({
+    productId: z.string().min(1),
+    productName: z.string(),
+    quantity: z.coerce.number().min(1, "A quantidade deve ser pelo menos 1."),
+    price: z.coerce.number(),
+});
 
 const transactionSchema = z.object({
   description: z.string().optional(),
-  amount: z.coerce.number().positive('O valor deve ser positivo.'),
+  amount: z.coerce.number().positive('O valor total deve ser positivo.'),
   date: z.date(),
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   customerId: z.string().optional(),
-  productId: z.string().optional(),
-  quantitySold: z.coerce.number().optional(),
-  serviceAmount: z.coerce.number().optional(),
-  productAmount: z.coerce.number().optional(),
   paymentMethod: z.enum(['À Vista', 'Parcelado', 'A Prazo']).optional(),
   installmentsCount: z.coerce.number().optional(),
   firstDueDate: z.date().optional(),
+  serviceAmount: z.coerce.number().optional(),
+  items: z.array(transactionItemSchema).optional(),
 }).refine(data => {
-  if (data.subtype === 'Serviço + Venda') {
-    return (data.serviceAmount ?? 0) > 0 || (data.productAmount ?? 0) > 0;
+  if (data.subtype === 'Venda' || data.subtype === 'Serviço + Venda') {
+    return data.items && data.items.length > 0;
   }
   return true;
 }, {
-  message: 'Para "Serviço + Venda", o valor do serviço ou do produto deve ser informado.',
-  path: ['amount'],
+    message: 'Você deve adicionar pelo menos um produto para este tipo de lançamento.',
+    path: ['items'],
 }).refine(data => {
   if (data.paymentMethod === 'Parcelado' && (!data.installmentsCount || data.installmentsCount <= 1)) {
     return false;
@@ -164,6 +170,12 @@ export function TransactionsClient() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+
+  // States for the product multi-select UI in the form
+  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const [currentQuantity, setCurrentQuantity] = useState<number | ''>(1);
+  const [isProductComboboxOpen, setIsProductComboboxOpen] = useState(false);
+
 
   const [searchTerm, setSearchTerm] = useState('');
   const [amountFilter, setAmountFilter] = useState('');
@@ -210,7 +222,6 @@ export function TransactionsClient() {
 
         const companiesRef = collection(db, 'companies');
         const qCompany = query(companiesRef, where('document', '==', id));
-        const companySnapshot = await getDocs(qCompany);
         if(!companySnapshot.empty) {
             setCompanyInfo({id: companySnapshot.docs[0].id, ...companySnapshot.docs[0].data()} as CompanyInfo);
         }
@@ -282,15 +293,35 @@ export function TransactionsClient() {
       date: new Date(),
       subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
       customerId: '',
-      productId: '',
-      quantitySold: undefined,
-      serviceAmount: undefined,
-      productAmount: undefined,
       paymentMethod: 'À Vista',
       installmentsCount: undefined,
       firstDueDate: undefined,
+      serviceAmount: undefined,
+      items: [],
     },
   });
+
+  const { fields: items, append, remove } = useFieldArray({
+    control: form.control,
+    name: "items",
+  });
+
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+        if (name === 'items' || name === 'serviceAmount') {
+            const itemsTotal = value.items?.reduce((sum, item) => sum + item.price * item.quantity, 0) || 0;
+            const serviceTotal = value.serviceAmount || 0;
+            const totalAmount = itemsTotal + serviceTotal;
+            if (totalAmount > 0) {
+              form.setValue('amount', totalAmount);
+              form.clearErrors('amount');
+            } else {
+              form.setValue('amount', undefined);
+            }
+        }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   const revenue = filteredTransactions.filter((t) => t.type === 'revenue');
   const expenses = filteredTransactions.filter((t) => t.type === 'expense');
@@ -302,8 +333,6 @@ export function TransactionsClient() {
 
     try {
       await runTransaction(db, async (transaction) => {
-        let product: Product | undefined;
-        let productRef;
         const transactionType = subtypeToTypeMap[data.subtype];
         
         let description = data.description ? data.description.toUpperCase() : data.subtype;
@@ -323,10 +352,8 @@ export function TransactionsClient() {
           subtype: data.subtype,
           customerId: data.customerId,
           paymentMethod: data.paymentMethod,
-          productId: data.productId,
-          quantitySold: data.quantitySold,
           serviceAmount: data.serviceAmount,
-          productAmount: data.productAmount,
+          items: data.items,
         };
   
         if (transactionType === 'expense') {
@@ -359,61 +386,54 @@ export function TransactionsClient() {
           }
           payload.installmentsCount = data.installmentsCount;
         }
+
+        const oldItems = editingTransaction?.items || [];
+        const newItems = data.items || [];
+        const itemChanges: { [productId: string]: number } = {};
+
+        oldItems.forEach(item => {
+            itemChanges[item.productId] = (itemChanges[item.productId] || 0) + item.quantity;
+        });
+        newItems.forEach(item => {
+            itemChanges[item.productId] = (itemChanges[item.productId] || 0) - item.quantity;
+        });
   
-        if (data.productId && (data.subtype === 'Venda' || data.subtype === 'Serviço + Venda')) {
-          productRef = doc(db, 'products', data.productId);
-          const productDoc = await transaction.get(productRef);
-          if (!productDoc.exists()) {
-            throw new Error('Produto não encontrado.');
-          }
-          product = productDoc.data() as Product;
+        for (const productId in itemChanges) {
+            const quantityChange = itemChanges[productId];
+            if (quantityChange !== 0) {
+                const productRef = doc(db, 'products', productId);
+                const productDoc = await transaction.get(productRef);
+                if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
+                const currentQuantity = productDoc.data().quantity;
+                if (currentQuantity < -quantityChange) throw new Error(`Estoque insuficiente para ${productDoc.data().name}.`);
+                transaction.update(productRef, { quantity: currentQuantity + quantityChange });
+            }
         }
   
         if (editingTransaction) {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
-          const oldQuantity = editingTransaction.quantitySold || 0;
-          const newQuantity = data.quantitySold || 0;
-          const quantityDiff = newQuantity - oldQuantity;
-  
-          if (product && productRef) {
-            if (product.quantity < quantityDiff) {
-              throw new Error(`Estoque insuficiente. Disponível: ${product.quantity}`);
-            }
-            transaction.update(productRef, { quantity: product.quantity - quantityDiff });
-          }
-
           Object.keys(payload).forEach(key => {
             const typedKey = key as keyof typeof payload;
             if (payload[typedKey] === undefined || payload[typedKey] === '') {
               delete payload[typedKey];
             }
           });
-  
           transaction.update(transactionRef, payload as any);
           finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType } as Transaction;
-
         } else {
-           const quantitySold = data.quantitySold || 0;
-            if (product && productRef) {
-                if (product.quantity < quantitySold) {
-                throw new Error(`Estoque insuficiente. Disponível: ${product.quantity}`);
-                }
-                transaction.update(productRef, { quantity: product.quantity - quantitySold });
-            }
-
             Object.keys(payload).forEach(key => {
               const typedKey = key as keyof typeof payload;
               if (payload[typedKey] === undefined || payload[typedKey] === '') {
                 delete payload[typedKey];
               }
             });
-        
             const newTransactionRef = doc(collection(db, 'transactions'));
             transaction.set(newTransactionRef, payload as any);
             finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType } as Transaction;
         }
       });
   
+      // Manually refetch data to reflect changes
       const productSnapshot = await getDocs(query(collection(db, 'products'), where('companyId', '==', companyId)));
       setAllProducts(productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
       const transactionSnapshot = await getDocs(query(collection(db, 'transactions'), where('companyId', '==', companyId)));
@@ -424,18 +444,8 @@ export function TransactionsClient() {
       setEditingTransaction(null);
       setIsDialogOpen(false);
       form.reset({
-        description: '',
-        amount: undefined,
-        date: new Date(),
-        subtype: data.subtype,
-        customerId: '',
-        productId: '',
-        quantitySold: undefined,
-        serviceAmount: undefined,
-        productAmount: undefined,
-        paymentMethod: 'À Vista',
-        installmentsCount: undefined,
-        firstDueDate: undefined,
+        description: '', amount: undefined, date: new Date(), subtype: data.subtype, customerId: '',
+        paymentMethod: 'À Vista', installmentsCount: undefined, firstDueDate: undefined, serviceAmount: undefined, items: []
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
@@ -465,12 +475,11 @@ export function TransactionsClient() {
       ...transaction,
       date: new Date(transaction.date as Date),
       amount: Math.abs(transaction.amount),
-      quantitySold: transaction.quantitySold || undefined,
-      serviceAmount: transaction.serviceAmount || undefined,
-      productAmount: transaction.productAmount || undefined,
       paymentMethod: transaction.paymentMethod || 'À Vista',
       installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
       firstDueDate: firstDueDate,
+      items: transaction.items || [],
+      serviceAmount: transaction.serviceAmount || undefined,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -481,18 +490,19 @@ export function TransactionsClient() {
 
     try {
         await runTransaction(db, async (dbTransaction) => {
-            if (transactionToDelete.productId && transactionToDelete.quantitySold) {
-                const productRef = doc(db, 'products', transactionToDelete.productId);
-                const productDoc = await dbTransaction.get(productRef);
-                if (productDoc.exists()) {
-                    const currentQuantity = productDoc.data().quantity;
-                    dbTransaction.update(productRef, { quantity: currentQuantity + transactionToDelete.quantitySold });
+            if (transactionToDelete.items && transactionToDelete.items.length > 0) {
+                for (const item of transactionToDelete.items) {
+                    const productRef = doc(db, 'products', item.productId);
+                    const productDoc = await dbTransaction.get(productRef);
+                    if (productDoc.exists()) {
+                        const currentQuantity = productDoc.data().quantity;
+                        dbTransaction.update(productRef, { quantity: currentQuantity + item.quantity });
+                    }
                 }
             }
             dbTransaction.delete(doc(db, 'transactions', transactionToDelete.id));
         });
 
-        // Manually refetch data to reflect changes
         const productSnapshot = await getDocs(query(collection(db, 'products'), where('companyId', '==', companyId)));
         setAllProducts(productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
         setAllTransactions(allTransactions.filter((t) => t.id !== transactionToDelete.id));
@@ -517,18 +527,9 @@ export function TransactionsClient() {
     setEditingTransaction(null);
     const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || 'Despesa';
     form.reset({
-      description: '',
-      amount: undefined,
-      date: new Date(),
-      subtype: defaultSubtype,
-      customerId: '',
-      productId: '',
-      quantitySold: undefined,
-      serviceAmount: undefined,
-      productAmount: undefined,
-      paymentMethod: 'À Vista',
-      installmentsCount: undefined,
-      firstDueDate: undefined,
+      description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
+      customerId: '', paymentMethod: 'À Vista', installmentsCount: undefined,
+      firstDueDate: undefined, serviceAmount: undefined, items: []
     });
     setIsDialogOpen(true);
   };
@@ -672,43 +673,39 @@ export function TransactionsClient() {
       </div>
     );
   };
-
-  const selectedProductId = form.watch('productId');
+  
   const selectedSubtype = form.watch('subtype');
-  const selectedProduct = allProducts.find(p => p.id === selectedProductId);
   const selectedPaymentMethod = form.watch('paymentMethod');
-
-  const watchedSubtype = form.watch('subtype');
-  const watchedProductId = form.watch('productId');
-  const watchedQuantitySold = form.watch('quantitySold');
+  const watchedItems = form.watch('items');
   const watchedServiceAmount = form.watch('serviceAmount');
 
-  useEffect(() => {
-    const product = allProducts.find(p => p.id === watchedProductId);
-
-    if (watchedSubtype === 'Venda' && product && watchedQuantitySold) {
-        const total = (product.price || 0) * watchedQuantitySold;
-        form.setValue('amount', total > 0 ? total : undefined);
-        if(total > 0) form.clearErrors('amount');
-
-    } else if (watchedSubtype === 'Serviço + Venda') {
-        const prodAmt = product && watchedQuantitySold ? (product.price || 0) * watchedQuantitySold : 0;
-        form.setValue('productAmount', prodAmt > 0 ? prodAmt : undefined);
-        const total = (watchedServiceAmount || 0) + prodAmt;
-        form.setValue('amount', total > 0 ? total : undefined);
-        if(total > 0) form.clearErrors('amount');
+  const handleAddProduct = () => {
+    if (currentProduct && currentQuantity) {
+        const qty = Number(currentQuantity);
+        if (qty > 0) {
+            append({
+                productId: currentProduct.id,
+                productName: currentProduct.name,
+                quantity: qty,
+                price: currentProduct.price,
+            });
+            setCurrentProduct(null);
+            setCurrentQuantity(1);
+        }
     }
-  }, [form, allProducts, watchedSubtype, watchedProductId, watchedQuantitySold, watchedServiceAmount]);
+  };
 
-
-  const CustomerCombobox = ({ field }: { field: any }) => {
+  const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
+    const field = form.control.getFieldState('customerId');
+    const value = form.watch('customerId');
+
     return (
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <FormControl>
-            <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-              {field.value ? allCustomers.find(c => c.id === field.value)?.name : "Selecione um cliente"}
+            <Button variant="outline" role="combobox" className={cn("w-full justify-between", !value && "text-muted-foreground")}>
+              {value ? allCustomers.find(c => c.id === value)?.name : "Selecione um cliente"}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </FormControl>
@@ -724,51 +721,12 @@ export function TransactionsClient() {
                     value={cust.name}
                     key={cust.id}
                     onSelect={() => {
-                      field.onChange(cust.id);
+                      form.setValue('customerId', cust.id);
                       setOpen(false);
                     }}
                   >
-                    <Check className={cn("mr-2 h-4 w-4", cust.id === field.value ? "opacity-100" : "opacity-0")} />
+                    <Check className={cn("mr-2 h-4 w-4", cust.id === value ? "opacity-100" : "opacity-0")} />
                     {cust.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    );
-  };
-
-  const ProductCombobox = ({ field }: { field: any }) => {
-    const [open, setOpen] = useState(false);
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <FormControl>
-            <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-              {field.value ? allProducts.find(p => p.id === field.value)?.name : "Selecione um produto"}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </FormControl>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-          <Command>
-            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-            <CommandList>
-              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-              <CommandGroup>
-                {allProducts.map((prod) => (
-                  <CommandItem
-                    value={prod.name}
-                    key={prod.id}
-                    onSelect={() => {
-                      field.onChange(prod.id);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check className={cn("mr-2 h-4 w-4", prod.id === field.value ? "opacity-100" : "opacity-0")} />
-                    {prod.name}
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -914,7 +872,7 @@ export function TransactionsClient() {
         </TabsContent>
       </Tabs>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingTransaction ? 'Editar' : 'Adicionar'} Lançamento
@@ -925,94 +883,115 @@ export function TransactionsClient() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="subtype"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Lançamento</FormLabel>
-                    <Select
-                      onValueChange={(value: TransactionSubtype) => {
-                        field.onChange(value);
-                        form.setValue('productId', '');
-                        form.setValue('quantitySold', undefined);
-                        form.setValue('serviceAmount', undefined);
-                        form.setValue('productAmount', undefined);
-                        form.setValue('amount', undefined);
-                      }}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {companyInfo?.allowedSubtypes?.map(subtype => (
-                            <SelectItem key={subtype} value={subtype}>{subtype}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {selectedSubtype !== 'Despesa' && (
-                <FormField
-                  control={form.control}
-                  name="customerId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Cliente</FormLabel>
-                      <CustomerCombobox field={field} />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
-              {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
-                <FormField
-                  control={form.control}
-                  name="productId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Produto Vinculado</FormLabel>
-                      <ProductCombobox field={field} />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-              
-              {selectedProductId && (selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="quantitySold"
+                    name="subtype"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Quantidade Vendida</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
-                            autoComplete="off"
-                          />
-                        </FormControl>
-                        {selectedProduct && (
-                          <FormDescription>
-                            Estoque disponível: {selectedProduct.quantity}
-                          </FormDescription>
-                        )}
+                        <FormLabel>Tipo de Lançamento</FormLabel>
+                        <Select
+                          onValueChange={(value: TransactionSubtype) => {
+                            field.onChange(value);
+                            form.setValue('items', []);
+                            form.setValue('serviceAmount', undefined);
+                            form.setValue('amount', undefined);
+                          }}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o tipo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {companyInfo?.allowedSubtypes?.map(subtype => (
+                                <SelectItem key={subtype} value={subtype}>{subtype}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  {selectedSubtype !== 'Despesa' && (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Cliente</FormLabel>
+                      <CustomerCombobox />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+              </div>
+
+              {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Itens do Lançamento</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex flex-col md:flex-row gap-2 items-end">
+                             <div className="flex-1 w-full">
+                                <Label>Produto</Label>
+                                <Popover open={isProductComboboxOpen} onOpenChange={setIsProductComboboxOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")}>
+                                            {currentProduct ? currentProduct.name : "Selecione um produto"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+                                            <CommandList>
+                                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                            <CommandGroup>
+                                                {allProducts.map((prod) => (
+                                                <CommandItem
+                                                    value={prod.name}
+                                                    key={prod.id}
+                                                    onSelect={() => {
+                                                        setCurrentProduct(prod);
+                                                        setIsProductComboboxOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
+                                                    {prod.name}
+                                                </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                             </div>
+                            <div className="w-full md:w-24">
+                                <Label>Qtde.</Label>
+                                <Input type="number" value={currentQuantity} onChange={e => setCurrentQuantity(e.target.value === '' ? '' : Number(e.target.value))} min="1" autoComplete="off"/>
+                            </div>
+                            <Button type="button" onClick={handleAddProduct}>Adicionar</Button>
+                        </div>
+                        <Separator />
+                        <div className="space-y-2">
+                            {items.map((item, index) => (
+                                <div key={item.id} className="flex items-center justify-between p-2 rounded-md bg-muted">
+                                    <div className="flex-1">
+                                        <p className="font-medium">{item.productName}</p>
+                                        <p className="text-sm text-muted-foreground">{item.quantity} x {formatCurrency(item.price)}</p>
+                                    </div>
+                                    <p className="font-mono">{formatCurrency(item.quantity * item.price)}</p>
+                                    <Button type="button" variant="ghost" size="icon" className="ml-2 h-8 w-8" onClick={() => remove(index)}>
+                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                </div>
+                            ))}
+                            {items.length === 0 && <p className="text-sm text-center text-muted-foreground">Nenhum produto adicionado.</p>}
+                        </div>
+                        <FormField control={form.control} name="items" render={({ fieldState }) => <FormMessage>{fieldState.error?.message}</FormMessage>} />
+                    </CardContent>
+                </Card>
               )}
+              
               {selectedSubtype === 'Serviço + Venda' && (
                   <FormField
                     control={form.control}
@@ -1056,7 +1035,7 @@ export function TransactionsClient() {
                   <FormItem>
                     <FormLabel>Valor Total</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} disabled={selectedSubtype === 'Serviço + Venda' || (selectedSubtype === 'Venda' && !!selectedProductId) } autoComplete="off" />
+                      <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} disabled={selectedSubtype !== 'Despesa' && selectedSubtype !== 'Prestação de Serviço'} autoComplete="off" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1064,7 +1043,7 @@ export function TransactionsClient() {
               />
 
               {selectedSubtype !== 'Despesa' && (
-                <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="paymentMethod"
@@ -1111,7 +1090,7 @@ export function TransactionsClient() {
                   {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
                     <DatePicker fieldName="firstDueDate" />
                   )}
-                </>
+                </div>
               )}
 
               <DatePicker fieldName="date" />
@@ -1142,7 +1121,6 @@ export function TransactionsClient() {
           <PrintableDocument
             transaction={transactionToPrint}
             customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
-            product={allProducts.find(p => p.id === transactionToPrint?.productId)}
             companyInfo={companyInfo}
           />
           <DialogFooter>
