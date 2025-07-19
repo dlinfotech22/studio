@@ -49,7 +49,6 @@ import { db } from '@/lib/firebase';
 export function AccountsReceivableClient() {
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [paymentToConfirm, setPaymentToConfirm] = useState<{
@@ -86,11 +85,6 @@ export function AccountsReceivableClient() {
           );
         setTransactions(fetchedTransactions);
         
-        const customersRef = collection(db, 'customers');
-        const qCustomers = query(customersRef, where('companyId', '==', id));
-        const customerSnapshot = await getDocs(qCustomers);
-        setCustomers(customerSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Customer)))
-
       } catch (error) {
         console.error('Failed to load accounts receivable:', error);
         toast({
@@ -195,8 +189,7 @@ export function AccountsReceivableClient() {
   };
 
   const getTransactionTitle = (transaction: Transaction) => {
-    const customer = customers.find(c => c.id === transaction.customerId);
-    return customer ? `${transaction.description} - ${customer.name}` : transaction.description;
+    return transaction.description;
   }
 
   if (isLoading) {

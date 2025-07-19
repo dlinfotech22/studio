@@ -114,7 +114,6 @@ const transactionSchema = z.object({
   amount: z.coerce.number().positive('O valor total deve ser positivo.'),
   date: z.date(),
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
-  customerId: z.string().optional(),
   paymentMethod: z.enum(['À Vista', 'Parcelado', 'A Prazo']).optional(),
   installmentsCount: z.coerce.number().optional(),
   firstDueDate: z.date().optional(),
@@ -223,9 +222,9 @@ export function TransactionsClient() {
 
         const companiesRef = collection(db, 'companies');
         const qCompany = query(companiesRef, where('document', '==', id));
-        const companySnapshot = await getDocs(qCompany);
-        if(!companySnapshot.empty) {
-            setCompanyInfo({id: companySnapshot.docs[0].id, ...companySnapshot.docs[0].data()} as CompanyInfo);
+        const companySnapshotQuery = await getDocs(qCompany);
+        if(!companySnapshotQuery.empty) {
+            setCompanyInfo({id: companySnapshotQuery.docs[0].id, ...companySnapshotQuery.docs[0].data()} as CompanyInfo);
         }
 
       } catch (error) {
@@ -294,7 +293,6 @@ export function TransactionsClient() {
       amount: undefined,
       date: new Date(),
       subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
-      customerId: '',
       paymentMethod: 'À Vista',
       installmentsCount: undefined,
       firstDueDate: undefined,
@@ -337,13 +335,7 @@ export function TransactionsClient() {
       await runTransaction(db, async (transaction) => {
         const transactionType = subtypeToTypeMap[data.subtype];
         
-        let description = data.description ? data.description.toUpperCase() : data.subtype;
-        if(data.customerId) {
-            const customer = allCustomers.find(c => c.id === data.customerId);
-            if (customer) {
-                description = `${data.subtype} - ${customer.name}`
-            }
-        }
+        let description = data.description ? data.description.toUpperCase() : data.subtype.toUpperCase();
   
         let payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
@@ -352,7 +344,6 @@ export function TransactionsClient() {
           description: description,
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
-          customerId: data.customerId,
           paymentMethod: data.paymentMethod,
           serviceAmount: data.serviceAmount,
           items: data.items,
@@ -446,7 +437,7 @@ export function TransactionsClient() {
       setEditingTransaction(null);
       setIsDialogOpen(false);
       form.reset({
-        description: '', amount: undefined, date: new Date(), subtype: data.subtype, customerId: '',
+        description: '', amount: undefined, date: new Date(), subtype: data.subtype,
         paymentMethod: 'À Vista', installmentsCount: undefined, firstDueDate: undefined, serviceAmount: undefined, items: []
       });
 
@@ -530,7 +521,7 @@ export function TransactionsClient() {
     const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || 'Despesa';
     form.reset({
       description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
-      customerId: '', paymentMethod: 'À Vista', installmentsCount: undefined,
+      paymentMethod: 'À Vista', installmentsCount: undefined,
       firstDueDate: undefined, serviceAmount: undefined, items: []
     });
     setIsDialogOpen(true);
@@ -693,61 +684,6 @@ export function TransactionsClient() {
             setCurrentQuantity(1);
         }
     }
-  };
-
-  const CustomerCombobox = () => {
-    const [open, setOpen] = useState(false);
-    const value = form.watch('customerId');
-  
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <FormControl>
-            <Button
-              variant="outline"
-              role="combobox"
-              className={cn(
-                "w-full justify-between",
-                !value && "text-muted-foreground"
-              )}
-            >
-              {value
-                ? allCustomers.find((c) => c.id === value)?.name
-                : "Selecione um cliente"}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </FormControl>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-          <Command>
-            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-            <CommandList>
-              <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-              <CommandGroup>
-                {allCustomers.map((cust) => (
-                  <CommandItem
-                    value={cust.name}
-                    key={cust.id}
-                    onSelect={() => {
-                      form.setValue("customerId", cust.id);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        cust.id === value ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {cust.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    );
   };
 
   const ProductCombobox = () => {
@@ -964,20 +900,6 @@ export function TransactionsClient() {
                       </FormItem>
                     )}
                   />
-
-                  {selectedSubtype !== 'Despesa' && (
-                    <FormField
-                      control={form.control}
-                      name="customerId"
-                      render={() => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Cliente</FormLabel>
-                          <CustomerCombobox />
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
               </div>
 
               {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
@@ -1146,7 +1068,7 @@ export function TransactionsClient() {
           </DialogHeader>
           <PrintableDocument
             transaction={transactionToPrint}
-            customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
+            customer={undefined}
             companyInfo={companyInfo}
           />
           <DialogFooter>

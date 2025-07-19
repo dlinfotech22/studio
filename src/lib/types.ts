@@ -33,7 +33,6 @@ export type Transaction = {
   type: TransactionType;
   subtype: TransactionSubtype;
   companyId: string;
-  customerId?: string;
   paymentMethod?: PaymentMethod;
   status?: TransactionStatus;
   installments?: Installment[];
@@ -59,6 +58,7 @@ export type CompanyInfo = {
   document: string; // This is the unique identifier (CNPJ/CPF)
   logo?: string; // public URL from Firebase Storage
   allowedSubtypes?: TransactionSubtype[];
+  minimumStock?: number;
 };
 
 export type Product = {

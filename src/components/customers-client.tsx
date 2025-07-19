@@ -172,7 +172,6 @@ export function CustomersClient() {
       
       const delinquents = customers.map(customer => {
         const lateTransactions = transactions
-          .filter(t => t.customerId === customer.id)
           .map(t => {
             const lateInstallments = (t.installments || []).filter(i => 
               i.status === 'Pendente' && new Date(i.dueDate as Date) < today
@@ -255,22 +254,13 @@ export function CustomersClient() {
 
   const confirmDelete = async () => {
     if (customerToDelete) {
-      const hasTransactions = transactions.some(t => t.customerId === customerToDelete.id);
-      if (hasTransactions) {
-          toast({
-              title: 'Ação não permitida',
-              description: 'Este cliente não pode ser removido pois possui lançamentos financeiros associados.',
-              variant: 'destructive',
-          });
-      } else {
-        try {
-            await deleteDoc(doc(db, 'customers', customerToDelete.id));
-            setCustomers(customers.filter(c => c.id !== customerToDelete.id));
-            toast({ title: 'Sucesso!', description: 'Cliente removido.' });
-        } catch (error) {
-            console.error(error);
-            toast({ title: 'Erro!', description: 'Não foi possível remover o cliente.', variant: 'destructive' });
-        }
+      try {
+          await deleteDoc(doc(db, 'customers', customerToDelete.id));
+          setCustomers(customers.filter(c => c.id !== customerToDelete.id));
+          toast({ title: 'Sucesso!', description: 'Cliente removido.' });
+      } catch (error) {
+          console.error(error);
+          toast({ title: 'Erro!', description: 'Não foi possível remover o cliente.', variant: 'destructive' });
       }
     }
     setIsDeleteAlertOpen(false);
