@@ -231,6 +231,7 @@ export function AccountsReceivableClient() {
                   <p className="font-semibold text-card-foreground">
                     {getTransactionTitle(transaction)}
                   </p>
+                   {transaction.customerName && <p className="text-sm text-muted-foreground font-normal">Cliente: {transaction.customerName}</p>}
                   <p className="text-sm text-muted-foreground font-normal">
                     {formatCurrency(transaction.amount)} em{' '}
                     {format(new Date(transaction.date), 'dd/MM/yyyy')}
