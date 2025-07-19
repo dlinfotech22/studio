@@ -293,15 +293,15 @@ export function TransactionsClient() {
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       description: '',
-      amount: undefined,
+      amount: NaN,
       date: new Date(),
       subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
       customerId: '',
       customerName: '',
       paymentMethod: 'À Vista',
-      installmentsCount: undefined,
+      installmentsCount: NaN,
       firstDueDate: undefined,
-      serviceAmount: undefined,
+      serviceAmount: NaN,
       items: [],
     },
   });
@@ -314,7 +314,7 @@ export function TransactionsClient() {
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
         if (name === 'items' || name === 'serviceAmount') {
-            const itemsTotal = value.items?.reduce((sum, item) => sum + item.price * item.quantity, 0) || 0;
+            const itemsTotal = value.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
             const serviceTotal = value.serviceAmount || 0;
             const totalAmount = itemsTotal + serviceTotal;
             if (totalAmount > 0) {
@@ -425,7 +425,7 @@ export function TransactionsClient() {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
           Object.keys(payload).forEach(key => {
             const typedKey = key as keyof typeof payload;
-            if (payload[typedKey] === undefined || payload[typedKey] === '' || Number.isNaN(payload[typedKey])) {
+            if (payload[typedKey] === undefined || Number.isNaN(payload[typedKey])) {
               // @ts-ignore
               delete payload[typedKey];
             }
@@ -435,7 +435,7 @@ export function TransactionsClient() {
         } else {
             Object.keys(payload).forEach(key => {
               const typedKey = key as keyof typeof payload;
-              if (payload[typedKey] === undefined || payload[typedKey] === '' || Number.isNaN(payload[typedKey])) {
+              if (payload[typedKey] === undefined || Number.isNaN(payload[typedKey])) {
                 // @ts-ignore
                 delete payload[typedKey];
               }
@@ -457,8 +457,8 @@ export function TransactionsClient() {
       setEditingTransaction(null);
       setIsDialogOpen(false);
       form.reset({
-        description: '', amount: undefined, date: new Date(), subtype: data.subtype,
-        customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: undefined, firstDueDate: undefined, serviceAmount: undefined, items: []
+        description: '', amount: NaN, date: new Date(), subtype: data.subtype,
+        customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN, firstDueDate: undefined, serviceAmount: NaN, items: []
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
@@ -542,9 +542,9 @@ export function TransactionsClient() {
     setEditingTransaction(null);
     const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || 'Despesa';
     form.reset({
-      description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
-      customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: undefined,
-      firstDueDate: undefined, serviceAmount: undefined, items: []
+      description: '', amount: NaN, date: new Date(), subtype: defaultSubtype,
+      customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN,
+      firstDueDate: undefined, serviceAmount: NaN, items: []
     });
     setIsDialogOpen(true);
   };
@@ -749,27 +749,26 @@ export function TransactionsClient() {
     const [open, setOpen] = useState(false);
     const [searchValue, setSearchValue] = useState("");
   
+    // Effect to sync searchValue with form state when dialog opens for editing
     useEffect(() => {
-      // Sincroniza o searchValue com o valor do formulário ao abrir ou ao editar
-      setSearchValue(form.watch('customerName') || '');
-    }, [form.watch('customerName'), isDialogOpen]);
-  
-    const handleManualEntry = (value: string) => {
-      setSearchValue(value);
-      form.setValue("customerName", value.toUpperCase());
-      form.setValue("customerId", undefined);
-    };
-  
-    const handleSelectCustomer = (customer: Customer) => {
-      form.setValue("customerId", customer.id);
-      form.setValue("customerName", customer.name);
-      setSearchValue(customer.name);
-      setOpen(false);
-    };
+        if (isDialogOpen) {
+            setSearchValue(form.getValues('customerName') || "");
+        }
+    }, [isDialogOpen]);
   
     const filteredClients = allCustomers.filter(client =>
       client.name.toLowerCase().includes(searchValue.toLowerCase())
     );
+
+    const handleOpenChange = (isOpen: boolean) => {
+        setOpen(isOpen);
+        if (!isOpen) {
+            // When closing, if no customerId is set, it means it's a manual entry.
+            if (!form.getValues('customerId')) {
+                form.setValue('customerName', searchValue.toUpperCase());
+            }
+        }
+    }
   
     return (
       <FormField
@@ -778,19 +777,20 @@ export function TransactionsClient() {
         render={() => (
           <FormItem className="flex flex-col pt-2">
             <FormLabel>Cliente (Opcional)</FormLabel>
-            <Popover open={open} onOpenChange={setOpen}>
+            <Popover open={open} onOpenChange={handleOpenChange}>
               <PopoverTrigger asChild>
                 <FormControl>
-                  <div className="relative">
-                    <Input
-                      placeholder="Selecione ou digite um nome"
-                      value={searchValue}
-                      onChange={(e) => handleManualEntry(e.target.value)}
-                      onClick={() => setOpen(true)}
-                      autoComplete="off"
-                    />
-                    <ChevronsUpDown className="absolute right-3 top-2.5 h-4 w-4 shrink-0 opacity-50" />
-                  </div>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full justify-between",
+                      !form.getValues('customerName') && "text-muted-foreground"
+                    )}
+                  >
+                    {form.getValues('customerName') || "Selecione ou digite um nome"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
                 </FormControl>
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
@@ -798,7 +798,7 @@ export function TransactionsClient() {
                   <CommandInput
                     placeholder="Buscar cliente..."
                     value={searchValue}
-                    onValueChange={handleManualEntry}
+                    onValueChange={setSearchValue}
                     autoComplete="off"
                   />
                   <CommandList>
@@ -810,7 +810,10 @@ export function TransactionsClient() {
                           value={client.name}
                           onMouseDown={(e) => {
                             e.preventDefault();
-                            handleSelectCustomer(client);
+                            form.setValue("customerId", client.id);
+                            form.setValue("customerName", client.name);
+                            setSearchValue(client.name);
+                            setOpen(false);
                           }}
                         >
                           <Check
@@ -995,8 +998,8 @@ export function TransactionsClient() {
                           onValueChange={(value: TransactionSubtype) => {
                             field.onChange(value);
                             form.setValue('items', []);
-                            form.setValue('serviceAmount', undefined);
-                            form.setValue('amount', undefined);
+                            form.setValue('serviceAmount', NaN);
+                            form.setValue('amount', NaN);
                           }}
                           value={field.value}
                         >
@@ -1069,7 +1072,7 @@ export function TransactionsClient() {
                            <Input
                             type="number"
                             placeholder="0.00"
-                            value={field.value ?? ''}
+                            value={isNaN(field.value ?? NaN) ? '' : field.value}
                             onChange={(e) => field.onChange(e.target.valueAsNumber)}
                             autoComplete="off"
                            />
@@ -1110,7 +1113,7 @@ export function TransactionsClient() {
                       <Input
                         type="number"
                         placeholder="0.00"
-                        value={field.value ?? ''}
+                        value={isNaN(field.value ?? NaN) ? '' : field.value}
                         onChange={(e) => field.onChange(e.target.valueAsNumber)}
                         disabled={selectedSubtype !== 'Despesa' && selectedSubtype !== 'Prestação de Serviço'}
                         autoComplete="off"
@@ -1132,7 +1135,7 @@ export function TransactionsClient() {
                         <Select 
                           onValueChange={(value: PaymentMethod) => {
                             field.onChange(value);
-                            form.setValue('installmentsCount', undefined);
+                            form.setValue('installmentsCount', NaN);
                             form.setValue('firstDueDate', undefined);
                           }} 
                           value={field.value}>
@@ -1162,7 +1165,7 @@ export function TransactionsClient() {
                              <Input
                               type="number"
                               placeholder="2"
-                              value={field.value ?? ''}
+                              value={isNaN(field.value ?? NaN) ? '' : field.value}
                               onChange={(e) => field.onChange(e.target.valueAsNumber)}
                               autoComplete="off"
                              />
