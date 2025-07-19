@@ -737,9 +737,9 @@ export function TransactionsClient() {
                   <CommandItem
                     value={cust.name}
                     key={cust.id}
-                    onSelect={() => {
-                      field.onChange(cust.id);
-                      setOpen(false);
+                    onMouseDown={() => {
+                        field.onChange(cust.id);
+                        setOpen(false);
                     }}
                   >
                     <Check
