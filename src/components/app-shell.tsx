@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
@@ -14,6 +15,7 @@ import {
   Package,
   ClipboardList,
   Contact,
+  Book,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -176,6 +178,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                     >
                       <ClipboardList />
                       <span>Contas a Receber</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                 <SidebarMenuItem>
+                  <Link href="/products">
+                    <SidebarMenuButton
+                      tooltip="Catálogo de Produtos"
+                      isActive={pathname === '/products'}
+                    >
+                      <Book />
+                      <span>Catálogo de Produtos</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>

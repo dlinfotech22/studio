@@ -2,11 +2,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { InventoryClient } from '@/components/inventory-client';
+import { ProductsClient } from '@/components/products-client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Package } from 'lucide-react';
+import { Book } from 'lucide-react';
 
-export default function InventoryPage() {
+export default function ProductsPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -31,25 +31,25 @@ export default function InventoryPage() {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight">Gestão de Estoque</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Catálogo de Produtos</h1>
         <p className="text-muted-foreground">
           {userRole === 'system_admin'
-            ? 'Esta seção é para usuários de empresas gerenciarem seu estoque.'
-            : 'Consulte e reponha a quantidade dos produtos em seu estoque.'}
+            ? 'Esta seção é para usuários de empresas gerenciarem seu catálogo.'
+            : 'Adicione, edite e gerencie os produtos da sua empresa.'}
         </p>
       </header>
       {userRole === 'system_admin' ? (
         <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm p-8 text-center h-[400px]">
           <div className="flex flex-col items-center gap-2">
-            <Package className="w-16 h-16 text-muted-foreground" />
+            <Book className="w-16 h-16 text-muted-foreground" />
             <h2 className="text-2xl font-semibold">Função exclusiva para empresas</h2>
             <p className="max-w-md mt-2 text-sm text-muted-foreground">
-              A tela de estoque é utilizada para gerenciar os produtos de uma empresa específica. Como administrador do sistema, seu foco está na gestão de empresas e usuários globais.
+              A tela de catálogo de produtos é utilizada para gerenciar os itens de uma empresa específica. Como administrador do sistema, seu foco está na gestão de empresas e usuários globais.
             </p>
           </div>
         </div>
       ) : (
-        <InventoryClient />
+        <ProductsClient />
       )}
     </div>
   );

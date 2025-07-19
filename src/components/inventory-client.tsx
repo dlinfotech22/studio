@@ -11,20 +11,14 @@ import {
   where,
   getDocs,
   doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
   runTransaction,
 } from 'firebase/firestore';
 import {
-  PlusCircle,
-  Edit,
-  Trash2,
-  MoreHorizontal,
   Search,
   FileSpreadsheet,
   FileText,
   PackagePlus,
+  MoreHorizontal
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -51,14 +45,6 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -67,16 +53,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from './ui/alert-dialog';
 import { db } from '@/lib/firebase';
 import {
   Select,
@@ -87,23 +63,10 @@ import {
 } from './ui/select';
 import { Label } from './ui/label';
 
-const productSchema = z.object({
-  name: z.string().min(1, 'O nome do produto é obrigatório.'),
-  barcode: z.string().optional(),
-  quantity: z.coerce.number().min(0, 'A quantidade não pode ser negativa.'),
-  price: z.coerce.number().positive('O preço deve ser um valor positivo.'),
-});
-
-type ProductFormValues = z.infer<typeof productSchema>;
-
 export function InventoryClient() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
 
@@ -160,89 +123,11 @@ export function InventoryClient() {
       productsToDisplay.sort((a, b) => a.name.localeCompare(b.name))
     );
   }, [products, searchTerm]);
-
-  const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
-    defaultValues: {
-      name: '',
-      barcode: '',
-      quantity: 0,
-      price: 0,
-    },
-  });
-
-  const onSubmit = async (data: ProductFormValues) => {
-    if (!companyId) return;
-
-    const payload = { ...data, name: data.name, companyId };
-
-    try {
-      if (editingProduct) {
-        const productRef = doc(db, 'products', editingProduct.id);
-        await updateDoc(productRef, payload);
-        setProducts(
-          products.map((p) =>
-            p.id === editingProduct.id ? { ...editingProduct, ...payload } : p
-          )
-        );
-        toast({ title: 'Sucesso!', description: 'Produto atualizado.' });
-      } else {
-        const docRef = await addDoc(collection(db, 'products'), payload);
-        setProducts([...products, { id: docRef.id, ...payload }]);
-        toast({ title: 'Sucesso!', description: 'Produto adicionado.' });
-      }
-      setIsDialogOpen(false);
-      form.reset();
-    } catch (error: any) {
-      console.error('Failed to save product', error);
-      toast({
-        title: 'Erro!',
-        description:
-          error.code === 'permission-denied'
-            ? 'Permissão negada para salvar o produto.'
-            : 'Não foi possível salvar o produto.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleEdit = (product: Product) => {
-    setEditingProduct(product);
-    form.reset(product);
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = (product: Product) => {
-    setProductToDelete(product);
-    setIsDeleteAlertOpen(true);
-  };
   
   const handleOpenRestockDialog = (product: Product) => {
     setProductToRestock(product);
     setRestockQuantity('');
     setIsRestockDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (productToDelete) {
-      try {
-        await deleteDoc(doc(db, 'products', productToDelete.id));
-        setProducts(products.filter((p) => p.id !== productToDelete.id));
-        toast({ title: 'Sucesso!', description: 'Produto removido.' });
-      } catch (error: any) {
-        console.error('Failed to delete product', error);
-        toast({
-          title: 'Erro!',
-          description:
-            error.code === 'permission-denied'
-              ? 'Permissão negada para remover o produto.'
-              : 'Não foi possível remover o produto.',
-          variant: 'destructive',
-        });
-      }
-    }
-    setIsDeleteAlertOpen(false);
-    setProductToDelete(null);
   };
 
   const handleConfirmRestock = async () => {
@@ -287,12 +172,6 @@ export function InventoryClient() {
       setIsRestockDialogOpen(false);
       setProductToRestock(null);
     }
-  };
-
-  const openNewProductDialog = () => {
-    setEditingProduct(null);
-    form.reset({ name: '', barcode: '', quantity: 0, price: 0 });
-    setIsDialogOpen(true);
   };
 
   const handleExport = (formatType: 'Excel' | 'PDF') => {
@@ -433,10 +312,6 @@ export function InventoryClient() {
             <FileText className="mr-2 h-4 w-4" />
             Gerar Relatório PDF
           </Button>
-          <Button onClick={openNewProductDialog}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar Produto
-          </Button>
         </div>
       </div>
 
@@ -478,15 +353,6 @@ export function InventoryClient() {
                         <DropdownMenuContent align="end">
                            <DropdownMenuItem onClick={() => handleOpenRestockDialog(item)}>
                             <PackagePlus className="mr-2 h-4 w-4" /> Repor Estoque
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEdit(item)}>
-                            <Edit className="mr-2 h-4 w-4" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(item)}
-                            className="text-red-500"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Deletar
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -555,92 +421,6 @@ export function InventoryClient() {
         )}
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingProduct ? 'Editar' : 'Adicionar'} Produto
-            </DialogTitle>
-            <DialogDescription>
-              Preencha os detalhes do produto para o seu estoque.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome do Produto</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Ex: Camiseta Branca M"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(e.target.value.toUpperCase())
-                        }
-                        autoComplete="off"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="barcode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Código de Barras (Opcional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: 7891234567890" {...field} autoComplete="off" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="quantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quantidade em Estoque</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="0" {...field} autoComplete="off" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preço de Venda (R$)</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="0.00" {...field} autoComplete="off" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button type="button" variant="ghost">
-                    Cancelar
-                  </Button>
-                </DialogClose>
-                <Button type="submit">
-                  {editingProduct ? 'Salvar Alterações' : 'Adicionar'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-      
       <Dialog open={isRestockDialogOpen} onOpenChange={setIsRestockDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -684,29 +464,6 @@ export function InventoryClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-
-      <AlertDialog
-        open={isDeleteAlertOpen}
-        onOpenChange={setIsDeleteAlertOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação removerá o produto do estoque. Lançamentos de vendas
-              associados a este produto não serão afetados, mas o vínculo será
-              perdido.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>
-              Continuar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }
