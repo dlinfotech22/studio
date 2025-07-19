@@ -16,6 +16,7 @@ import {
   ClipboardList,
   Contact,
   Book,
+  Wrench,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -189,6 +190,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                     >
                       <Book />
                       <span>Catálogo de Produtos</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                 <SidebarMenuItem>
+                  <Link href="/services">
+                    <SidebarMenuButton
+                      tooltip="Catálogo de Serviços"
+                      isActive={pathname === '/services'}
+                    >
+                      <Wrench />
+                      <span>Catálogo de Serviços</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>

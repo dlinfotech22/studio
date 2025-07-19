@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
-import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer, type TransactionItem } from '@/lib/types';
+import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer, type TransactionItem, type Service } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -116,6 +116,7 @@ const transactionSchema = z.object({
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   customerId: z.string().optional(),
   customerName: z.string().optional(),
+  serviceId: z.string().optional(),
   paymentMethod: z.enum(['À Vista', 'Parcelado', 'A Prazo']).optional(),
   installmentsCount: z.coerce.number().optional(),
   firstDueDate: z.date().optional(),
@@ -164,6 +165,7 @@ export function TransactionsClient() {
     Transaction[]
   >([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [allServices, setAllServices] = useState<Service[]>([]);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -211,6 +213,14 @@ export function TransactionsClient() {
           (doc) => ({ id: doc.id, ...doc.data() } as Product)
         );
         setAllProducts(products);
+        
+        const servicesRef = collection(db, 'services');
+        const qServices = query(servicesRef, where('companyId', '==', id));
+        const serviceSnapshot = await getDocs(qServices);
+        const services = serviceSnapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as Service)
+        );
+        setAllServices(services);
         
         const customersRef = collection(db, 'customers');
         const qCustomers = query(customersRef, where('companyId', '==', id));
@@ -296,6 +306,7 @@ export function TransactionsClient() {
       subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
       customerId: '',
       customerName: '',
+      serviceId: '',
       paymentMethod: 'À Vista',
       installmentsCount: NaN,
       firstDueDate: undefined,
@@ -321,6 +332,9 @@ export function TransactionsClient() {
             } else {
               form.setValue('amount', NaN);
             }
+        }
+        if (name === 'subtype') {
+          form.setValue('serviceId', undefined);
         }
     });
     return () => subscription.unsubscribe();
@@ -361,6 +375,7 @@ export function TransactionsClient() {
           subtype: data.subtype,
           customerId: data.customerId,
           customerName: data.customerName ? data.customerName.toUpperCase() : '',
+          serviceId: data.serviceId,
           paymentMethod: data.paymentMethod,
           serviceAmount: data.serviceAmount,
           items: data.items,
@@ -429,7 +444,7 @@ export function TransactionsClient() {
             }
           });
           transaction.update(transactionRef, payload as any);
-          finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId } as Transaction;
+          finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId, serviceId: data.serviceId } as Transaction;
         } else {
             Object.keys(payload).forEach(key => {
               const typedKey = key as keyof typeof payload;
@@ -440,7 +455,7 @@ export function TransactionsClient() {
             });
             const newTransactionRef = doc(collection(db, 'transactions'));
             transaction.set(newTransactionRef, payload as any);
-            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId } as Transaction;
+            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId, serviceId: data.serviceId } as Transaction;
         }
       });
   
@@ -456,7 +471,7 @@ export function TransactionsClient() {
       setIsDialogOpen(false);
       form.reset({
         description: '', amount: NaN, date: new Date(), subtype: data.subtype,
-        customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN, firstDueDate: undefined, serviceAmount: NaN, items: []
+        customerId: '', customerName: '', serviceId: '', paymentMethod: 'À Vista', installmentsCount: NaN, firstDueDate: undefined, serviceAmount: NaN, items: []
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
@@ -488,6 +503,7 @@ export function TransactionsClient() {
       amount: Math.abs(transaction.amount),
       customerId: transaction.customerId || '',
       customerName: transaction.customerName || '',
+      serviceId: transaction.serviceId || '',
       paymentMethod: transaction.paymentMethod || 'À Vista',
       installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
       firstDueDate: firstDueDate,
@@ -541,7 +557,7 @@ export function TransactionsClient() {
     const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || 'Despesa';
     form.reset({
       description: '', amount: NaN, date: new Date(), subtype: defaultSubtype,
-      customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN,
+      customerId: '', customerName: '', serviceId: '', paymentMethod: 'À Vista', installmentsCount: NaN,
       firstDueDate: undefined, serviceAmount: NaN, items: []
     });
     setIsDialogOpen(true);
@@ -743,82 +759,130 @@ export function TransactionsClient() {
     )
   }
 
+  const ServiceCombobox = () => {
+    const [open, setOpen] = useState(false)
+    const serviceId = form.watch('serviceId')
+  
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            className={cn(
+              "w-full justify-between",
+              !serviceId && "text-muted-foreground"
+            )}
+          >
+            {serviceId
+              ? allServices.find((s) => s.id === serviceId)?.name
+              : "Selecionar serviço"}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+          <Command>
+            <CommandInput placeholder="Buscar serviço..." />
+            <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
+            <CommandGroup>
+              {allServices.map((service) => (
+                <CommandItem
+                  value={service.name}
+                  key={service.id}
+                  onSelect={() => {
+                    form.setValue("serviceId", service.id);
+                    form.setValue("description", service.name);
+                    form.setValue("amount", service.price);
+                    setOpen(false)
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      service.id === serviceId ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {service.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const [searchValue, setSearchValue] = useState("");
+    const [value, setValue] = useState("");
   
     useEffect(() => {
         const customerName = form.getValues('customerName');
         if (customerName) {
-            setSearchValue(customerName);
+            setValue(customerName);
         }
-    }, [form]);
-
-    useEffect(() => {
-        const customerName = form.getValues('customerName');
-        if (!open && searchValue.toUpperCase() !== customerName) {
-           form.setValue('customerName', searchValue.toUpperCase());
-           if (!allCustomers.some(c => c.name.toLowerCase() === searchValue.toLowerCase())) {
-               form.setValue('customerId', undefined);
-           }
-        }
-    }, [open, searchValue, form, allCustomers]);
+    }, []);
 
     return (
-      <FormField
-        control={form.control}
-        name="customerName"
-        render={() => (
-          <FormItem className="flex flex-col pt-2">
-            <FormLabel>Cliente (Opcional)</FormLabel>
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                  <Button
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
                     variant="outline"
                     role="combobox"
-                    className={cn("w-full justify-between", !form.getValues("customerName") && "text-muted-foreground")}
-                  >
-                    {form.getValues("customerName") || "Selecione ou digite um cliente"}
+                    aria-expanded={open}
+                    className="w-full justify-between"
+                >
+                    {value || "Selecione ou digite um cliente"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput
-                    placeholder="Buscar cliente..."
-                    value={searchValue}
-                    onValueChange={setSearchValue}
-                    autoComplete="off"
-                  />
-                  <CommandList>
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0"
+              onCloseAutoFocus={(e) => {
+                if (!allCustomers.some(c => c.name.toLowerCase() === value.toLowerCase())) {
+                    form.setValue('customerName', value.toUpperCase());
+                    form.setValue('customerId', undefined);
+                }
+                e.preventDefault();
+              }}
+            >
+                <Command shouldFilter={false}>
+                    <CommandInput 
+                      placeholder="Buscar cliente..." 
+                      value={value}
+                      onValueChange={setValue}
+                      autoComplete="off"
+                    />
                     <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                     <CommandGroup>
-                      {allCustomers
-                        .filter(c => c.name.toLowerCase().includes(searchValue.toLowerCase()))
-                        .map((client) => (
-                        <CommandItem
-                          value={client.name}
-                          key={client.id}
-                          onSelect={() => {
-                            form.setValue("customerId", client.id);
-                            form.setValue("customerName", client.name);
-                            setSearchValue(client.name);
-                            setOpen(false);
-                          }}
-                        >
-                          <Check className={cn("mr-2 h-4 w-4", client.id === form.getValues("customerId") ? "opacity-100" : "opacity-0")}/>
-                          {client.name}
-                        </CommandItem>
-                      ))}
+                        {allCustomers
+                          .filter(c => c.name.toLowerCase().includes(value.toLowerCase()))
+                          .map((client) => (
+                            <CommandItem
+                                key={client.id}
+                                value={client.name}
+                                onSelect={(currentValue) => {
+                                    const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
+                                    if(selectedClient) {
+                                      setValue(selectedClient.name);
+                                      form.setValue('customerId', selectedClient.id);
+                                      form.setValue('customerName', selectedClient.name);
+                                    }
+                                    setOpen(false);
+                                }}
+                            >
+                                <Check
+                                    className={cn(
+                                        "mr-2 h-4 w-4",
+                                        client.id === form.getValues("customerId") ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                {client.name}
+                            </CommandItem>
+                        ))}
                     </CommandGroup>
-                  </CommandList>
                 </Command>
-              </PopoverContent>
-            </Popover>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+            </PopoverContent>
+        </Popover>
     );
   };
   
@@ -1001,9 +1065,26 @@ export function TransactionsClient() {
                     )}
                   />
                   {selectedSubtype !== 'Despesa' && (
-                     <CustomerCombobox />
+                     <div className="pt-2">
+                        <CustomerCombobox />
+                     </div>
                   )}
               </div>
+
+              {selectedSubtype === 'Prestação de Serviço' && (
+                <FormField
+                  control={form.control}
+                  name="serviceId"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Serviço (Opcional)</FormLabel>
+                      <ServiceCombobox />
+                      <FormDescription>Selecione um serviço cadastrado para preencher a descrição e o valor automaticamente.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
                 <Card>
@@ -1069,7 +1150,7 @@ export function TransactionsClient() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Descrição (Opcional)</FormLabel>
+                    <FormLabel>{selectedSubtype === 'Prestação de Serviço' ? 'Descrição do Serviço' : 'Descrição (Opcional)'}</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Ex: Pagamento de aluguel"
@@ -1079,6 +1160,7 @@ export function TransactionsClient() {
                           field.onChange(e.target.value.toUpperCase())
                         }
                         autoComplete="off"
+                        disabled={selectedSubtype === 'Prestação de Serviço' && !!form.watch('serviceId')}
                       />
                     </FormControl>
                     <FormMessage />
@@ -1097,7 +1179,7 @@ export function TransactionsClient() {
                         placeholder="0.00"
                         value={isNaN(field.value as number) ? '' : field.value}
                         onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
-                        disabled={selectedSubtype !== 'Despesa' && selectedSubtype !== 'Prestação de Serviço'}
+                        disabled={selectedSubtype !== 'Despesa' && selectedSubtype !== 'Prestação de Serviço' || (selectedSubtype === 'Prestação de Serviço' && !!form.watch('serviceId'))}
                         autoComplete="off"
                       />
                     </FormControl>

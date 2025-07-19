@@ -42,6 +42,7 @@ export type Transaction = {
   // Fields for multi-item transactions
   items?: TransactionItem[];
   serviceAmount?: number;
+  serviceId?: string;
 };
 
 export type User = {
@@ -70,6 +71,13 @@ export type Product = {
   price: number;
   companyId: string;
   minimumStock?: number;
+};
+
+export type Service = {
+  id: string;
+  name: string;
+  price: number;
+  companyId: string;
 };
 
 export type Customer = {
