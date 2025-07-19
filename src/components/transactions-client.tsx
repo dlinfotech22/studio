@@ -753,7 +753,7 @@ export function TransactionsClient() {
         if (isDialogOpen) {
             setSearchValue(form.getValues('customerName') || "");
         }
-    }, [isDialogOpen]);
+    }, [isDialogOpen, form]);
   
     const filteredClients = allCustomers.filter(client =>
       client.name.toLowerCase().includes(searchValue.toLowerCase())
@@ -761,8 +761,12 @@ export function TransactionsClient() {
 
     const handleOpenChange = (isOpen: boolean) => {
         setOpen(isOpen);
-        if (!isOpen && !form.getValues('customerId')) {
-            form.setValue('customerName', searchValue.toUpperCase());
+        if (!isOpen) {
+            const selectedCustomer = allCustomers.find(c => c.id === form.getValues('customerId'));
+            if (!selectedCustomer || selectedCustomer.name !== searchValue) {
+                form.setValue('customerId', undefined);
+                form.setValue('customerName', searchValue.toUpperCase());
+            }
         }
     }
   
@@ -1216,7 +1220,3 @@ export function TransactionsClient() {
     </>
   );
 }
-
-
-
-    
