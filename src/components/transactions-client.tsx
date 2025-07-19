@@ -747,20 +747,19 @@ export function TransactionsClient() {
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const [searchValue, setSearchValue] = useState(form.getValues('customerName') || '');
-
+    const [searchValue, setSearchValue] = useState("");
+  
     useEffect(() => {
-        setSearchValue(form.getValues('customerName') || '');
-    }, [form.watch('customerName')]);
-
-    const filteredClients = allCustomers.filter(client => client.name.toLowerCase().includes(searchValue.toLowerCase()));
-
+      const customer = allCustomers.find(c => c.id === form.watch('customerId'));
+      setSearchValue(customer?.name || "");
+    }, [form.watch('customerId')]);
+  
     return (
       <FormField
         control={form.control}
         name="customerId"
         render={() => (
-          <FormItem className="flex flex-col">
+          <FormItem className="flex flex-col pt-2">
             <FormLabel>Cliente (Opcional)</FormLabel>
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
@@ -772,35 +771,45 @@ export function TransactionsClient() {
                       "w-full justify-between",
                       !form.getValues("customerId") && "text-muted-foreground"
                     )}
-                    onClick={() => setOpen(!open)}
                   >
-                    {searchValue || "Selecione um cliente"}
+                    {form.getValues("customerName") || "Selecione um cliente"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </FormControl>
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
-                  <CommandInput
-                    placeholder="Selecione um cliente"
-                    value={searchValue}
-                    onValueChange={setSearchValue}
-                  />
-                  <CommandEmpty>Nenhum cliente encontrado</CommandEmpty>
+                <Command
+                  filter={(value, search) => {
+                    const extendedValue = `${value} ${allCustomers.find(c => c.name.toLowerCase() === value)?.document || ''}`;
+                    if (extendedValue.toLowerCase().includes(search.toLowerCase())) return 1;
+                    return 0;
+                  }}
+                >
+                  <CommandInput placeholder="Buscar cliente..." />
                   <CommandList>
+                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                     <CommandGroup>
-                      {filteredClients.map((client) => (
+                      {allCustomers.map((client) => (
                         <CommandItem
-                          key={client.id}
                           value={client.name}
-                          onSelect={() => {
-                              form.setValue("customerId", client.id);
-                              form.setValue("customerName", client.name);
-                              setSearchValue(client.name);
-                              setOpen(false);
+                          key={client.id}
+                          onSelect={(currentValue) => {
+                            const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue);
+                            if (selectedClient) {
+                                form.setValue("customerId", selectedClient.id);
+                                form.setValue("customerName", selectedClient.name);
+                            }
+                            setOpen(false);
                           }}
                         >
-                          <Check className={cn("mr-2 h-4 w-4", client.id === form.getValues("customerId") ? "opacity-100" : "opacity-0")} />
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              client.id === form.getValues("customerId")
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
                           {client.name}
                         </CommandItem>
                       ))}
@@ -814,7 +823,8 @@ export function TransactionsClient() {
         )}
       />
     );
-  }
+  };
+  
 
   const DatePicker = ({fieldName}: {fieldName: "date" | "firstDueDate"}) => {
     return (
