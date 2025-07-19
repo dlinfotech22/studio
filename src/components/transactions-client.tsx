@@ -699,10 +699,21 @@ export function TransactionsClient() {
 
   const CustomerCombobox = ({ field }: { field: any }) => {
     const [open, setOpen] = useState(false);
-    const [filter, setFilter] = useState('');
+    const [searchValue, setSearchValue] = useState(
+      allCustomers.find((c) => c.id === field.value)?.name || ''
+    );
   
-    const filteredCustomers = allCustomers.filter(customer => 
-      customer.name.toLowerCase().includes(filter.toLowerCase())
+    useEffect(() => {
+      if (field.value) {
+        const selectedName = allCustomers.find((c) => c.id === field.value)?.name;
+        setSearchValue(selectedName || '');
+      } else {
+        setSearchValue('');
+      }
+    }, [field.value]);
+  
+    const filteredCustomers = allCustomers.filter((customer) =>
+      customer.name.toLowerCase().includes(searchValue.toLowerCase())
     );
   
     return (
@@ -726,8 +737,8 @@ export function TransactionsClient() {
           <Command>
             <CommandInput
               placeholder="Pesquisar cliente..."
-              value={filter}
-              onValueChange={setFilter}
+              value={searchValue}
+              onValueChange={setSearchValue}
               autoComplete="off"
             />
             <CommandList>
@@ -737,9 +748,11 @@ export function TransactionsClient() {
                   <CommandItem
                     value={cust.name}
                     key={cust.id}
-                    onMouseDown={() => {
-                        field.onChange(cust.id);
-                        setOpen(false);
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      field.onChange(cust.id);
+                      setSearchValue(cust.name);
+                      setOpen(false);
                     }}
                   >
                     <Check
