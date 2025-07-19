@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -76,6 +77,7 @@ const companyInfoSchema = z.object({
   name: z.string().min(1, 'O nome da empresa é obrigatório.'),
   document: z.string().min(1, 'O CNPJ/CPF é obrigatório.'),
   logo: z.string().optional(),
+  minimumStock: z.coerce.number().min(0, 'O estoque mínimo não pode ser negativo.').optional(),
 });
 
 
@@ -85,6 +87,7 @@ const defaultCompanyInfo: CompanyInfo = {
   name: '',
   document: '',
   logo: '',
+  minimumStock: 0,
 };
 
 // Sub-components for each settings tab
@@ -249,10 +252,13 @@ function CompanyProfile() {
     try {
       const updatedInfo = { ...companyInfo, ...values, name: values.name.toUpperCase() };
       const companyRef = doc(db, 'companies', updatedInfo.id);
-      await updateDoc(companyRef, {
+      const payload: Partial<CompanyInfo> = {
         name: updatedInfo.name,
         logo: updatedInfo.logo,
-      });
+        minimumStock: updatedInfo.minimumStock || 0
+      };
+      
+      await updateDoc(companyRef, payload);
 
       setCompanyInfo(updatedInfo);
       toast({ title: 'Sucesso!', description: 'Informações da empresa salvas.' });
@@ -303,7 +309,7 @@ function CompanyProfile() {
           {isSystemAdmin
             ? 'Como administrador do sistema, você pode alterar o nome e o logo da empresa.'
             : isCompanyAdmin
-            ? 'Como administrador da empresa, você pode alterar o logo.'
+            ? 'Como administrador da empresa, você pode alterar o logo e outras configurações.'
             : 'Somente administradores podem editar estas informações.'}
         </CardDescription>
       </CardHeader>
@@ -365,6 +371,29 @@ function CompanyProfile() {
                     </FormControl>
                     <FormDescription>
                       O documento é o identificador único da empresa e não pode ser alterado.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="minimumStock"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nível Mínimo de Estoque</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        value={field.value || 0}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        disabled={!isCompanyAdmin && !isSystemAdmin}
+                        autoComplete="off"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Quando o estoque de um produto atingir este valor, será considerado baixo.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

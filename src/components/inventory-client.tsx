@@ -2,9 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 import {
   collection,
   query,
@@ -18,7 +15,9 @@ import {
   FileSpreadsheet,
   FileText,
   PackagePlus,
-  MoreHorizontal
+  MoreHorizontal,
+  PackageX,
+  Archive,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -62,17 +61,16 @@ import {
   SelectValue,
 } from './ui/select';
 import { Label } from './ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 export function InventoryClient() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [activeTab, setActiveTab] = useState('all');
   
   const [isRestockDialogOpen, setIsRestockDialogOpen] = useState(false);
   const [productToRestock, setProductToRestock] = useState<Product | null>(null);
@@ -112,18 +110,6 @@ export function InventoryClient() {
     }
   }, []);
 
-  useEffect(() => {
-    let productsToDisplay = products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    setFilteredProducts(
-      productsToDisplay.sort((a, b) => a.name.localeCompare(b.name))
-    );
-  }, [products, searchTerm]);
-  
   const handleOpenRestockDialog = (product: Product) => {
     setProductToRestock(product);
     setRestockQuantity('');
@@ -174,8 +160,8 @@ export function InventoryClient() {
     }
   };
 
-  const handleExport = (formatType: 'Excel' | 'PDF') => {
-    if (filteredProducts.length === 0) {
+  const handleExport = (formatType: 'Excel' | 'PDF', productsToExport: Product[]) => {
+    if (productsToExport.length === 0) {
       toast({
         title: 'Nenhum produto para exportar',
         description: 'Não há produtos na lista para gerar o arquivo.',
@@ -184,7 +170,7 @@ export function InventoryClient() {
       return;
     }
 
-    const totalValue = filteredProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
+    const totalValue = productsToExport.reduce((sum, p) => sum + p.price * p.quantity, 0);
 
     if (formatType === 'PDF') {
       const doc = new jsPDF();
@@ -215,7 +201,7 @@ export function InventoryClient() {
       startY += 10;
 
       const tableHead = [['Produto', 'Cód. Barras', 'Qtde.', 'Preço Venda (UN)']];
-      const tableBody = filteredProducts.map(p => [
+      const tableBody = productsToExport.map(p => [
         p.name,
         p.barcode || '-',
         p.quantity,
@@ -240,7 +226,7 @@ export function InventoryClient() {
     }
 
     // Excel Export
-    const dataToExport = filteredProducts.map(p => ({
+    const dataToExport = productsToExport.map(p => ({
       'Produto': p.name,
       'Código de Barras': p.barcode || '',
       'Quantidade': p.quantity,
@@ -273,49 +259,33 @@ export function InventoryClient() {
     XLSX.writeFile(workbook, fileName);
     toast({ title: 'Exportação Concluída', description: `O arquivo ${fileName} foi gerado.` });
   };
+  
+  const minimumStockLevel = companyInfo?.minimumStock ?? 0;
+
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
+  const lowStockProducts = filteredProducts.filter(p => p.quantity <= minimumStockLevel);
 
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, itemsPerPage]);
-
-  const totalItems = filteredProducts.length;
-  const totalPages =
-    itemsPerPage > 0 ? Math.ceil(totalItems / itemsPerPage) : 1;
-  const paginatedData =
-    itemsPerPage > 0
-      ? filteredProducts.slice(
-          (currentPage - 1) * itemsPerPage,
-          currentPage * itemsPerPage
-        )
-      : filteredProducts;
-
-  return (
-    <>
-      <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
-        <div className="relative w-full md:max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Pesquisar por nome ou código..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-            autoComplete="off"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2 ml-auto">
-          <Button variant="outline" onClick={() => handleExport('Excel')}>
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Exportar para Excel
-          </Button>
-          <Button onClick={() => handleExport('PDF')}>
-            <FileText className="mr-2 h-4 w-4" />
-            Gerar Relatório PDF
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-4">
+  const renderTable = (productsToShow: Product[]) => {
+      if (productsToShow.length === 0 && activeTab === 'low-stock') {
+        return (
+          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm p-8 text-center h-[200px]">
+            <div className="flex flex-col items-center gap-2">
+              <PackageX className="w-16 h-16 text-muted-foreground" />
+              <h2 className="text-2xl font-semibold">Nenhum produto com estoque baixo!</h2>
+              <p className="max-w-md mt-2 text-sm text-muted-foreground">
+                Todos os produtos estão acima do nível mínimo de estoque definido.
+              </p>
+            </div>
+          </div>
+        );
+    }
+    return (
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -330,12 +300,17 @@ export function InventoryClient() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedData.length > 0 ? (
-                paginatedData.map((item) => (
+              {productsToShow.length > 0 ? (
+                productsToShow.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell>{item.barcode || '-'}</TableCell>
-                    <TableCell className="text-right">{item.quantity}</TableCell>
+                    <TableCell className={cn(
+                        "text-right font-semibold",
+                        item.quantity <= minimumStockLevel && "text-red-500"
+                    )}>
+                        {item.quantity}
+                    </TableCell>
                     <TableCell className="text-right font-mono">
                       {formatCurrency(item.price)}
                     </TableCell>
@@ -369,57 +344,50 @@ export function InventoryClient() {
             </TableBody>
           </Table>
         </div>
-        {itemsPerPage > 0 && totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Total de {totalItems} produto(s).
-            </div>
-            <div className="flex items-center space-x-2">
-              <p className="text-sm font-medium">Itens por página</p>
-              <Select
-                value={`${itemsPerPage}`}
-                onValueChange={(value) => {
-                  setItemsPerPage(Number(value));
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="h-8 w-[70px]">
-                  <SelectValue placeholder={itemsPerPage} />
-                </SelectTrigger>
-                <SelectContent side="top">
-                  {[10, 30, 50].map((pageSize) => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                      {pageSize}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="0">Todos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground">
-                Página {currentPage} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-              >
-                Próximo
-              </Button>
-            </div>
-          </div>
-        )}
+    );
+  }
+
+  const productsForCurrentTab = activeTab === 'all' ? filteredProducts : lowStockProducts;
+
+  return (
+    <>
+      <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
+        <div className="relative w-full md:max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Pesquisar por nome ou código..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+            autoComplete="off"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 ml-auto">
+          <Button variant="outline" onClick={() => handleExport('Excel', productsForCurrentTab)}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Exportar para Excel
+          </Button>
+          <Button onClick={() => handleExport('PDF', productsForCurrentTab)}>
+            <FileText className="mr-2 h-4 w-4" />
+            Gerar Relatório PDF
+          </Button>
+        </div>
       </div>
+
+       <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="all"><Archive className="mr-2 h-4 w-4" />Todos os Produtos</TabsTrigger>
+          <TabsTrigger value="low-stock"><PackageX className="mr-2 h-4 w-4" />Estoque Baixo</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all">
+          {renderTable(filteredProducts)}
+        </TabsContent>
+
+        <TabsContent value="low-stock">
+          {renderTable(lowStockProducts)}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isRestockDialogOpen} onOpenChange={setIsRestockDialogOpen}>
         <DialogContent>

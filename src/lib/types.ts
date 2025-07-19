@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type TransactionType = 'revenue' | 'expense';
@@ -57,6 +58,7 @@ export type CompanyInfo = {
   document: string; // This is the unique identifier (CNPJ/CPF)
   logo?: string; // public URL from Firebase Storage
   allowedSubtypes?: TransactionSubtype[];
+  minimumStock?: number;
 };
 
 export type Product = {
