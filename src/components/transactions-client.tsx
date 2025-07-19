@@ -746,14 +746,23 @@ export function TransactionsClient() {
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
     const [searchValue, setSearchValue] = useState("");
-
+  
     useEffect(() => {
       // Sync search value with form value when editing
       const customerName = form.getValues("customerName");
       if (customerName) {
         setSearchValue(customerName);
+      } else {
+        setSearchValue("");
       }
     }, [form.getValues("customerName")]);
+  
+    const handleSelect = (client: Customer) => {
+      form.setValue("customerId", client.id);
+      form.setValue("customerName", client.name);
+      setSearchValue(client.name);
+      setOpen(false);
+    };
   
     return (
       <FormField
@@ -762,30 +771,21 @@ export function TransactionsClient() {
         render={() => (
           <FormItem className="flex flex-col pt-2">
             <FormLabel>Cliente (Opcional)</FormLabel>
-            <Popover open={open} onOpenChange={(isOpen) => {
-              setOpen(isOpen);
-              if (!isOpen) {
-                  // If user clicks away, set the form value to the typed text
-                  const existingCustomer = allCustomers.find(c => c.name.toLowerCase() === searchValue.toLowerCase());
-                  if (!existingCustomer) {
-                    form.setValue("customerName", searchValue.toUpperCase());
-                    form.setValue("customerId", undefined);
-                  }
-              }
-            }}>
+            <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
                 <FormControl>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className={cn(
-                      "w-full justify-between",
-                      !form.getValues("customerName") && "text-muted-foreground"
-                    )}
-                  >
-                    {form.getValues("customerName") || "Selecione ou digite um cliente"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
+                  <Input
+                    placeholder="Selecione ou digite um cliente"
+                    value={searchValue}
+                    onChange={(e) => {
+                      setSearchValue(e.target.value);
+                      if (!open) setOpen(true);
+                      form.setValue("customerName", e.target.value.toUpperCase());
+                      form.setValue("customerId", undefined);
+                    }}
+                    onFocus={() => setOpen(true)}
+                    autoComplete="off"
+                  />
                 </FormControl>
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
@@ -793,7 +793,11 @@ export function TransactionsClient() {
                   <CommandInput
                     placeholder="Buscar cliente..."
                     value={searchValue}
-                    onValueChange={setSearchValue}
+                    onValueChange={(value) => {
+                      setSearchValue(value);
+                      form.setValue("customerName", value.toUpperCase());
+                      form.setValue("customerId", undefined);
+                    }}
                     autoComplete="off"
                   />
                   <CommandList>
@@ -807,13 +811,7 @@ export function TransactionsClient() {
                           <CommandItem
                             value={client.name}
                             key={client.id}
-                            onMouseDown={(e) => {
-                                e.preventDefault();
-                                form.setValue("customerId", client.id);
-                                form.setValue("customerName", client.name);
-                                setSearchValue(client.name);
-                                setOpen(false);
-                            }}
+                            onSelect={() => handleSelect(client)}
                           >
                             <Check
                               className={cn(
@@ -1218,3 +1216,4 @@ export function TransactionsClient() {
     </>
   );
 }
+
