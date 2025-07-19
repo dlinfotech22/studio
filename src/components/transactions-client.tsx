@@ -1069,7 +1069,7 @@ export function TransactionsClient() {
                             type="number"
                             placeholder="0.00"
                             value={isNaN(field.value as number) ? '' : field.value}
-                            onChange={(e) => field.onChange(e.target.value === '' ? NaN : e.target.valueAsNumber)}
+                            onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
                             autoComplete="off"
                            />
                         </FormControl>
@@ -1110,7 +1110,7 @@ export function TransactionsClient() {
                         type="number"
                         placeholder="0.00"
                         value={isNaN(field.value as number) ? '' : field.value}
-                        onChange={(e) => field.onChange(e.target.value === '' ? NaN : e.target.valueAsNumber)}
+                        onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
                         disabled={selectedSubtype !== 'Despesa' && selectedSubtype !== 'Prestação de Serviço'}
                         autoComplete="off"
                       />
@@ -1162,7 +1162,7 @@ export function TransactionsClient() {
                               type="number"
                               placeholder="2"
                               value={isNaN(field.value as number) ? '' : field.value}
-                              onChange={(e) => field.onChange(e.target.value === '' ? NaN : e.target.valueAsNumber)}
+                              onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
                               autoComplete="off"
                              />
                           </FormControl>
