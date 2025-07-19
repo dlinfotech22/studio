@@ -202,13 +202,33 @@ export function CustomersClient() {
 
   const onSubmit = async (data: CustomerFormValues) => {
     if (!companyId) return;
+
+    const document = data.document?.replace(/\D/g, '') || '';
+
+    if (document) {
+        const q = query(
+            collection(db, 'customers'),
+            where('companyId', '==', companyId),
+            where('document', '==', document)
+        );
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            const existingCustomer = snapshot.docs[0];
+            if (!editingCustomer || existingCustomer.id !== editingCustomer.id) {
+                form.setError('document', { message: 'Este documento já está em uso.' });
+                return;
+            }
+        }
+    }
+
     const payload = { 
         ...data, 
         companyId, 
-        name: data.name, 
-        document: data.document?.replace(/\D/g, '') || '',
+        name: data.name.toUpperCase(), 
+        document: document,
         phone: data.phone?.replace(/\D/g, '') || '' 
     };
+
     try {
       if (editingCustomer) {
         await updateDoc(doc(db, 'customers', editingCustomer.id), payload);
