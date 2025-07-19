@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 
 import { type Customer, type Transaction, type Installment } from '@/lib/types';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatPhone, formatDocument } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -101,20 +101,6 @@ type DelinquentCustomer = Customer & {
   totalOwed: number;
 }
 
-const formatPhone = (value: string) => {
-    if (!value) return "";
-    value = value.replace(/\D/g, ''); 
-    value = value.substring(0, 11); 
-    if (value.length > 6) {
-      value = value.replace(/^(\d{2})(\d{5})(\d{4}).*/, '($1) $2-$3');
-    } else if (value.length > 2) {
-      value = value.replace(/^(\d{2})(\d*)/, '($1) $2');
-    } else if (value.length > 0) {
-      value = value.replace(/^(\d*)/, '($1');
-    }
-    return value;
-}
-
 export function CustomersClient() {
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -172,6 +158,7 @@ export function CustomersClient() {
       
       const delinquents = customers.map(customer => {
         const lateTransactions = transactions
+          .filter(t => t.customerId === customer.id)
           .map(t => {
             const lateInstallments = (t.installments || []).filter(i => 
               i.status === 'Pendente' && new Date(i.dueDate as Date) < today
@@ -219,6 +206,7 @@ export function CustomersClient() {
         ...data, 
         companyId, 
         name: data.name, 
+        document: data.document?.replace(/\D/g, '') || '',
         phone: data.phone?.replace(/\D/g, '') || '' 
     };
     try {
@@ -242,6 +230,7 @@ export function CustomersClient() {
     setEditingCustomer(customer);
     form.reset({
       ...customer,
+      document: formatDocument(customer.document || ''),
       phone: formatPhone(customer.phone || ''),
     });
     setIsDialogOpen(true);
@@ -310,7 +299,7 @@ export function CustomersClient() {
                       paginatedCustomers.map((customer) => (
                         <TableRow key={customer.id}>
                           <TableCell className="font-medium">{customer.name}</TableCell>
-                          <TableCell>{customer.document || '-'}</TableCell>
+                          <TableCell>{customer.document ? formatDocument(customer.document) : '-'}</TableCell>
                           <TableCell>{customer.email || '-'}</TableCell>
                           <TableCell>{customer.phone ? formatPhone(customer.phone) : '-'}</TableCell>
                           <TableCell className="text-center">
@@ -407,9 +396,9 @@ export function CustomersClient() {
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-muted-foreground mb-4">
-                                {customer.document && `${customer.document} | `}
+                                {customer.document && `${formatDocument(customer.document)} | `}
                                 {customer.email && `${customer.email} | `}
-                                {customer.phone}
+                                {customer.phone && formatPhone(customer.phone)}
                             </p>
                             <h4 className="font-semibold mb-2">Transações com Pendências:</h4>
                             <div className="space-y-2">
@@ -472,7 +461,7 @@ export function CustomersClient() {
               <FormField control={form.control} name="document" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Documento (CPF/CNPJ) <span className="text-xs text-muted-foreground">(Opcional)</span></FormLabel>
-                  <FormControl><Input {...field} autoComplete="off" /></FormControl>
+                  <FormControl><Input {...field} onChange={(e) => field.onChange(formatDocument(e.target.value))} autoComplete="off" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />

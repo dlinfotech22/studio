@@ -93,7 +93,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { cn } from '@/lib/utils';
+import { cn, formatDocument } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 
 const availableSubtypes: TransactionSubtype[] = [
@@ -320,7 +320,7 @@ export function SystemAdminClient() {
         const defaultValues = editingCompany
             ? {
                 name: editingCompany.name,
-                document: editingCompany.document,
+                document: formatDocument(editingCompany.document),
                 allowedSubtypes: editingCompany.allowedSubtypes || [],
               }
             : {
@@ -364,10 +364,11 @@ export function SystemAdminClient() {
         toast({ title: 'Sucesso!', description: 'Empresa atualizada.' });
       } else {
         const validatedData = newCompanySchema.parse(data);
+        const document = validatedData.document.replace(/\D/g, '');
         const companiesRef = collection(db, 'companies');
         const qCompany = query(
           companiesRef,
-          where('document', '==', validatedData.document)
+          where('document', '==', document)
         );
         if (!(await getDocs(qCompany)).empty) {
           companyForm.setError('document', {
@@ -390,7 +391,7 @@ export function SystemAdminClient() {
 
         const newCompany: Omit<CompanyInfo, 'id'> = {
           name: validatedData.name,
-          document: validatedData.document,
+          document: document,
           logo: '',
           allowedSubtypes: validatedData.allowedSubtypes,
         };
@@ -718,7 +719,7 @@ export function SystemAdminClient() {
                       <div>
                         <p className="font-semibold">{company.name}</p>
                         <p className="text-sm text-muted-foreground font-normal">
-                          {company.document}
+                          {formatDocument(company.document)}
                         </p>
                       </div>
                     </div>
@@ -940,7 +941,12 @@ export function SystemAdminClient() {
                   <FormItem>
                     <FormLabel>Documento (CNPJ/CPF)</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={!!editingCompany} autoComplete="off" />
+                      <Input
+                        {...field}
+                        disabled={!!editingCompany}
+                        onChange={(e) => field.onChange(formatDocument(e.target.value))}
+                        autoComplete="off"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
