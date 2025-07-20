@@ -180,7 +180,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
       <section className="mt-16 pt-8 text-center">
         <div className="inline-block">
           <div className="w-64 border-b border-black"></div>
-          <p className="text-sm mt-1">{customer?.name || transaction?.customerName || 'Assinatura do Cliente'}</p>
+          <p className="text-sm mt-1">Assinatura do Comprador / Contratante</p>
         </div>
       </section>
 
