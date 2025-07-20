@@ -10,6 +10,8 @@ export type TransactionSubtype =
 
 export type PaymentMethod = 'À Vista' | 'Parcelado' | 'A Prazo';
 export type TransactionStatus = 'Pago' | 'Pendente' | 'Parcialmente Pago';
+export type ServiceStatus = 'Aberto' | 'Em Andamento' | 'Aguardando Aprovação' | 'Finalizado' | 'Cancelado';
+
 
 export type Installment = {
   installmentNumber: number;
@@ -44,6 +46,7 @@ export type Transaction = {
   customerName?: string; // Denormalized for easier display
   paymentMethod?: PaymentMethod;
   status?: TransactionStatus;
+  serviceStatus?: ServiceStatus;
   installments?: Installment[];
   installmentsCount?: number;
   // Fields for multi-item transactions

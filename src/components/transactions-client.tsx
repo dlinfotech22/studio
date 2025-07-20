@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
-import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer, type TransactionItem, type Service, type TransactionServiceItem } from '@/lib/types';
+import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer, type TransactionItem, type Service, type TransactionServiceItem, type ServiceStatus } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -103,6 +103,7 @@ import { PrintableDocument } from './printable-document';
 import { Separator } from './ui/separator';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Label } from './ui/label';
+import { Badge } from './ui/badge';
 
 const transactionItemSchema = z.object({
     productId: z.string().min(1),
@@ -117,6 +118,8 @@ const transactionServiceItemSchema = z.object({
     price: z.coerce.number(),
 });
 
+const serviceStatusEnum = z.enum(['Aberto', 'Em Andamento', 'Aguardando Aprovação', 'Finalizado', 'Cancelado']);
+
 const transactionSchema = z.object({
   description: z.string().optional(),
   amount: z.coerce.number().optional(),
@@ -129,6 +132,7 @@ const transactionSchema = z.object({
   firstDueDate: z.date().optional(),
   items: z.array(transactionItemSchema).optional(),
   services: z.array(transactionServiceItemSchema).optional(),
+  serviceStatus: serviceStatusEnum.optional(),
 }).refine(data => {
     if (data.subtype === 'Despesa') {
       return data.amount !== undefined && data.amount > 0;
@@ -187,6 +191,8 @@ const subtypeToTypeMap: Record<TransactionSubtype, TransactionType> = {
   'Serviço + Venda': 'revenue',
   'Despesa': 'expense',
 };
+
+const serviceStatusOptions: ServiceStatus[] = ['Aberto', 'Em Andamento', 'Aguardando Aprovação', 'Finalizado', 'Cancelado'];
 
 export function TransactionsClient() {
   const { toast } = useToast();
@@ -342,6 +348,7 @@ export function TransactionsClient() {
       firstDueDate: undefined,
       items: [],
       services: [],
+      serviceStatus: 'Aberto',
     },
   });
 
@@ -374,9 +381,9 @@ export function TransactionsClient() {
     
     try {
       await runTransaction(db, async (transaction) => {
-        // --- ALL READS FIRST ---
         const companyRef = doc(db, 'companies', companyInfo.id);
         const companyDoc = await transaction.get(companyRef);
+        
         if (!companyDoc.exists()) {
           throw new Error("Dados da empresa não encontrados.");
         }
@@ -395,7 +402,6 @@ export function TransactionsClient() {
         const productRefs = Object.keys(itemChanges).map(productId => doc(db, 'products', productId));
         const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
   
-        // --- VALIDATION AND LOGIC ---
         for (let i = 0; i < productDocs.length; i++) {
           const productDoc = productDocs[i];
           const productId = productRefs[i].id;
@@ -426,21 +432,20 @@ export function TransactionsClient() {
           totalAmount = itemsTotal + servicesTotal;
         }
         
-        let baseDescription = '';
-        if (data.subtype === 'Despesa') {
-          baseDescription = 'DESPESA GERAL';
-        } else if (data.customerName) {
-          baseDescription = `LANÇAMENTO PARA ${data.customerName.toUpperCase()}`;
-        }
+        const baseDescription = data.subtype === 'Despesa'
+            ? 'DESPESA GERAL'
+            : (data.customerName ? `LANÇAMENTO PARA ${data.customerName.toUpperCase()}` : 'LANÇAMENTO');
         
         const finalDescription = data.description 
           ? `${baseDescription} - ${data.description.toUpperCase()}`
           : baseDescription;
         
+        const isServiceRelated = data.subtype === 'Prestação de Serviço' || data.subtype === 'Serviço + Venda';
+
         const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
           companyId,
-          sequentialId: nextSequentialId,
+          sequentialId: editingTransaction ? editingTransaction.sequentialId : nextSequentialId,
           amount: Math.abs(totalAmount),
           description: finalDescription,
           date: Timestamp.fromDate(data.date),
@@ -450,6 +455,7 @@ export function TransactionsClient() {
           paymentMethod: data.paymentMethod,
           items: data.items,
           services: data.services,
+          serviceStatus: isServiceRelated ? data.serviceStatus : undefined,
         };
   
         if (transactionType === 'expense') {
@@ -482,13 +488,11 @@ export function TransactionsClient() {
           payload.installmentsCount = data.installmentsCount;
         }
   
-        // --- ALL WRITES LAST ---
         for (let i = 0; i < productDocs.length; i++) {
-          const productDoc = productDocs[i];
           const productId = productRefs[i].id;
           const quantityChange = itemChanges[productId];
           if (quantityChange !== 0) {
-            const currentQuantity = productDoc.data().quantity;
+            const currentQuantity = productDocs[i].data().quantity;
             transaction.update(productRefs[i], { quantity: currentQuantity + quantityChange });
           }
         }
@@ -496,13 +500,11 @@ export function TransactionsClient() {
         if (editingTransaction) {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
           const updatePayload = { ...payload };
-          delete updatePayload.sequentialId;
           
           Object.keys(updatePayload).forEach(key => {
             const typedKey = key as keyof typeof updatePayload;
             if (updatePayload[typedKey] === undefined || (typeof updatePayload[typedKey] === 'number' && isNaN(updatePayload[typedKey] as number))) {
-              // @ts-ignore
-              delete updatePayload[typedKey];
+              delete (updatePayload as any)[typedKey];
             }
           });
           transaction.update(transactionRef, updatePayload as any);
@@ -510,13 +512,11 @@ export function TransactionsClient() {
         } else {
           const newTransactionRef = doc(collection(db, 'transactions'));
           transaction.set(newTransactionRef, payload as any);
+          transaction.update(companyRef, { transactionCounter: nextSequentialId });
           finalTransaction = { id: newTransactionRef.id, ...payload, date: data.date } as Transaction;
         }
-        
-        transaction.update(companyRef, { transactionCounter: nextSequentialId });
       });
   
-      // Manually refetch data to reflect changes
       const productSnapshot = await getDocs(query(collection(db, 'products'), where('companyId', '==', companyId)));
       setAllProducts(productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
       const transactionSnapshot = await getDocs(query(collection(db, 'transactions'), where('companyId', '==', companyId)));
@@ -534,7 +534,7 @@ export function TransactionsClient() {
       form.reset({
         description: '', amount: undefined, date: new Date(), subtype: data.subtype,
         customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
-        firstDueDate: undefined, items: [], services: []
+        firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberto'
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
@@ -559,6 +559,8 @@ export function TransactionsClient() {
         firstDueDate = (firstInstallmentDueDate as Timestamp).toDate();
     }
 
+    const isServiceRelated = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
+
     setEditingTransaction(transaction);
     form.reset({
       ...transaction,
@@ -571,6 +573,7 @@ export function TransactionsClient() {
       firstDueDate: firstDueDate,
       items: transaction.items || [],
       services: transaction.services || [],
+      serviceStatus: isServiceRelated ? (transaction.serviceStatus || 'Aberto') : undefined,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -624,7 +627,7 @@ export function TransactionsClient() {
     form.reset({
       description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
       customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
-      firstDueDate: undefined, items: [], services: []
+      firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberto'
     });
     setIsDialogOpen(true);
   };
@@ -659,6 +662,7 @@ export function TransactionsClient() {
               <TableRow>
                 <TableHead>Descrição</TableHead>
                 <TableHead>Tipo</TableHead>
+                {type === 'revenue' && <TableHead>Status do Serviço</TableHead>}
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead className="text-right">Data</TableHead>
                 <TableHead className="w-12"></TableHead>
@@ -672,6 +676,15 @@ export function TransactionsClient() {
                       {item.description}
                     </TableCell>
                     <TableCell>{item.subtype}</TableCell>
+                     {type === 'revenue' && (
+                        <TableCell>
+                            {(item.subtype === 'Prestação de Serviço' || item.subtype === 'Serviço + Venda') && item.serviceStatus ? (
+                                <Badge variant="secondary">{item.serviceStatus}</Badge>
+                            ) : (
+                                '-'
+                            )}
+                        </TableCell>
+                    )}
                     <TableCell
                       className={cn(
                         'text-right font-mono',
@@ -712,7 +725,7 @@ export function TransactionsClient() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={type === 'revenue' ? 6 : 5} className="h-24 text-center">
                     Nenhum lançamento encontrado.
                   </TableCell>
                 </TableRow>
@@ -776,6 +789,7 @@ export function TransactionsClient() {
   
   const selectedSubtype = form.watch('subtype');
   const selectedPaymentMethod = form.watch('paymentMethod');
+  const isServiceRelated = selectedSubtype === 'Prestação de Serviço' || selectedSubtype === 'Serviço + Venda';
 
   const handleAddProduct = () => {
     if (currentProduct && currentQuantity) {
@@ -984,7 +998,7 @@ export function TransactionsClient() {
                   </Button>
                 </FormControl>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 z-50" align="start">
                 <Calendar
                   mode="single"
                   selected={field.value}
@@ -1334,11 +1348,32 @@ export function TransactionsClient() {
                       )}
                     </>
                   )}
+                  {isServiceRelated && (
+                    <FormField
+                      control={form.control}
+                      name="serviceStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status do Serviço</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione um status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {serviceStatusOptions.map(status => (
+                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
               </div>
               
-             
-
-
               <DialogFooter>
                 <DialogClose asChild>
                   <Button type="button" variant="ghost">
