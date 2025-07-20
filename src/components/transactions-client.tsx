@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
-import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer, type TransactionItem, type Service } from '@/lib/types';
+import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer, type TransactionItem, type Service, type TransactionServiceItem } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -109,6 +109,12 @@ const transactionItemSchema = z.object({
     price: z.coerce.number(),
 });
 
+const transactionServiceItemSchema = z.object({
+    serviceId: z.string().min(1),
+    serviceName: z.string(),
+    price: z.coerce.number(),
+});
+
 const transactionSchema = z.object({
   description: z.string().optional(),
   amount: z.coerce.number().positive('O valor total deve ser positivo.'),
@@ -116,19 +122,24 @@ const transactionSchema = z.object({
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   customerId: z.string().optional(),
   customerName: z.string().optional(),
-  serviceId: z.string().optional(),
   paymentMethod: z.enum(['À Vista', 'Parcelado', 'A Prazo']).optional(),
   installmentsCount: z.coerce.number().optional(),
   firstDueDate: z.date().optional(),
-  serviceAmount: z.coerce.number().optional(),
   items: z.array(transactionItemSchema).optional(),
+  services: z.array(transactionServiceItemSchema).optional(),
 }).refine(data => {
-  if (data.subtype === 'Venda' || data.subtype === 'Serviço + Venda') {
+  if (data.subtype === 'Venda') {
     return data.items && data.items.length > 0;
+  }
+   if (data.subtype === 'Serviço + Venda') {
+    return (data.items && data.items.length > 0) || (data.services && data.services.length > 0);
+  }
+  if (data.subtype === 'Prestação de Serviço') {
+    return data.services && data.services.length > 0;
   }
   return true;
 }, {
-    message: 'Você deve adicionar pelo menos um produto para este tipo de lançamento.',
+    message: 'Você deve adicionar pelo menos um item ou serviço para este tipo de lançamento.',
     path: ['items'],
 }).refine(data => {
   if (data.paymentMethod === 'Parcelado' && (!data.installmentsCount || data.installmentsCount <= 1)) {
@@ -178,6 +189,7 @@ export function TransactionsClient() {
 
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [currentQuantity, setCurrentQuantity] = useState<number | ''>(1);
+  const [currentService, setCurrentService] = useState<Service | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [amountFilter, setAmountFilter] = useState('');
@@ -306,35 +318,36 @@ export function TransactionsClient() {
       subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
       customerId: '',
       customerName: '',
-      serviceId: '',
       paymentMethod: 'À Vista',
       installmentsCount: NaN,
       firstDueDate: undefined,
-      serviceAmount: NaN,
       items: [],
+      services: [],
     },
   });
 
-  const { fields: items, append, remove } = useFieldArray({
+  const { fields: items, append: appendProduct, remove: removeProduct } = useFieldArray({
     control: form.control,
     name: "items",
+  });
+  
+  const { fields: services, append: appendService, remove: removeService } = useFieldArray({
+    control: form.control,
+    name: "services",
   });
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
-        if (name === 'items' || name === 'serviceAmount') {
+        if (name === 'items' || name === 'services') {
             const itemsTotal = value.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
-            const serviceTotal = value.serviceAmount || 0;
-            const totalAmount = itemsTotal + serviceTotal;
+            const servicesTotal = value.services?.reduce((sum, service) => sum + (service.price ?? 0), 0) || 0;
+            const totalAmount = itemsTotal + servicesTotal;
             if (totalAmount > 0) {
               form.setValue('amount', totalAmount);
               form.clearErrors('amount');
             } else {
               form.setValue('amount', NaN);
             }
-        }
-        if (name === 'subtype') {
-          form.setValue('serviceId', undefined);
         }
     });
     return () => subscription.unsubscribe();
@@ -361,28 +374,25 @@ export function TransactionsClient() {
       await runTransaction(db, async (transaction) => {
         const transactionType = subtypeToTypeMap[data.subtype];
         
-        let description = data.description ? data.description.toUpperCase() : data.subtype.toUpperCase();
-        if (data.customerName && data.subtype !== 'Despesa') {
-            description = `${description} - ${data.customerName.toUpperCase()}`;
-        }
-  
-        let payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
+        let description = data.description ? data.description.toUpperCase() : '';
+        
+        const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
           companyId,
           amount: Math.abs(data.amount || 0),
-          description: description,
+          description,
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
           customerId: data.customerId,
           customerName: data.customerName ? data.customerName.toUpperCase() : '',
-          serviceId: data.serviceId,
           paymentMethod: data.paymentMethod,
-          serviceAmount: data.serviceAmount,
           items: data.items,
+          services: data.services,
         };
   
         if (transactionType === 'expense') {
           payload.status = 'Pago';
+          payload.description = data.description ? data.description.toUpperCase() : data.subtype.toUpperCase();
         } else {
           payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
         }
@@ -444,7 +454,7 @@ export function TransactionsClient() {
             }
           });
           transaction.update(transactionRef, payload as any);
-          finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId, serviceId: data.serviceId } as Transaction;
+          finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId } as Transaction;
         } else {
             Object.keys(payload).forEach(key => {
               const typedKey = key as keyof typeof payload;
@@ -455,7 +465,7 @@ export function TransactionsClient() {
             });
             const newTransactionRef = doc(collection(db, 'transactions'));
             transaction.set(newTransactionRef, payload as any);
-            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId, serviceId: data.serviceId } as Transaction;
+            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId } as Transaction;
         }
       });
   
@@ -471,7 +481,7 @@ export function TransactionsClient() {
       setIsDialogOpen(false);
       form.reset({
         description: '', amount: NaN, date: new Date(), subtype: data.subtype,
-        customerId: '', customerName: '', serviceId: '', paymentMethod: 'À Vista', installmentsCount: NaN, firstDueDate: undefined, serviceAmount: NaN, items: []
+        customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN, firstDueDate: undefined, items: [], services: []
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
@@ -503,12 +513,11 @@ export function TransactionsClient() {
       amount: Math.abs(transaction.amount),
       customerId: transaction.customerId || '',
       customerName: transaction.customerName || '',
-      serviceId: transaction.serviceId || '',
       paymentMethod: transaction.paymentMethod || 'À Vista',
       installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
       firstDueDate: firstDueDate,
       items: transaction.items || [],
-      serviceAmount: transaction.serviceAmount || undefined,
+      services: transaction.services || [],
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -557,8 +566,8 @@ export function TransactionsClient() {
     const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || 'Despesa';
     form.reset({
       description: '', amount: NaN, date: new Date(), subtype: defaultSubtype,
-      customerId: '', customerName: '', serviceId: '', paymentMethod: 'À Vista', installmentsCount: NaN,
-      firstDueDate: undefined, serviceAmount: NaN, items: []
+      customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN,
+      firstDueDate: undefined, items: [], services: []
     });
     setIsDialogOpen(true);
   };
@@ -705,13 +714,12 @@ export function TransactionsClient() {
   
   const selectedSubtype = form.watch('subtype');
   const selectedPaymentMethod = form.watch('paymentMethod');
-  const selectedServiceId = form.watch('serviceId');
 
   const handleAddProduct = () => {
     if (currentProduct && currentQuantity) {
         const qty = Number(currentQuantity);
         if (qty > 0) {
-            append({
+            appendProduct({
                 productId: currentProduct.id,
                 productName: currentProduct.name,
                 quantity: qty,
@@ -720,6 +728,17 @@ export function TransactionsClient() {
             setCurrentProduct(null);
             setCurrentQuantity(1);
         }
+    }
+  };
+  
+  const handleAddService = () => {
+    if (currentService) {
+        appendService({
+            serviceId: currentService.id,
+            serviceName: currentService.name,
+            price: currentService.price,
+        });
+        setCurrentService(null);
     }
   };
 
@@ -761,52 +780,36 @@ export function TransactionsClient() {
   }
 
   const ServiceCombobox = () => {
-    const [open, setOpen] = useState(false)
-    const serviceId = form.watch('serviceId')
-  
+    const [open, setOpen] = useState(false);
     return (
-      <Popover open={open} onOpenChange={setOpen}>
+       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            className={cn(
-              "w-full justify-between",
-              !serviceId && "text-muted-foreground"
-            )}
-          >
-            {serviceId
-              ? allServices.find((s) => s.id === serviceId)?.name
-              : "Selecionar serviço"}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentService && "text-muted-foreground")}>
+              {currentService ? currentService.name : "Selecione um serviço"}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
           <Command>
-            <CommandInput placeholder="Buscar serviço..." />
-            <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
-            <CommandGroup>
-              {allServices.map((service) => (
-                <CommandItem
-                  value={service.name}
-                  key={service.id}
-                  onSelect={() => {
-                    form.setValue("serviceId", service.id);
-                    form.setValue("description", service.name);
-                    form.setValue("amount", service.price);
-                    setOpen(false)
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      service.id === serviceId ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {service.name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
+              <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+              <CommandList>
+              <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
+              <CommandGroup>
+                  {allServices.map((serv) => (
+                  <CommandItem
+                      value={serv.name}
+                      key={serv.id}
+                      onSelect={() => {
+                          setCurrentService(serv);
+                          setOpen(false);
+                      }}
+                  >
+                      <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
+                      {serv.name}
+                  </CommandItem>
+                  ))}
+              </CommandGroup>
+              </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
@@ -821,8 +824,10 @@ export function TransactionsClient() {
         const customerName = form.getValues('customerName');
         if (customerName) {
             setValue(customerName);
+        } else {
+            setValue("");
         }
-    }, []);
+    }, [isDialogOpen]);
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -837,14 +842,15 @@ export function TransactionsClient() {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0"
-              onCloseAutoFocus={(e) => {
-                if (!allCustomers.some(c => c.name.toLowerCase() === value.toLowerCase())) {
-                    form.setValue('customerName', value.toUpperCase());
-                    form.setValue('customerId', undefined);
-                }
-                e.preventDefault();
-              }}
+            <PopoverContent 
+                className="w-[--radix-popover-trigger-width] p-0"
+                onCloseAutoFocus={(e) => {
+                    if (!allCustomers.some(c => c.name.toLowerCase() === value.toLowerCase())) {
+                        form.setValue('customerName', value.toUpperCase());
+                        form.setValue('customerId', undefined);
+                    }
+                    e.preventDefault();
+                }}
             >
                 <Command shouldFilter={false}>
                     <CommandInput 
@@ -854,33 +860,35 @@ export function TransactionsClient() {
                       autoComplete="off"
                     />
                     <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                    <CommandGroup>
-                        {allCustomers
-                          .filter(c => c.name.toLowerCase().includes(value.toLowerCase()))
-                          .map((client) => (
-                            <CommandItem
-                                key={client.id}
-                                value={client.name}
-                                onSelect={(currentValue) => {
-                                    const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
-                                    if(selectedClient) {
-                                      setValue(selectedClient.name);
-                                      form.setValue('customerId', selectedClient.id);
-                                      form.setValue('customerName', selectedClient.name);
-                                    }
-                                    setOpen(false);
-                                }}
-                            >
-                                <Check
-                                    className={cn(
-                                        "mr-2 h-4 w-4",
-                                        client.id === form.getValues("customerId") ? "opacity-100" : "opacity-0"
-                                    )}
-                                />
-                                {client.name}
-                            </CommandItem>
-                        ))}
-                    </CommandGroup>
+                    <CommandList>
+                        <CommandGroup>
+                            {allCustomers
+                              .filter(c => c.name.toLowerCase().includes(value.toLowerCase()))
+                              .map((client) => (
+                                <CommandItem
+                                    key={client.id}
+                                    value={client.name}
+                                    onSelect={(currentValue) => {
+                                        const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
+                                        if(selectedClient) {
+                                            setValue(selectedClient.name);
+                                            form.setValue('customerId', selectedClient.id);
+                                            form.setValue('customerName', selectedClient.name);
+                                        }
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            client.id === form.getValues("customerId") ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    {client.name}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
                 </Command>
             </PopoverContent>
         </Popover>
@@ -1044,9 +1052,8 @@ export function TransactionsClient() {
                         <Select
                           onValueChange={(value: TransactionSubtype) => {
                             field.onChange(value);
-                            form.setValue('serviceId', undefined);
                             form.setValue('items', []);
-                            form.setValue('serviceAmount', NaN);
+                            form.setValue('services', []);
                             form.setValue('amount', NaN);
                           }}
                           value={field.value}
@@ -1073,20 +1080,37 @@ export function TransactionsClient() {
                      </FormItem>
                   )}
               </div>
-
-              {selectedSubtype === 'Prestação de Serviço' && (
-                <FormField
-                  control={form.control}
-                  name="serviceId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Serviço (Opcional)</FormLabel>
-                      <ServiceCombobox />
-                      <FormDescription>Selecione um serviço cadastrado para preencher a descrição e o valor automaticamente.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              
+              {(selectedSubtype === 'Prestação de Serviço' || selectedSubtype === 'Serviço + Venda') && (
+                <Card>
+                  <CardHeader className="px-6 pt-4 pb-2">
+                      <CardTitle className="text-lg">Serviços do Lançamento</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                      <div className="flex flex-col md:flex-row gap-2 items-end">
+                            <div className="flex-1 w-full">
+                              <Label>Serviço</Label>
+                              <ServiceCombobox />
+                            </div>
+                          <Button type="button" onClick={handleAddService}>Adicionar</Button>
+                      </div>
+                      <Separator />
+                      <div className="space-y-2">
+                          {services.map((service, index) => (
+                              <div key={service.id} className="flex items-center justify-between p-2 rounded-md bg-muted">
+                                  <p className="font-medium">{service.serviceName}</p>
+                                  <div className='flex items-center'>
+                                      <p className="font-mono">{formatCurrency(service.price)}</p>
+                                      <Button type="button" variant="ghost" size="icon" className="ml-2 h-8 w-8" onClick={() => removeService(index)}>
+                                          <Trash2 className="h-4 w-4 text-red-500" />
+                                      </Button>
+                                  </div>
+                              </div>
+                          ))}
+                          {services.length === 0 && <p className="text-sm text-center text-muted-foreground">Nenhum serviço adicionado.</p>}
+                      </div>
+                  </CardContent>
+                </Card>
               )}
 
               {(selectedSubtype === 'Venda' || selectedSubtype === 'Serviço + Venda') && (
@@ -1115,39 +1139,18 @@ export function TransactionsClient() {
                                         <p className="text-sm text-muted-foreground">{item.quantity} x {formatCurrency(item.price)}</p>
                                     </div>
                                     <p className="font-mono">{formatCurrency(item.quantity * item.price)}</p>
-                                    <Button type="button" variant="ghost" size="icon" className="ml-2 h-8 w-8" onClick={() => remove(index)}>
+                                    <Button type="button" variant="ghost" size="icon" className="ml-2 h-8 w-8" onClick={() => removeProduct(index)}>
                                         <Trash2 className="h-4 w-4 text-red-500" />
                                     </Button>
                                 </div>
                             ))}
                             {items.length === 0 && <p className="text-sm text-center text-muted-foreground">Nenhum produto adicionado.</p>}
                         </div>
-                        <FormField control={form.control} name="items" render={({ fieldState }) => <FormMessage>{fieldState.error?.message}</FormMessage>} />
+                        <FormField control={form.control} name="items" render={({ fieldState }) => <FormMessage>{fieldState.error?.message || fieldState.error?.root?.message}</FormMessage>} />
                     </CardContent>
                 </Card>
               )}
               
-              {selectedSubtype === 'Serviço + Venda' && (
-                  <FormField
-                    control={form.control}
-                    name="serviceAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Valor do Serviço</FormLabel>
-                        <FormControl>
-                           <Input
-                            type="number"
-                            placeholder="0.00"
-                            value={isNaN(field.value as number) ? '' : field.value}
-                            onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
-                            autoComplete="off"
-                           />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-              )}
               <FormField
                 control={form.control}
                 name="description"
@@ -1156,14 +1159,13 @@ export function TransactionsClient() {
                     <FormLabel>Informação Adicional (Opcional)</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Ex: Pagamento de aluguel"
+                        placeholder={selectedSubtype === 'Despesa' ? 'Ex: Pagamento de aluguel' : 'Detalhes adicionais'}
                         {...field}
                         value={field.value ?? ''}
                         onChange={(e) =>
                           field.onChange(e.target.value.toUpperCase())
                         }
                         autoComplete="off"
-                        disabled={selectedSubtype === 'Prestação de Serviço' && !!form.watch('serviceId')}
                       />
                     </FormControl>
                     <FormMessage />
@@ -1185,7 +1187,7 @@ export function TransactionsClient() {
                         disabled={
                           selectedSubtype === 'Venda' ||
                           selectedSubtype === 'Serviço + Venda' ||
-                          (selectedSubtype === 'Prestação de Serviço' && !!selectedServiceId)
+                          selectedSubtype === 'Prestação de Serviço'
                         }
                         autoComplete="off"
                       />

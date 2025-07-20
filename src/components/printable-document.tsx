@@ -18,17 +18,19 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
 
   const getTitle = () => {
     switch(transaction.subtype) {
-      case 'Prestação de Serviço': return 'Ordem de Serviço';
-      case 'Serviço + Venda': return 'Ordem de Serviço e Venda';
+      case 'Prestação de Serviço': return 'Recibo de Serviço';
+      case 'Serviço + Venda': return 'Recibo de Serviço e Venda';
       case 'Venda': return 'Comprovante de Venda';
       default: return 'Documento';
     }
   };
 
-  const hasService = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
+  const hasServices = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
   const hasProducts = transaction.subtype === 'Venda' || transaction.subtype === 'Serviço + Venda';
-  const items = transaction.items || [];
-  const productTotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+  const productItems = transaction.items || [];
+  const serviceItems = transaction.services || [];
+  const productTotal = productItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+  const serviceTotal = serviceItems.reduce((sum, item) => sum + item.price, 0);
 
   return (
     <div className="bg-white text-black p-8 font-sans printable-area">
@@ -99,13 +101,28 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
       <section className="mt-6">
         <h3 className="text-lg font-semibold border-b border-gray-200 pb-2 mb-4 text-gray-700">Detalhes da Operação</h3>
         <div className="space-y-4 text-sm">
-          {hasService && (
+          {hasServices && serviceItems.length > 0 && (
             <div>
               <h4 className="font-semibold text-gray-600 mb-1">Serviços Prestados</h4>
-              <p className="p-2 bg-gray-50 rounded">{transaction.description || 'Serviço prestado'}</p>
+               <table className="w-full text-left">
+                <thead className="border-b">
+                  <tr className="bg-gray-100">
+                    <th className="p-2 font-semibold">Serviço</th>
+                    <th className="p-2 font-semibold text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {serviceItems.map(item => (
+                    <tr key={item.serviceId} className="border-b">
+                      <td className="p-2">{item.serviceName}</td>
+                      <td className="p-2 text-right font-mono">{formatCurrency(item.price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-          {hasProducts && items.length > 0 && (
+          {hasProducts && productItems.length > 0 && (
             <div>
               <h4 className="font-semibold text-gray-600 mb-1">Produtos Vendidos</h4>
               <table className="w-full text-left">
@@ -118,7 +135,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map(item => (
+                  {productItems.map(item => (
                     <tr key={item.productId} className="border-b">
                       <td className="p-2">{item.productName}</td>
                       <td className="p-2 text-center">{item.quantity}</td>
@@ -139,7 +156,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
             <>
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal (Serviços):</span>
-                <span className="font-medium text-gray-800">{formatCurrency(transaction.serviceAmount || 0)}</span>
+                <span className="font-medium text-gray-800">{formatCurrency(serviceTotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal (Produtos):</span>

@@ -25,6 +25,12 @@ export type TransactionItem = {
   price: number; // Price at the time of transaction
 };
 
+export type TransactionServiceItem = {
+    serviceId: string;
+    serviceName: string; // Denormalized
+    price: number; // Price at the time of transaction
+};
+
 export type Transaction = {
   id: string;
   date: Date | Timestamp;
@@ -41,8 +47,8 @@ export type Transaction = {
   installmentsCount?: number;
   // Fields for multi-item transactions
   items?: TransactionItem[];
-  serviceAmount?: number;
-  serviceId?: string;
+  services?: TransactionServiceItem[];
+  serviceAmount?: number; // Kept for backward compatibility or simple services
 };
 
 export type User = {
