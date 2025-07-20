@@ -5,6 +5,14 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
+  collection,
+  query,
+  where,
+  getDocs,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { type CompanyInfo } from '@/lib/types';
+import {
   ArrowRightLeft,
   BarChart3,
   LayoutDashboard,
@@ -47,6 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [hasCompany, setHasCompany] = useState(false);
 
   useEffect(() => {
@@ -57,6 +66,25 @@ export function AppShell({ children }: { children: ReactNode }) {
     setCurrentUser(user);
     setCurrentUserRole(role);
     setHasCompany(!!companyId);
+
+    const fetchCompanyInfo = async (id: string) => {
+        try {
+            const companiesRef = collection(db, 'companies');
+            const q = query(companiesRef, where('document', '==', id));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const companyDoc = querySnapshot.docs[0];
+                setCompanyInfo({ id: companyDoc.id, ...companyDoc.data() } as CompanyInfo);
+            }
+        } catch (error) {
+            console.error('Failed to fetch company info:', error);
+        }
+    }
+
+    if(companyId) {
+        fetchCompanyInfo(companyId);
+    }
 
     if (!token && pathname !== '/login') {
       router.push('/login');
@@ -73,8 +101,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     sessionStorage.removeItem('current-user-name');
     sessionStorage.removeItem('current-user-role');
     sessionStorage.removeItem('current-user-company-id');
+    setCompanyInfo(null);
     router.push('/login');
   };
+
+  const showProductsMenu = companyInfo?.allowedSubtypes?.some(
+    (st) => st === 'Venda' || st === 'Serviço + Venda'
+  );
+
+  const showServicesMenu = companyInfo?.allowedSubtypes?.some(
+    (st) => st === 'Prestação de Serviço' || st === 'Serviço + Venda'
+  );
 
   if (isAuthenticating) {
     return (
@@ -182,39 +219,45 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
-                 <SidebarMenuItem>
-                  <Link href="/products">
-                    <SidebarMenuButton
-                      tooltip="Catálogo de Produtos"
-                      isActive={pathname === '/products'}
-                    >
-                      <Book />
-                      <span>Catálogo de Produtos</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-                 <SidebarMenuItem>
-                  <Link href="/services">
-                    <SidebarMenuButton
-                      tooltip="Catálogo de Serviços"
-                      isActive={pathname === '/services'}
-                    >
-                      <Wrench />
-                      <span>Catálogo de Serviços</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <Link href="/inventory">
-                    <SidebarMenuButton
-                      tooltip="Estoque"
-                      isActive={pathname === '/inventory'}
-                    >
-                      <Package />
-                      <span>Estoque</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
+                 {showProductsMenu && (
+                    <SidebarMenuItem>
+                      <Link href="/products">
+                        <SidebarMenuButton
+                          tooltip="Catálogo de Produtos"
+                          isActive={pathname === '/products'}
+                        >
+                          <Book />
+                          <span>Catálogo de Produtos</span>
+                        </SidebarMenuButton>
+                      </Link>
+                    </SidebarMenuItem>
+                 )}
+                 {showServicesMenu && (
+                    <SidebarMenuItem>
+                      <Link href="/services">
+                        <SidebarMenuButton
+                          tooltip="Catálogo de Serviços"
+                          isActive={pathname === '/services'}
+                        >
+                          <Wrench />
+                          <span>Catálogo de Serviços</span>
+                        </SidebarMenuButton>
+                      </Link>
+                    </SidebarMenuItem>
+                 )}
+                {showProductsMenu && (
+                    <SidebarMenuItem>
+                        <Link href="/inventory">
+                            <SidebarMenuButton
+                            tooltip="Estoque"
+                            isActive={pathname === '/inventory'}
+                            >
+                            <Package />
+                            <span>Estoque</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                )}
                 <SidebarMenuItem>
                   <Link href="/reports">
                     <SidebarMenuButton
