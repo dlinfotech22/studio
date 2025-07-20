@@ -379,17 +379,15 @@ export function ReportsClient() {
 
   const getTransactionDescription = (transaction: Transaction) => {
     let details = [];
-    if (transaction.subtype === 'Prestação de Serviço') {
-      return transaction.description;
-    }
-    if (transaction.subtype === 'Serviço + Venda' && transaction.serviceAmount) {
-      details.push(`SERVIÇO: ${formatCurrency(transaction.serviceAmount)}`);
+    if (transaction.services && transaction.services.length > 0) {
+        const serviceDetails = transaction.services.map(s => s.serviceName).join(', ');
+        details.push(`Serviços: ${serviceDetails}`);
     }
     if (transaction.items && transaction.items.length > 0) {
       const itemDetails = transaction.items.map(
         (item) => `${item.quantity}x ${item.productName}`
       ).join(', ');
-      details.push(`PRODUTOS: ${itemDetails}`);
+      details.push(`Produtos: ${itemDetails}`);
     }
     if (details.length > 0) return details.join(' | ');
 
@@ -460,54 +458,110 @@ export function ReportsClient() {
     }
 
     // Excel Export
-    const dataToExport = filteredTransactions.map((t) => {
-        return {
-            'Data': format(new Date(t.date), 'dd/MM/yyyy'),
-            'Tipo': t.subtype,
-            'Descrição': getTransactionDescription(t),
-            'Valor': t.amount,
-        };
+    const dataToExport: any[] = [];
+    dataToExport.push([
+        'Data', 'ID', 'Tipo', 'Cliente', 'Item/Serviço', 'Qtde.', 'Preço Un.', 'Subtotal', 'Valor Total'
+    ]);
+
+    filteredTransactions.forEach(t => {
+        const isRevenue = t.type === 'revenue';
+        const items = t.items || [];
+        const services = t.services || [];
+        const totalLines = Math.max(1, items.length + services.length);
+
+        for (let i = 0; i < totalLines; i++) {
+            const row: any[] = [];
+            if (i === 0) {
+                // Main transaction row
+                row.push(
+                    format(new Date(t.date), 'dd/MM/yyyy'),
+                    t.sequentialId ? String(t.sequentialId).padStart(8, '0') : t.id.substring(0,8).toUpperCase(),
+                    t.subtype,
+                    t.customerName || '-',
+                );
+            } else {
+                row.push('', '', '', ''); // Empty cells for subsequent lines of the same transaction
+            }
+
+            let itemDescription = '';
+            let itemQuantity = '';
+            let itemPrice = '';
+            let itemSubtotal = '';
+
+            if (isRevenue) {
+                if (i < services.length) {
+                    itemDescription = `  ${services[i].serviceName}`;
+                    itemQuantity = '1';
+                    itemPrice = services[i].price;
+                    itemSubtotal = services[i].price;
+                } else if (i < services.length + items.length) {
+                    const item = items[i - services.length];
+                    itemDescription = `  ${item.productName}`;
+                    itemQuantity = item.quantity.toString();
+                    itemPrice = item.price;
+                    itemSubtotal = item.quantity * item.price;
+                }
+            } else {
+                // For expenses on the first line
+                if (i === 0) {
+                    itemDescription = t.description;
+                }
+            }
+            
+            row.push(itemDescription, itemQuantity, itemPrice, itemSubtotal);
+
+            if (i === 0) {
+                row.push(t.amount);
+            } else {
+                row.push('');
+            }
+            dataToExport.push(row);
+        }
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const worksheet = XLSX.utils.aoa_to_sheet(dataToExport);
+
+    // Style and format
+    worksheet['!cols'] = [
+      { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 40 }, 
+      { wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
+    ];
 
     const range = XLSX.utils.decode_range(worksheet['!ref']!);
     for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-      const cell_address = { c: 3, r: R };
-      const cell_ref = XLSX.utils.encode_cell(cell_address);
-      if (worksheet[cell_ref]) {
-        worksheet[cell_ref].t = 'n';
-        worksheet[cell_ref].z = '"R$"#,##0.00';
-      }
+        // Price, Subtotal, Total
+        for (let C of [6, 7, 8]) {
+            const cell_address = { c: C, r: R };
+            const cell_ref = XLSX.utils.encode_cell(cell_address);
+            if (worksheet[cell_ref] && worksheet[cell_ref].v !== '') {
+                worksheet[cell_ref].t = 'n';
+                worksheet[cell_ref].z = '"R$"#,##0.00';
+            }
+        }
     }
 
+    // Add summary
     XLSX.utils.sheet_add_aoa(
       worksheet,
       [
         [],
-        ['', '', 'Receita Total', totalRevenue],
-        ['', '', 'Despesa Total', totalExpenses],
-        ['', '', 'Lucro/Prejuízo', profit],
+        ['', '', '', '', '', '', '', 'Receita Total', totalRevenue],
+        ['', '', '', '', '', '', '', 'Despesa Total', totalExpenses],
+        ['', '', '', '', '', '', '', 'Lucro/Prejuízo', profit],
       ],
       { origin: -1 }
     );
-
-    const new_range = XLSX.utils.decode_range(worksheet['!ref']!);
-    for (let R = new_range.e.r - 2; R <= new_range.e.r; ++R) {
-      const cell_address = { c: 3, r: R };
-      const cell_ref = XLSX.utils.encode_cell(cell_address);
-      if (worksheet[cell_ref]) {
-        worksheet[cell_ref].t = 'n';
-        worksheet[cell_ref].z = '"R$"#,##0.00';
-      }
+    
+    const summaryStartRow = range.e.r + 3;
+    for (let R = summaryStartRow; R <= summaryStartRow + 2; ++R) {
+        const cell_address = { c: 8, r: R };
+        const cell_ref = XLSX.utils.encode_cell(cell_address);
+        if (worksheet[cell_ref]) {
+            worksheet[cell_ref].t = 'n';
+            worksheet[cell_ref].z = '"R$"#,##0.00';
+        }
     }
 
-    worksheet['!cols'] = [
-      { wch: 12 },
-      { wch: 20 },
-      { wch: 60 },
-      { wch: 15 },
-    ];
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Lançamentos');
@@ -584,15 +638,18 @@ export function ReportsClient() {
     });
     startY = (doc as any).lastAutoTable.finalY + 10;
     
-    const tableBody = filteredTransactions.map((t) => [
-        format(new Date(t.date), 'dd/MM/yyyy'),
-        t.subtype,
-        getTransactionDescription(t),
-        formatCurrency(t.amount),
-    ]);
+    const tableBody = filteredTransactions.map((t) => {
+        const details = getTransactionDescription(t);
+        return [
+            format(new Date(t.date), 'dd/MM/yyyy'),
+            t.subtype,
+            details,
+            formatCurrency(t.amount),
+        ];
+    });
 
     (doc as any).autoTable({
-        head: [['Data', 'Tipo', 'Descrição', 'Valor']],
+        head: [['Data', 'Tipo', 'Detalhes', 'Valor']],
         body: tableBody,
         startY,
         headStyles: { fillColor: [41, 128, 185] },
