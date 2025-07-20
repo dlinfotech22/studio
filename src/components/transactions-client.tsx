@@ -984,7 +984,7 @@ export function TransactionsClient() {
                   </Button>
                 </FormControl>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 z-50" align="start">
                 <Calendar
                   mode="single"
                   selected={field.value}
@@ -1277,61 +1277,63 @@ export function TransactionsClient() {
                 />
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                {selectedSubtype !== 'Despesa' && (
-                    <FormField
-                      control={form.control}
-                      name="paymentMethod"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Forma de Pagamento</FormLabel>
-                          <Select 
-                            onValueChange={(value: PaymentMethod) => {
-                              field.onChange(value);
-                              form.setValue('installmentsCount', undefined);
-                              form.setValue('firstDueDate', undefined);
-                            }} 
-                            value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione a forma de pagamento" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="À Vista">À Vista</SelectItem>
-                              <SelectItem value="A Prazo">A Prazo</SelectItem>
-                              <SelectItem value="Parcelado">Parcelado</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
+                  <DatePicker fieldName="date" />
+                  {selectedSubtype !== 'Despesa' && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="paymentMethod"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Forma de Pagamento</FormLabel>
+                            <Select 
+                              onValueChange={(value: PaymentMethod) => {
+                                field.onChange(value);
+                                form.setValue('installmentsCount', undefined);
+                                form.setValue('firstDueDate', undefined);
+                              }} 
+                              value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="À Vista">À Vista</SelectItem>
+                                <SelectItem value="A Prazo">A Prazo</SelectItem>
+                                <SelectItem value="Parcelado">Parcelado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      {selectedPaymentMethod === 'Parcelado' && (
+                        <FormField
+                          control={form.control}
+                          name="installmentsCount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Número de Parcelas</FormLabel>
+                              <FormControl>
+                                  <Input
+                                  type="number"
+                                  placeholder="2"
+                                  value={field.value === undefined ? '' : field.value}
+                                  onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                                  autoComplete="off"
+                                  />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       )}
-                    />
-                )}
-                {selectedPaymentMethod === 'Parcelado' && (
-                  <FormField
-                    control={form.control}
-                    name="installmentsCount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Número de Parcelas</FormLabel>
-                        <FormControl>
-                            <Input
-                            type="number"
-                            placeholder="2"
-                            value={field.value === undefined ? '' : field.value}
-                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                            autoComplete="off"
-                            />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-                {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
-                  <DatePicker fieldName="firstDueDate" />
-                )}
-                 <DatePicker fieldName="date" />
+                      {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
+                        <DatePicker fieldName="firstDueDate" />
+                      )}
+                    </>
+                  )}
               </div>
               
              
