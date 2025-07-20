@@ -117,7 +117,7 @@ const transactionServiceItemSchema = z.object({
 
 const transactionSchema = z.object({
   description: z.string().optional(),
-  amount: z.coerce.number().positive('O valor total deve ser positivo.'),
+  amount: z.coerce.number().optional(),
   date: z.date(),
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   customerId: z.string().optional(),
@@ -127,6 +127,14 @@ const transactionSchema = z.object({
   firstDueDate: z.date().optional(),
   items: z.array(transactionItemSchema).optional(),
   services: z.array(transactionServiceItemSchema).optional(),
+}).refine(data => {
+  if (data.subtype === 'Despesa') {
+    return data.amount && data.amount > 0;
+  }
+  return true;
+}, {
+  message: 'O valor total deve ser positivo para despesas.',
+  path: ['amount'],
 }).refine(data => {
   if (data.subtype === 'Venda') {
     return data.items && data.items.length > 0;
@@ -826,12 +834,7 @@ export function TransactionsClient() {
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const [searchValue, setSearchValue] = useState("");
-  
-    useEffect(() => {
-        const customerName = form.getValues('customerName');
-        setSearchValue(customerName || "");
-    }, [isDialogOpen, form.getValues('customerName')]);
+    const value = form.watch('customerName');
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -842,7 +845,7 @@ export function TransactionsClient() {
                     aria-expanded={open}
                     className="w-full justify-between"
                 >
-                    {form.getValues('customerName') || "Selecione ou digite um cliente"}
+                    {value || "Selecione ou digite um cliente"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
@@ -859,9 +862,7 @@ export function TransactionsClient() {
                 <Command>
                     <CommandInput 
                       placeholder="Buscar cliente..." 
-                      value={searchValue}
                       onValueChange={(val) => {
-                        setSearchValue(val);
                         form.setValue('customerName', val.toUpperCase());
                         form.setValue('customerId', undefined);
                       }}
@@ -871,7 +872,7 @@ export function TransactionsClient() {
                         <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                         <CommandGroup>
                             {allCustomers
-                              .filter(c => c.name.toLowerCase().includes(searchValue.toLowerCase()))
+                              .filter(c => c.name.toLowerCase().includes(form.getValues('customerName')?.toLowerCase() || ''))
                               .map((client) => (
                                 <CommandItem
                                     key={client.id}
@@ -883,7 +884,6 @@ export function TransactionsClient() {
                                             form.setValue('customerName', selectedClient.name);
                                             form.clearErrors('customerName');
                                         }
-                                        setSearchValue(selectedClient ? selectedClient.name : '');
                                         setOpen(false);
                                     }}
                                 >
