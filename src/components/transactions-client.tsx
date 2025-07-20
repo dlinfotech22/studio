@@ -1211,9 +1211,6 @@ export function TransactionsClient() {
                         placeholder="Ex: Pagamento de aluguel ou detalhes do serviço"
                         {...field}
                         value={field.value ?? ''}
-                        onChange={(e) =>
-                          field.onChange(e.target.value)
-                        }
                         autoComplete="off"
                       />
                     </FormControl>
@@ -1243,7 +1240,7 @@ export function TransactionsClient() {
                   )}
                 />
               )}
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                 {selectedSubtype !== 'Despesa' && (
                     <FormField
                       control={form.control}
@@ -1295,11 +1292,11 @@ export function TransactionsClient() {
                     )}
                   />
                 )}
+                {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
+                  <DatePicker fieldName="firstDueDate" />
+                )}
               </div>
               
-              {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
-                <DatePicker fieldName="firstDueDate" />
-              )}
               <DatePicker fieldName="date" />
 
 
@@ -1340,5 +1337,6 @@ export function TransactionsClient() {
     </>
   );
 }
+
 
 
