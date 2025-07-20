@@ -489,6 +489,7 @@ export function ScheduleClient() {
                            <FormMessage />
                         </FormItem>
                     )} />
+
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="scheduledDate" render={({ field }) => (
                           <FormItem className="flex flex-col !space-y-0">
@@ -518,12 +519,12 @@ export function ScheduleClient() {
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="scheduledTime" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Hora</FormLabel>
+                            <FormItem className="!space-y-0">
+                                <FormLabel className="mb-2">Hora</FormLabel>
                                 <FormControl>
                                     <Input type="time" {...field} autoComplete="off" />
                                 </FormControl>
-                                <FormMessage />
+                                <FormMessage className="pt-2"/>
                             </FormItem>
                         )}/>
                     </div>
