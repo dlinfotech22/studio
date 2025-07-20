@@ -57,6 +57,13 @@ export function CompanyDashboard() {
             date: (data.date as Timestamp).toDate(),
           } as Transaction;
         });
+        
+        const financiallyRelevantTransactions = allTransactions.filter(t => {
+          if (t.subtype === 'Prestação de Serviço' || t.subtype === 'Serviço + Venda') {
+            return t.serviceStatus === 'Finalizado';
+          }
+          return true;
+        });
 
         if (allTransactions.length > 0) {
           setHasData(true);
@@ -76,7 +83,7 @@ export function CompanyDashboard() {
 
         const currentMonthStart = startOfMonth(now);
         const currentMonthEnd = endOfMonth(now);
-        const currentMonthTransactions = allTransactions.filter(
+        const currentMonthTransactions = financiallyRelevantTransactions.filter(
           (t) => new Date(t.date) >= currentMonthStart && new Date(t.date) <= currentMonthEnd
         );
         const currentMonthMetrics = calculateMetrics(currentMonthTransactions);
@@ -84,14 +91,14 @@ export function CompanyDashboard() {
         const prevMonth = subMonths(now, 1);
         const prevMonthStart = startOfMonth(prevMonth);
         const prevMonthEnd = endOfMonth(prevMonth);
-        const prevMonthTransactions = allTransactions.filter(
+        const prevMonthTransactions = financiallyRelevantTransactions.filter(
           (t) => new Date(t.date) >= prevMonthStart && new Date(t.date) <= prevMonthEnd
         );
         const prevMonthMetrics = calculateMetrics(prevMonthTransactions);
 
         const currentYearStart = startOfYear(now);
         const currentYearEnd = endOfYear(now);
-        const annualTransactions = allTransactions.filter(
+        const annualTransactions = financiallyRelevantTransactions.filter(
           (t) => new Date(t.date) >= currentYearStart && new Date(t.date) <= currentYearEnd
         );
         const annualMetrics = calculateMetrics(annualTransactions);
@@ -99,7 +106,7 @@ export function CompanyDashboard() {
         const prevYear = subMonths(now, 12);
         const prevYearStart = startOfYear(prevYear);
         const prevYearEnd = endOfYear(prevYear);
-        const prevAnnualTransactions = allTransactions.filter(
+        const prevAnnualTransactions = financiallyRelevantTransactions.filter(
           (t) => new Date(t.date) >= prevYearStart && new Date(t.date) <= prevYearEnd
         );
         const prevAnnualMetrics = calculateMetrics(prevAnnualTransactions);
@@ -158,7 +165,7 @@ export function CompanyDashboard() {
           const monthStart = startOfMonth(date);
           const monthEnd = endOfMonth(date);
 
-          const monthTransactions = allTransactions.filter(
+          const monthTransactions = financiallyRelevantTransactions.filter(
             (t) => new Date(t.date) >= monthStart && new Date(t.date) <= monthEnd
           );
           const { revenue, expenses } = calculateMetrics(monthTransactions);

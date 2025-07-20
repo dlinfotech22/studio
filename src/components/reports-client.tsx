@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -356,10 +355,17 @@ export function ReportsClient() {
     return new Date(t.date) >= fromDate && new Date(t.date) <= toDate;
   });
 
-  const totalRevenue = filteredTransactions
+  const financiallyRelevantTransactions = filteredTransactions.filter(t => {
+      if (t.subtype === 'Prestação de Serviço' || t.subtype === 'Serviço + Venda') {
+        return t.serviceStatus === 'Finalizado';
+      }
+      return true;
+  });
+
+  const totalRevenue = financiallyRelevantTransactions
     .filter((t) => t.type === 'revenue')
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-  const totalExpenses = filteredTransactions
+  const totalExpenses = financiallyRelevantTransactions
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
   const profit = totalRevenue - totalExpenses;
@@ -895,11 +901,11 @@ export function ReportsClient() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Limpar Dados Antigos</DialogTitle>
-            <DialogDescription>
+            <AlertDialogTitle>Limpar Dados Antigos</AlertDialogTitle>
+            <AlertDialogDescription>
               Selecione o ano cujos dados de transações você deseja remover
               permanentemente. Esta ação não pode ser desfeita.
-            </DialogDescription>
+            </AlertDialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <Label htmlFor="year-select">Ano para Limpeza</Label>
