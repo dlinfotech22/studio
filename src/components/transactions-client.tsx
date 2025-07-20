@@ -432,13 +432,7 @@ export function TransactionsClient() {
           totalAmount = itemsTotal + servicesTotal;
         }
         
-        const baseDescription = data.subtype === 'Despesa'
-            ? 'DESPESA GERAL'
-            : (data.customerName ? `LANÇAMENTO PARA ${data.customerName.toUpperCase()}` : 'LANÇAMENTO');
-        
-        const finalDescription = data.description 
-          ? `${baseDescription} - ${data.description.toUpperCase()}`
-          : baseDescription;
+        const finalDescription = (data.description || '').toUpperCase();
         
         const isServiceRelated = data.subtype === 'Prestação de Serviço' || data.subtype === 'Serviço + Venda';
 

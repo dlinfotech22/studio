@@ -363,21 +363,6 @@ export function ReportsClient() {
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
   const profit = totalRevenue - totalExpenses;
-
-  const getTransactionAdditionalInfo = (transaction: Transaction) => {
-    const baseDescription = transaction.subtype === 'Despesa'
-        ? 'DESPESA GERAL'
-        : `LANÇAMENTO PARA ${transaction.customerName?.toUpperCase()}`;
-
-    if (transaction.description.startsWith(baseDescription)) {
-        const additionalInfo = transaction.description.substring(baseDescription.length);
-        if (additionalInfo.startsWith(' - ')) {
-            return additionalInfo.substring(3);
-        }
-        return additionalInfo;
-    }
-    return transaction.description;
-  };
   
   const prepareExportData = (transactionsToExport: Transaction[]) => {
     return transactionsToExport.map(t => {
@@ -391,7 +376,7 @@ export function ReportsClient() {
         'ID': t.sequentialId ? String(t.sequentialId).padStart(8, '0') : t.id.substring(0,8).toUpperCase(),
         'Tipo de Lançamento': t.subtype,
         'Cliente': t.customerName || '',
-        'Descrição Adicional': getTransactionAdditionalInfo(t),
+        'Descrição Adicional': t.description,
         'Itens': itemsList,
         'Serviços': servicesList,
         'Total Produtos (R$)': productTotal,
