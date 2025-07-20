@@ -826,16 +826,12 @@ export function TransactionsClient() {
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const [value, setValue] = useState("");
+    const [searchValue, setSearchValue] = useState("");
   
     useEffect(() => {
         const customerName = form.getValues('customerName');
-        if (customerName) {
-            setValue(customerName);
-        } else {
-            setValue("");
-        }
-    }, [isDialogOpen]);
+        setSearchValue(customerName || "");
+    }, [isDialogOpen, form.getValues('customerName')]);
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -846,32 +842,36 @@ export function TransactionsClient() {
                     aria-expanded={open}
                     className="w-full justify-between"
                 >
-                    {value || "Selecione ou digite um cliente"}
+                    {form.getValues('customerName') || "Selecione ou digite um cliente"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
             <PopoverContent 
                 className="w-[--radix-popover-trigger-width] p-0"
                 onCloseAutoFocus={(e) => {
-                    if (!allCustomers.some(c => c.name.toLowerCase() === value.toLowerCase())) {
-                        form.setValue('customerName', value.toUpperCase());
-                        form.setValue('customerId', undefined);
+                    const currentVal = form.getValues('customerName');
+                    if (currentVal && !allCustomers.some(c => c.name.toLowerCase() === currentVal.toLowerCase())) {
+                       form.setValue('customerId', undefined);
                     }
                     e.preventDefault();
                 }}
             >
-                <Command shouldFilter={false}>
+                <Command>
                     <CommandInput 
                       placeholder="Buscar cliente..." 
-                      value={value}
-                      onValueChange={setValue}
+                      value={searchValue}
+                      onValueChange={(val) => {
+                        setSearchValue(val);
+                        form.setValue('customerName', val.toUpperCase());
+                        form.setValue('customerId', undefined);
+                      }}
                       autoComplete="off"
                     />
                     <CommandList>
                         <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                         <CommandGroup>
                             {allCustomers
-                              .filter(c => c.name.toLowerCase().includes(value.toLowerCase()))
+                              .filter(c => c.name.toLowerCase().includes(searchValue.toLowerCase()))
                               .map((client) => (
                                 <CommandItem
                                     key={client.id}
@@ -879,7 +879,6 @@ export function TransactionsClient() {
                                     onSelect={(currentValue) => {
                                         const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
                                         if(selectedClient) {
-                                            setValue(selectedClient.name);
                                             form.setValue('customerId', selectedClient.id);
                                             form.setValue('customerName', selectedClient.name);
                                             form.clearErrors('customerName');
