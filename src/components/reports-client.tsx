@@ -50,16 +50,16 @@ import { type Transaction, type CompanyInfo, type Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
 import { db } from '@/lib/firebase';
+import { Label } from './ui/label';
 
 const MonthPicker = ({ onSelect }: { onSelect: (date: Date) => void }) => {
   const [month, setMonth] = useState(new Date().getMonth());
@@ -222,7 +222,10 @@ export function ReportsClient() {
   const [selectionMode, setSelectionMode] = useState<
     'period' | 'day' | 'month' | 'year' | undefined
   >();
-  const [isClearDataAlertOpen, setIsClearDataAlertOpen] = useState(false);
+  const [isClearDataDialogOpen, setIsClearDataDialogOpen] = useState(false);
+  const [deletableYears, setDeletableYears] = useState<number[]>([]);
+  const [yearToClear, setYearToClear] = useState<number | null>(null);
+
   const [userRole, setUserRole] = useState<string | null>(null);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -619,14 +622,33 @@ export function ReportsClient() {
     });
   };
 
-  const handleClearOldData = async () => {
-    if (!companyId) return;
+  const handleOpenClearDataDialog = () => {
     const currentYear = new Date().getFullYear();
+    const yearsWithData = [
+      ...new Set(
+        transactions.map((t) => getYear(new Date(t.date)))
+      ),
+    ].filter((year) => year < currentYear);
+
+    if (yearsWithData.length === 0) {
+      toast({
+        title: 'Nenhum dado antigo',
+        description: 'Não há lançamentos de anos anteriores para remover.',
+      });
+      return;
+    }
+
+    setDeletableYears(yearsWithData.sort((a, b) => b - a));
+    setIsClearDataDialogOpen(true);
+  };
+
+  const handleClearOldData = async () => {
+    if (!companyId || !yearToClear) return;
     const batch = writeBatch(db);
     let oldTransactionsCount = 0;
 
     const transactionsToDelete = transactions.filter(
-      (t) => getYear(new Date(t.date)) < currentYear
+      (t) => getYear(new Date(t.date)) === yearToClear
     );
 
     transactionsToDelete.forEach((t) => {
@@ -638,11 +660,11 @@ export function ReportsClient() {
       try {
         await batch.commit();
         setTransactions(
-          transactions.filter((t) => getYear(new Date(t.date)) >= currentYear)
+          transactions.filter((t) => getYear(new Date(t.date)) !== yearToClear)
         );
         toast({
           title: 'Sucesso!',
-          description: `${oldTransactionsCount} lançamento(s) de anos anteriores foram removidos.`,
+          description: `${oldTransactionsCount} lançamento(s) do ano de ${yearToClear} foram removidos.`,
         });
       } catch (error: any) {
         console.error('Failed to clear old data:', error);
@@ -655,14 +677,10 @@ export function ReportsClient() {
           variant: 'destructive',
         });
       }
-    } else {
-      toast({
-        title: 'Nenhum dado antigo',
-        description: 'Não há lançamentos de anos anteriores para remover.',
-      });
     }
 
-    setIsClearDataAlertOpen(false);
+    setIsClearDataDialogOpen(false);
+    setYearToClear(null);
   };
 
   useEffect(() => {
@@ -723,7 +741,7 @@ export function ReportsClient() {
               {userRole === 'company_admin' && (
                 <Button
                   variant="destructive"
-                  onClick={() => setIsClearDataAlertOpen(true)}
+                  onClick={handleOpenClearDataDialog}
                   className="w-full sm:w-auto"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -920,27 +938,56 @@ export function ReportsClient() {
           </CardFooter>
         )}
       </Card>
-      <AlertDialog
-        open={isClearDataAlertOpen}
-        onOpenChange={setIsClearDataAlertOpen}
+      
+      <Dialog
+        open={isClearDataDialogOpen}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setYearToClear(null);
+          }
+          setIsClearDataDialogOpen(isOpen);
+        }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação removerá permanentemente todos os lançamentos de anos
-              anteriores ao ano atual ({new Date().getFullYear()}). Esta ação não
-              pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClearOldData}>
-              Continuar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Limpar Dados Antigos</DialogTitle>
+            <DialogDescription>
+              Selecione o ano cujos dados de transações você deseja remover
+              permanentemente. Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Label htmlFor="year-select">Ano para Limpeza</Label>
+            <Select
+              onValueChange={(value) => setYearToClear(Number(value))}
+            >
+              <SelectTrigger id="year-select">
+                <SelectValue placeholder="Selecione um ano..." />
+              </SelectTrigger>
+              <SelectContent>
+                {deletableYears.map((year) => (
+                  <SelectItem key={year} value={String(year)}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="ghost">Cancelar</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={handleClearOldData}
+              disabled={!yearToClear}
+            >
+              Confirmar Limpeza
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
