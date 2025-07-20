@@ -86,7 +86,7 @@ export function ScheduleClient() {
     resolver: zodResolver(scheduleSchema),
     defaultValues: {
         scheduledDate: new Date(),
-        scheduledTime: format(new Date(), 'HH:mm'),
+        scheduledTime: '',
         customerName: '',
         customerId: '',
         services: [],
@@ -245,7 +245,7 @@ export function ScheduleClient() {
         setIsFormOpen(false);
         form.reset({
           scheduledDate: new Date(),
-          scheduledTime: format(new Date(), 'HH:mm'),
+          scheduledTime: '',
           customerName: '',
           customerId: '',
           services: [],
@@ -458,7 +458,7 @@ export function ScheduleClient() {
         if (!isOpen) {
           form.reset({
             scheduledDate: new Date(),
-            scheduledTime: format(new Date(), 'HH:mm'),
+            scheduledTime: '',
             customerName: '',
             customerId: '',
             services: [],
