@@ -390,18 +390,22 @@ export function TransactionsClient() {
       await runTransaction(db, async (transaction) => {
         const transactionType = subtypeToTypeMap[data.subtype];
         
-        let description = '';
+        let baseDescription = '';
         if (data.subtype === 'Despesa') {
-            description = data.description?.toUpperCase() || data.subtype.toUpperCase();
+            baseDescription = data.subtype.toUpperCase();
         } else {
-            description = `LANÇAMENTO PARA ${data.customerName?.toUpperCase() || 'CLIENTE'}`;
+            baseDescription = `LANÇAMENTO PARA ${data.customerName?.toUpperCase() || 'CLIENTE'}`;
         }
+        
+        const finalDescription = data.description 
+          ? `${baseDescription} - ${data.description.toUpperCase()}`
+          : baseDescription;
         
         const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
           companyId,
           amount: Math.abs(data.amount || 0),
-          description,
+          description: finalDescription,
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
           customerId: data.customerId,
@@ -410,10 +414,6 @@ export function TransactionsClient() {
           items: data.items,
           services: data.services,
         };
-
-        if (data.description) {
-            payload.description = `${payload.description} - ${data.description.toUpperCase()}`;
-        }
   
         if (transactionType === 'expense') {
           payload.status = 'Pago';
@@ -479,11 +479,11 @@ export function TransactionsClient() {
             }
           });
           transaction.update(transactionRef, updatePayload as any);
-          finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId } as Transaction;
+          finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId, description: finalDescription } as Transaction;
         } else {
             const newTransactionRef = doc(collection(db, 'transactions'));
             transaction.set(newTransactionRef, payload as any);
-            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId } as Transaction;
+            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId, description: finalDescription } as Transaction;
         }
       });
   
@@ -581,7 +581,7 @@ export function TransactionsClient() {
 
   const openNewTransactionDialog = (type: 'revenue' | 'expense') => {
     setEditingTransaction(null);
-    const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || 'Despesa';
+    const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || (type === 'revenue' ? 'Prestação de Serviço' : 'Despesa');
     form.reset({
       description: '', amount: NaN, date: new Date(), subtype: defaultSubtype,
       customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN,
