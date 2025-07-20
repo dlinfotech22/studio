@@ -33,6 +33,7 @@ export type TransactionServiceItem = {
 
 export type Transaction = {
   id: string;
+  sequentialId?: number;
   date: Date | Timestamp;
   description: string;
   amount: number;
@@ -67,6 +68,7 @@ export type CompanyInfo = {
   document: string; // This is the unique identifier (CNPJ/CPF)
   logo?: string; // public URL from Firebase Storage
   allowedSubtypes?: TransactionSubtype[];
+  transactionCounter?: number;
 };
 
 export type Product = {

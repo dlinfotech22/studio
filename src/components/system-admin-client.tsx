@@ -394,6 +394,7 @@ export function SystemAdminClient() {
           document: document,
           logo: '',
           allowedSubtypes: validatedData.allowedSubtypes,
+          transactionCounter: 0,
         };
         const companyDocRef = await addDoc(companiesRef, newCompany);
 

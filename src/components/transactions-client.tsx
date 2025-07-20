@@ -18,6 +18,7 @@ import {
   deleteDoc,
   Timestamp,
   runTransaction,
+  getDoc,
 } from 'firebase/firestore';
 import {
   CalendarIcon,
@@ -367,12 +368,26 @@ export function TransactionsClient() {
   const expenses = filteredTransactions.filter((t) => t.type === 'expense');
 
   const onSubmit = async (data: TransactionFormValues) => {
-    if (!companyId) return;
+    if (!companyId || !companyInfo) return;
   
     let finalTransaction: Transaction | null = null;
     
     try {
       await runTransaction(db, async (transaction) => {
+        const companyRef = doc(db, 'companies', companyInfo.id);
+        const companyDoc = await transaction.get(companyRef);
+        if (!companyDoc.exists()) {
+          throw new Error("Dados da empresa não encontrados.");
+        }
+        
+        let currentCounter = companyDoc.data().transactionCounter || 0;
+        let nextSequentialId = currentCounter + 1;
+        if (nextSequentialId > 99999999) {
+          nextSequentialId = 1;
+        }
+        
+        transaction.update(companyRef, { transactionCounter: nextSequentialId });
+
         const transactionType = subtypeToTypeMap[data.subtype];
 
         const itemsTotal = data.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
@@ -403,6 +418,7 @@ export function TransactionsClient() {
         const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
           companyId,
+          sequentialId: nextSequentialId,
           amount: Math.abs(totalAmount),
           description: finalDescription,
           date: Timestamp.fromDate(data.date),
@@ -470,6 +486,9 @@ export function TransactionsClient() {
         if (editingTransaction) {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
           const updatePayload = { ...payload };
+          // Don't update sequentialId on edit
+          delete updatePayload.sequentialId;
+          
           Object.keys(updatePayload).forEach(key => {
             const typedKey = key as keyof typeof updatePayload;
             if (updatePayload[typedKey] === undefined || (typeof updatePayload[typedKey] === 'number' && isNaN(updatePayload[typedKey] as number))) {
@@ -491,7 +510,12 @@ export function TransactionsClient() {
       setAllProducts(productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
       const transactionSnapshot = await getDocs(query(collection(db, 'transactions'), where('companyId', '==', companyId)));
       setAllTransactions(transactionSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Transaction)));
-  
+      
+      const updatedCompanyInfo = await getDoc(doc(db, 'companies', companyInfo.id));
+      if (updatedCompanyInfo.exists()) {
+          setCompanyInfo({ id: updatedCompanyInfo.id, ...updatedCompanyInfo.data() } as CompanyInfo);
+      }
+      
       toast({ title: 'Sucesso!', description: `Lançamento ${editingTransaction ? 'atualizado' : 'adicionado'}.` });
       
       setEditingTransaction(null);
@@ -1337,6 +1361,7 @@ export function TransactionsClient() {
     </>
   );
 }
+
 
 
 
