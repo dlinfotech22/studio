@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ScheduleClient } from '@/components/schedule-client';
+import { WorkOrdersClient } from '@/components/work-orders-client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CalendarClock } from 'lucide-react';
+import { Workflow } from 'lucide-react';
 import { type CompanyInfo } from '@/lib/types';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-export default function SchedulePage() {
+export default function WorkOrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -58,27 +58,27 @@ export default function SchedulePage() {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight">Agenda de Serviços</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Ordens de Serviço</h1>
         <p className="text-muted-foreground">
-          Acompanhe e gerencie os agendamentos de todos os serviços futuros.
+          Acompanhe e gerencie o status de todos os serviços em andamento.
         </p>
       </header>
       {userRole === 'system_admin' ? (
           <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm p-8 text-center h-[400px]">
           <div className="flex flex-col items-center gap-2">
-            <CalendarClock className="w-16 h-16 text-muted-foreground" />
+            <Workflow className="w-16 h-16 text-muted-foreground" />
             <h2 className="text-2xl font-semibold">Função exclusiva para empresas</h2>
             <p className="max-w-md mt-2 text-sm text-muted-foreground">
-              A tela de agenda é utilizada para gerenciar os serviços de uma empresa específica. Como administrador do sistema, seu foco está na gestão de empresas e usuários globais.
+              A tela de ordens de serviço é utilizada para gerenciar os serviços de uma empresa específica. Como administrador do sistema, seu foco está na gestão de empresas e usuários globais.
             </p>
           </div>
         </div>
       ) : canViewPage ? (
-        <ScheduleClient />
+        <WorkOrdersClient />
       ) : (
         <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm p-8 text-center h-[400px]">
           <div className="flex flex-col items-center gap-2">
-            <CalendarClock className="w-16 h-16 text-muted-foreground" />
+            <Workflow className="w-16 h-16 text-muted-foreground" />
             <h2 className="text-2xl font-semibold">Função exclusiva para prestadores de serviço</h2>
             <p className="max-w-md mt-2 text-sm text-muted-foreground">
               Esta tela é designada para empresas que oferecem serviços. Para ativá-la, habilite 'Prestação de Serviço' ou 'Serviço + Venda' nas configurações da empresa.

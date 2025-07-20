@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
@@ -26,6 +25,7 @@ import {
   Book,
   Wrench,
   CalendarClock,
+  Workflow,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -254,6 +254,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                             >
                                 <CalendarClock />
                                 <span>Agenda</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                     <SidebarMenuItem>
+                        <Link href="/work-orders">
+                            <SidebarMenuButton
+                                tooltip="Ordens de Serviço"
+                                isActive={pathname === '/work-orders'}
+                            >
+                                <Workflow />
+                                <span>Ordens de Serviço</span>
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>

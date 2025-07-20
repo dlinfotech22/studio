@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,14 +16,13 @@ import {
   getDoc,
   runTransaction,
 } from 'firebase/firestore';
-import { format, isSameDay, startOfDay, setHours, setMinutes, parseISO } from 'date-fns';
+import { format, isSameDay, startOfDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon, Wrench, CheckCircle, PlusCircle, Trash2, ChevronsUpDown, Check, Workflow } from 'lucide-react';
+import { Calendar as CalendarIcon, Wrench, CheckCircle, PlusCircle, Trash2, ChevronsUpDown, Check } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { type Transaction, type ServiceStatus, type CompanyInfo, type Service, type Customer } from '@/lib/types';
+import { type Transaction, type CompanyInfo, type Service, type Customer } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,21 +35,6 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-
-
-const serviceStatusOptions: ServiceStatus[] = [
-    'Aberta',
-    'Aguardando Aprovação',
-    'Aprovada',
-    'Aguardando Peça / Material',
-    'Em Execução',
-    'Pausada',
-    'Finalizada',
-    'Aguardando Pagamento',
-    'Encerrada / Concluída',
-    'Cancelada',
-];
 
 const scheduleServiceItemSchema = z.object({
     serviceId: z.string().min(1),
@@ -70,13 +53,9 @@ const scheduleSchema = z.object({
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
 export function ScheduleClient() {
-  const [allServices, setAllServices] = useState<Transaction[]>([]);
+  const [scheduledServices, setScheduledServices] = useState<Transaction[]>([]);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
-  
-  const [scheduledServices, setScheduledServices] = useState<Transaction[]>([]);
-  const [activeServices, setActiveServices] = useState<Transaction[]>([]);
-  
   const [selectedDayServices, setSelectedDayServices] = useState<Transaction[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -88,7 +67,6 @@ export function ScheduleClient() {
   const [currentService, setCurrentService] = useState<Service | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isMainCalendarOpen, setIsMainCalendarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('agenda');
   
   const form = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -113,16 +91,17 @@ export function ScheduleClient() {
         const qServices = query(
             servicesRef,
             where('companyId', '==', cId),
-            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
+            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
+            where('serviceStatus', '==', 'Agendado')
         );
 
         const servicesSnapshot = await getDocs(qServices);
         const fetchedServices = servicesSnapshot.docs.map((doc) => {
             const data = doc.data();
             return { id: doc.id, ...data, date: (data.date as Timestamp).toDate(), scheduledDate: data.scheduledDate ? (data.scheduledDate as Timestamp).toDate() : null } as Transaction;
-        }).filter(service => service.serviceStatus !== 'Encerrada / Concluída' && service.serviceStatus !== 'Cancelada');
+        });
         
-        setAllServices(fetchedServices);
+        setScheduledServices(fetchedServices.sort((a,b) => (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0)));
 
         const customersSnapshot = await getDocs(query(collection(db, 'customers'), where('companyId', '==', cId)));
         setAllCustomers(customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)));
@@ -154,18 +133,6 @@ export function ScheduleClient() {
   }, []);
   
   useEffect(() => {
-    const scheduled = allServices
-      .filter(s => s.serviceStatus === 'Agendado')
-      .sort((a,b) => (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0));
-    setScheduledServices(scheduled);
-    
-    const active = allServices
-      .filter(s => s.serviceStatus !== 'Agendado')
-      .sort((a,b) => (a.date as Date).getTime() - (b.date as Date).getTime());
-    setActiveServices(active);
-  }, [allServices]);
-
-  useEffect(() => {
     if (selectedDate) {
         const servicesForDay = scheduledServices
         .filter(s => s.scheduledDate && isSameDay(s.scheduledDate, selectedDate))
@@ -175,24 +142,20 @@ export function ScheduleClient() {
     }
   }, [selectedDate, scheduledServices]);
 
-  const handleStatusChange = async (transactionId: string, newStatus: ServiceStatus) => {
+  const handleStartService = async (transactionId: string) => {
     try {
       const transactionRef = doc(db, 'transactions', transactionId);
-      const payload: {serviceStatus: ServiceStatus, date?: Timestamp} = { serviceStatus: newStatus };
-
-      const docSnap = await getDoc(transactionRef);
-      if (docSnap.exists() && (docSnap.data().serviceStatus === 'Agendado') && newStatus === 'Aberta') {
-        payload.date = Timestamp.fromDate(new Date());
-      }
-      
+      const payload = { serviceStatus: 'Aberta' as const, date: Timestamp.fromDate(new Date()) };
       await updateDoc(transactionRef, payload);
-      toast({ title: 'Status Atualizado!', description: `O serviço foi atualizado para "${newStatus}".` });
+      
+      toast({ title: 'Serviço Iniciado!', description: `O serviço foi movido para Ordens de Serviço.` });
+      
       if (companyId) {
           fetchCompanyData(companyId);
       }
     } catch (error) {
       console.error('Failed to update service status:', error);
-      toast({ title: 'Erro ao atualizar status', description: 'Não foi possível alterar o status do serviço.', variant: 'destructive' });
+      toast({ title: 'Erro ao iniciar serviço', description: 'Não foi possível iniciar o serviço.', variant: 'destructive' });
     }
   };
   
@@ -392,14 +355,14 @@ export function ScheduleClient() {
     )
   }
 
-  const renderServiceCards = (services: Transaction[], cardType: 'agenda' | 'status') => {
-      if(services.length === 0) {
+  const renderServiceCards = (servicesToRender: Transaction[]) => {
+      if(servicesToRender.length === 0) {
           return (
              <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm p-8 text-center h-[200px] mt-4">
                 <div className="flex flex-col items-center gap-2">
-                    {cardType === 'agenda' ? <CalendarIcon className="w-16 h-16 text-muted-foreground" /> : <CheckCircle className="w-16 h-16 text-muted-foreground" />}
+                    <CalendarIcon className="w-16 h-16 text-muted-foreground" />
                     <h2 className="text-2xl font-semibold">
-                      {cardType === 'agenda' ? 'Nenhum agendamento para este dia.' : 'Nenhum serviço em andamento.'}
+                      Nenhum agendamento para este dia.
                     </h2>
                 </div>
             </div>
@@ -408,18 +371,14 @@ export function ScheduleClient() {
 
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-          {services.map((service) => (
+          {servicesToRender.map((service) => (
             <Card key={service.id} className="flex flex-col">
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="text-lg">{service.customerName}</CardTitle>
                     <CardDescription>
-                      {service.scheduledDate && cardType === 'agenda' ? (
-                         <span className="font-semibold capitalize text-base">{format(new Date(service.scheduledDate), "HH:mm", { locale: ptBR })}</span>
-                      ) : (
-                         <span className="font-semibold capitalize text-base">{format(new Date(service.date), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
-                      )}
+                      {service.scheduledDate && <span className="font-semibold capitalize text-base">{format(new Date(service.scheduledDate), "HH:mm", { locale: ptBR })}</span>}
                     </CardDescription>
                   </div>
                    <Badge variant="secondary">{service.serviceStatus}</Badge>
@@ -443,31 +402,10 @@ export function ScheduleClient() {
                     <span className="font-bold">Valor Total:</span>
                     <span className="font-bold text-lg">{formatCurrency(service.amount)}</span>
                  </div>
-                 <div className="flex items-center gap-2">
-                    {service.serviceStatus === 'Agendado' && (
-                       <Button size="sm" className="w-full" onClick={() => handleStatusChange(service.id, 'Aberta')}>
-                         <CheckCircle className="mr-2 h-4 w-4" />
-                         Confirmar e Iniciar
-                       </Button>
-                    )}
-                 </div>
-                {service.serviceStatus !== 'Agendado' && (
-                    <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Mudar Status:</span>
-                    <Select value={service.serviceStatus} onValueChange={(newStatus: ServiceStatus) => handleStatusChange(service.id, newStatus)}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Alterar status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        {serviceStatusOptions.map((status) => (
-                            <SelectItem key={status} value={status}>
-                            {status}
-                            </SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                    </div>
-                )}
+                 <Button size="sm" className="w-full" onClick={() => handleStartService(service.id)}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Confirmar e Iniciar
+                 </Button>
               </CardFooter>
             </Card>
           ))}
@@ -488,29 +426,7 @@ export function ScheduleClient() {
 
   return (
     <>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex items-center justify-between mb-4">
-            <TabsList>
-              <TabsTrigger value="agenda"><CalendarIcon className="mr-2 h-4 w-4" />Agenda</TabsTrigger>
-              <TabsTrigger value="status"><Workflow className="mr-2 h-4 w-4" />Serviços em Andamento</TabsTrigger>
-            </TabsList>
-            <Button onClick={() => {
-              form.reset({
-                scheduledDate: new Date(),
-                scheduledTime: '',
-                customerName: '',
-                customerId: '',
-                services: [],
-              });
-              setIsFormOpen(true);
-            }}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Agendar Serviço
-            </Button>
-        </div>
-
-        <TabsContent value="agenda">
-          <div className="flex items-center justify-end">
             <Popover open={isMainCalendarOpen} onOpenChange={setIsMainCalendarOpen}>
               <PopoverTrigger asChild>
                 <Button variant={'outline'} className={cn('w-[280px] justify-start text-left font-normal', !selectedDate && 'text-muted-foreground')}>
@@ -530,15 +446,21 @@ export function ScheduleClient() {
                 />
               </PopoverContent>
             </Popover>
-          </div>
-          {selectedDate && renderServiceCards(selectedDayServices, 'agenda')}
-        </TabsContent>
-        
-        <TabsContent value="status">
-          {renderServiceCards(activeServices, 'status')}
-        </TabsContent>
-
-      </Tabs>
+            <Button onClick={() => {
+              form.reset({
+                scheduledDate: new Date(),
+                scheduledTime: '',
+                customerName: '',
+                customerId: '',
+                services: [],
+              });
+              setIsFormOpen(true);
+            }}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Agendar Serviço
+            </Button>
+        </div>
+        {selectedDate && renderServiceCards(selectedDayServices)}
       
       <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
         if (!isOpen) {
