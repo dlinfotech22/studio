@@ -113,15 +113,14 @@ export function ScheduleClient() {
         const qServices = query(
             servicesRef,
             where('companyId', '==', cId),
-            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
-            where('serviceStatus', 'not-in', ['Encerrada / Concluída', 'Cancelada'])
+            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
         );
 
         const servicesSnapshot = await getDocs(qServices);
         const fetchedServices = servicesSnapshot.docs.map((doc) => {
             const data = doc.data();
             return { id: doc.id, ...data, date: (data.date as Timestamp).toDate(), scheduledDate: data.scheduledDate ? (data.scheduledDate as Timestamp).toDate() : null } as Transaction;
-        });
+        }).filter(service => service.serviceStatus !== 'Encerrada / Concluída' && service.serviceStatus !== 'Cancelada');
         
         setAllServices(fetchedServices);
 
