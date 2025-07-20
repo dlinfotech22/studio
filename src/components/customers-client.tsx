@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 
 import { type Customer, type Transaction, type Installment } from '@/lib/types';
-import { formatCurrency, formatPhone, formatDocument } from '@/lib/utils';
+import { formatCurrency, formatPhone, formatDocument, maskDocument } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -321,7 +321,7 @@ export function CustomersClient() {
                       paginatedCustomers.map((customer) => (
                         <TableRow key={customer.id}>
                           <TableCell className="font-medium">{customer.name}</TableCell>
-                          <TableCell>{customer.document ? formatDocument(customer.document) : '-'}</TableCell>
+                          <TableCell>{maskDocument(customer.document)}</TableCell>
                           <TableCell>{customer.email || '-'}</TableCell>
                           <TableCell>{customer.phone ? formatPhone(customer.phone) : '-'}</TableCell>
                           <TableCell className="text-center">
@@ -418,7 +418,7 @@ export function CustomersClient() {
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-muted-foreground mb-4">
-                                {customer.document && `${formatDocument(customer.document)} | `}
+                                {customer.document && `${maskDocument(customer.document)} | `}
                                 {customer.email && `${customer.email} | `}
                                 {customer.phone && formatPhone(customer.phone)}
                             </p>

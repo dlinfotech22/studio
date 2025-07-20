@@ -46,3 +46,16 @@ export function formatDocument(value: string) {
       .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
   }
 }
+
+export function maskDocument(doc: string | undefined | null): string {
+  if (!doc) return '-';
+  const cleaned = doc.replace(/\D/g, '');
+
+  if (cleaned.length <= 11) { // CPF
+    if (cleaned.length < 11) return doc; // Don't mask incomplete documents
+    return `${cleaned.substring(0, 3)}.***.***-${cleaned.substring(9, 11)}`;
+  } else { // CNPJ
+    if (cleaned.length < 14) return doc; // Don't mask incomplete documents
+    return `${cleaned.substring(0, 2)}.***.***/****-${cleaned.substring(12, 14)}`;
+  }
+}

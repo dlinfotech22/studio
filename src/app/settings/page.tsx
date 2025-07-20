@@ -60,6 +60,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { db, storage } from '@/lib/firebase';
+import { maskDocument } from '@/lib/utils';
 
 // Schemas
 const profileSchema = z
@@ -237,11 +238,17 @@ function CompanyProfile() {
 
   const form = useForm<z.infer<typeof companyInfoSchema>>({
     resolver: zodResolver(companyInfoSchema),
-    values: companyInfo,
+    values: {
+      ...companyInfo,
+      document: maskDocument(companyInfo.document),
+    },
   });
 
   useEffect(() => {
-    form.reset(companyInfo);
+    form.reset({
+        ...companyInfo,
+        document: maskDocument(companyInfo.document),
+    });
   }, [companyInfo, form]);
 
   const onSubmit = async (values: z.infer<typeof companyInfoSchema>) => {
@@ -259,7 +266,10 @@ function CompanyProfile() {
 
       setCompanyInfo(updatedInfo);
       toast({ title: 'Sucesso!', description: 'Informações da empresa salvas.' });
-      form.reset(updatedInfo);
+      form.reset({
+        ...updatedInfo,
+        document: maskDocument(updatedInfo.document),
+      });
     } catch (error: any) {
       console.error('Failed to save company info:', error);
       toast({

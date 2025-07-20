@@ -93,7 +93,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { cn, formatDocument } from '@/lib/utils';
+import { cn, formatDocument, maskDocument } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 
 const availableSubtypes: TransactionSubtype[] = [
@@ -719,7 +719,7 @@ export function SystemAdminClient() {
                       <div>
                         <p className="font-semibold">{company.name}</p>
                         <p className="text-sm text-muted-foreground font-normal">
-                          {formatDocument(company.document)}
+                          {maskDocument(company.document)}
                         </p>
                       </div>
                     </div>
