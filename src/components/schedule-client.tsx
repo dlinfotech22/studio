@@ -18,7 +18,7 @@ import {
   addDoc,
   runTransaction,
 } from 'firebase/firestore';
-import { format, subHours, isSameDay, startOfDay } from 'date-fns';
+import { format, subHours, isSameDay, startOfDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon, Wrench, CheckCircle, PlayCircle, PlusCircle, Trash2, ChevronsUpDown, Check } from 'lucide-react';
 import { db } from '@/lib/firebase';
@@ -60,6 +60,7 @@ const scheduleServiceItemSchema = z.object({
 
 const scheduleSchema = z.object({
   scheduledDate: z.date({ required_error: 'A data do agendamento é obrigatória.' }),
+  scheduledTime: z.string().refine(val => /^\d{2}:\d{2}$/.test(val), { message: "A hora é obrigatória." }),
   customerId: z.string().optional(),
   customerName: z.string().min(1, 'O nome do cliente é obrigatório.'),
   services: z.array(scheduleServiceItemSchema).min(1, 'Você deve adicionar pelo menos um serviço.'),
@@ -85,6 +86,7 @@ export function ScheduleClient() {
     resolver: zodResolver(scheduleSchema),
     defaultValues: {
         scheduledDate: new Date(),
+        scheduledTime: '',
         customerName: '',
         customerId: '',
         services: [],
@@ -103,7 +105,8 @@ export function ScheduleClient() {
         const qServices = query(
             servicesRef,
             where('companyId', '==', cId),
-            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
+            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
+            where('serviceStatus', 'not-in', ['Encerrada / Concluída', 'Cancelada'])
         );
         const servicesSnapshot = await getDocs(qServices);
         const fetchedServices = servicesSnapshot.docs.map((doc) => {
@@ -111,8 +114,7 @@ export function ScheduleClient() {
             return { id: doc.id, ...data, date: (data.date as Timestamp).toDate(), scheduledDate: data.scheduledDate ? (data.scheduledDate as Timestamp).toDate() : null } as Transaction;
         });
         
-        const activeServices = fetchedServices.filter(s => s.serviceStatus !== 'Encerrada / Concluída' && s.serviceStatus !== 'Cancelada');
-        setAllServices(activeServices);
+        setAllServices(fetchedServices);
 
         const customersSnapshot = await getDocs(query(collection(db, 'customers'), where('companyId', '==', cId)));
         setAllCustomers(customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)));
@@ -127,14 +129,14 @@ export function ScheduleClient() {
 
         const now = new Date();
         const cutoffDate = subHours(now, 24);
-        const servicesToCleanup = activeServices.filter(s => s.serviceStatus === 'Agendado' && s.scheduledDate && s.scheduledDate < cutoffDate);
+        const servicesToCleanup = fetchedServices.filter(s => s.serviceStatus === 'Agendado' && s.scheduledDate && s.scheduledDate < cutoffDate);
         if (servicesToCleanup.length > 0) {
             const batch = writeBatch(db);
             servicesToCleanup.forEach((s) => batch.delete(doc(db, 'transactions', s.id)));
             await batch.commit();
             toast({ title: "Limpeza Automática", description: `${servicesToCleanup.length} agendamento(s) não comparecidos foram removidos.` });
             const cleanedServiceIds = new Set(servicesToCleanup.map(s => s.id));
-            setAllServices(activeServices.filter(s => !cleanedServiceIds.has(s.id)));
+            setAllServices(fetchedServices.filter(s => !cleanedServiceIds.has(s.id)));
         }
 
     } catch (error) {
@@ -171,11 +173,9 @@ export function ScheduleClient() {
       const transactionRef = doc(db, 'transactions', transactionId);
       const payload: {serviceStatus: ServiceStatus, date?: Timestamp} = { serviceStatus: newStatus };
 
-      if (newStatus === 'Aberta') {
-        const docSnap = await getDoc(transactionRef);
-        if (docSnap.exists() && docSnap.data().serviceStatus === 'Agendado') {
-          payload.date = Timestamp.fromDate(new Date());
-        }
+      const docSnap = await getDoc(transactionRef);
+      if (docSnap.exists() && (docSnap.data().serviceStatus === 'Agendado' || docSnap.data().serviceStatus === 'Aprovada') && newStatus === 'Aberta') {
+        payload.date = Timestamp.fromDate(new Date());
       }
       
       await updateDoc(transactionRef, payload);
@@ -218,6 +218,9 @@ export function ScheduleClient() {
             
             const totalAmount = data.services.reduce((sum, s) => sum + s.price, 0);
 
+            const [hours, minutes] = data.scheduledTime.split(':').map(Number);
+            const finalScheduledDate = setMinutes(setHours(data.scheduledDate, hours), minutes);
+
             const newSchedulePayload: Partial<Omit<Transaction, 'id'>> & {date: Timestamp} = {
                 sequentialId: sequentialId,
                 companyId: companyId,
@@ -227,8 +230,8 @@ export function ScheduleClient() {
                 customerId: data.customerId,
                 services: data.services,
                 amount: totalAmount,
-                date: Timestamp.fromDate(data.scheduledDate), // Initial date is scheduled date
-                scheduledDate: Timestamp.fromDate(data.scheduledDate),
+                date: Timestamp.fromDate(finalScheduledDate),
+                scheduledDate: Timestamp.fromDate(finalScheduledDate),
                 serviceStatus: 'Agendado',
                 status: 'Pendente',
                 description: `AGENDAMENTO PARA: ${data.services.map(s => s.serviceName).join(', ')}`,
@@ -354,7 +357,7 @@ export function ScheduleClient() {
                     <CardTitle className="text-lg">{service.customerName}</CardTitle>
                     <CardDescription>
                       {service.scheduledDate ? (
-                         <span className="capitalize">{format(new Date(service.scheduledDate), "HH:mm", { locale: ptBR })}</span>
+                         <span className="font-semibold capitalize text-base">{format(new Date(service.scheduledDate), "HH:mm", { locale: ptBR })}</span>
                       ) : (
                         'Horário não definido'
                       )}
@@ -461,33 +464,44 @@ export function ScheduleClient() {
                            <FormMessage />
                         </FormItem>
                     )} />
-                    <FormField control={form.control} name="scheduledDate" render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Data do Agendamento</FormLabel>
-                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen} modal={true}>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
-                                {field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 z-[51]" align="start">
-                            <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={(date) => {
-                                    field.onChange(date);
-                                    setIsCalendarOpen(false);
-                                }}
-                                initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="scheduledDate" render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Data do Agendamento</FormLabel>
+                            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen} modal={true}>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
+                                    {field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0 z-[51]" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={(date) => {
+                                        field.onChange(date);
+                                        setIsCalendarOpen(false);
+                                    }}
+                                    initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="scheduledTime" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Hora</FormLabel>
+                                <FormControl>
+                                    <Input type="time" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                    </div>
                     
                     <Card>
                       <CardHeader className="px-6 pt-4 pb-2">
@@ -530,3 +544,4 @@ export function ScheduleClient() {
     </>
   );
 }
+
