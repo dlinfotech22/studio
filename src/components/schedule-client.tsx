@@ -482,7 +482,7 @@ export function ScheduleClient() {
             </DialogHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onScheduleSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 space-y-0">
+                    <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="scheduledDate" render={({ field }) => (
                           <FormItem className="flex flex-col">
                             <FormLabel>Data do Agendamento</FormLabel>
