@@ -111,5 +111,3 @@ export type Customer = {
   phone?: string;
   companyId: string;
 };
-
-    
