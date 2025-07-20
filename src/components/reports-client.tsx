@@ -389,6 +389,7 @@ export function ReportsClient() {
       return {
         'Data': format(new Date(t.date), 'dd/MM/yyyy'),
         'ID': t.sequentialId ? String(t.sequentialId).padStart(8, '0') : t.id.substring(0,8).toUpperCase(),
+        'Tipo de Lançamento': t.subtype,
         'Cliente': t.customerName || '',
         'Descrição Adicional': getTransactionAdditionalInfo(t),
         'Itens': itemsList,
@@ -416,18 +417,18 @@ export function ReportsClient() {
 
     if (formatType === 'Excel') {
       const worksheet = XLSX.utils.json_to_sheet(dataToExport.map(d => {
-        const {Tipo, ...rest} = d;
+        const {Tipo, ...rest} = d; // Remove internal 'Tipo' field for Excel
         return rest;
       }));
   
       worksheet['!cols'] = [
-        { wch: 12 }, { wch: 10 }, { wch: 30 }, { wch: 40 }, { wch: 30 }, { wch: 30 },
+        { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 40 }, { wch: 30 }, { wch: 30 },
         { wch: 20 }, { wch: 20 }, { wch: 20 }
       ];
       
       const range = XLSX.utils.decode_range(worksheet['!ref']!);
       for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-          for (let C of [6, 7, 8]) { // Columns for currency
+          for (let C of [7, 8, 9]) { // Columns for currency
               const cell_address = { c: C, r: R };
               const cell_ref = XLSX.utils.encode_cell(cell_address);
               if (worksheet[cell_ref] && typeof worksheet[cell_ref].v === 'number' && worksheet[cell_ref].v > 0) {
@@ -444,16 +445,16 @@ export function ReportsClient() {
         worksheet,
         [
           [],
-          ['', '', '', '', '', '', 'Receita Total', totalRevenue],
-          ['', '', '', '', '', '', 'Despesa Total', totalExpenses],
-          ['', '', '', '', '', '', 'Lucro/Prejuízo', profit],
+          ['', '', '', '', '', '', '', 'Receita Total', totalRevenue],
+          ['', '', '', '', '', '', '', 'Despesa Total', totalExpenses],
+          ['', '', '', '', '', '', '', 'Lucro/Prejuízo', profit],
         ],
         { origin: -1 }
       );
       
       const summaryStartRow = range.e.r + 3;
       for (let R = summaryStartRow; R <= summaryStartRow + 2; ++R) {
-          const cell_address = { c: 7, r: R };
+          const cell_address = { c: 8, r: R };
           const cell_ref = XLSX.utils.encode_cell(cell_address);
           if (worksheet[cell_ref] && typeof worksheet[cell_ref].v === 'number') {
               worksheet[cell_ref].t = 'n';
@@ -532,9 +533,10 @@ export function ReportsClient() {
     });
     startY = (doc as any).lastAutoTable.finalY + 8;
     
-    const tableHead = [['Data', 'Cliente', 'Descrição Adicional', 'Itens', 'Serviços', 'Total Produtos', 'Total Serviços', 'Valor Total']];
+    const tableHead = [['Data', 'Tipo de Lançamento', 'Cliente', 'Descrição', 'Itens', 'Serviços', 'Total Produtos', 'Total Serviços', 'Valor Total']];
     const tableBody = data.map(t => [
         t['Data'],
+        t['Tipo de Lançamento'],
         t['Cliente'],
         t['Descrição Adicional'],
         t['Itens'],
@@ -551,17 +553,18 @@ export function ReportsClient() {
         headStyles: { fillColor: [41, 128, 185], fontSize: 7 },
         styles: { fontSize: 6, cellPadding: 2, overflow: 'linebreak' },
         columnStyles: {
-            0: { cellWidth: 18 },
-            1: { cellWidth: 35 },
-            2: { cellWidth: 40 },
-            3: { cellWidth: 35 },
-            4: { cellWidth: 35 },
-            5: { halign: 'right', cellWidth: 20 },
-            6: { halign: 'right', cellWidth: 20 },
-            7: { halign: 'right', cellWidth: 20 },
+            0: { cellWidth: 15 }, // Data
+            1: { cellWidth: 25 }, // Tipo Lanç.
+            2: { cellWidth: 30 }, // Cliente
+            3: { cellWidth: 35 }, // Descrição
+            4: { cellWidth: 30 }, // Itens
+            5: { cellWidth: 30 }, // Serviços
+            6: { halign: 'right', cellWidth: 18 }, // Total Prod.
+            7: { halign: 'right', cellWidth: 18 }, // Total Serv.
+            8: { halign: 'right', cellWidth: 18 }, // Valor Total
         },
         didParseCell: (hookData: any) => {
-            if (hookData.section === 'body' && hookData.column.index === 7) {
+            if (hookData.section === 'body' && hookData.column.index === 8) {
                 const transactionType = data[hookData.row.index].Tipo;
                 hookData.cell.styles.textColor = transactionType === 'revenue' ? '#16a34a' : '#dc2626';
             }
