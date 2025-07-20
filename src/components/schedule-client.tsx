@@ -68,12 +68,10 @@ export function ScheduleClient() {
     setIsLoading(true);
     try {
       const transactionsRef = collection(db, 'transactions');
-      // Updated query to fetch all services that are not in a final state.
       const q = query(
         transactionsRef,
         where('companyId', '==', companyId),
-        where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
-        where('serviceStatus', 'not-in', ['Encerrada / Concluída', 'Cancelada'])
+        where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
       );
       const snapshot = await getDocs(q);
       const services = snapshot.docs
@@ -88,6 +86,11 @@ export function ScheduleClient() {
               : null,
           } as Transaction;
         })
+        .filter(
+          (service) =>
+            service.serviceStatus !== 'Encerrada / Concluída' &&
+            service.serviceStatus !== 'Cancelada'
+        )
         .sort(
           (a, b) =>
             (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0)
