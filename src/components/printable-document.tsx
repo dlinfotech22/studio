@@ -25,6 +25,18 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
     }
   };
 
+  const getSignatureLabel = () => {
+    switch(transaction.subtype) {
+      case 'Prestação de Serviço':
+      case 'Serviço + Venda':
+        return 'Assinatura do Contratante';
+      case 'Venda':
+        return 'Assinatura do Comprador';
+      default:
+        return 'Assinatura do Cliente';
+    }
+  };
+
   const hasServices = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
   const hasProducts = transaction.subtype === 'Venda' || transaction.subtype === 'Serviço + Venda';
   const productItems = transaction.items || [];
@@ -180,7 +192,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
       <section className="mt-16 pt-8 text-center">
         <div className="inline-block">
           <div className="w-64 border-b border-black"></div>
-          <p className="text-sm mt-1">Assinatura do Comprador / Contratante</p>
+          <p className="text-sm mt-1">{getSignatureLabel()}</p>
         </div>
       </section>
 
