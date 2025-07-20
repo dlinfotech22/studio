@@ -117,7 +117,7 @@ const transactionServiceItemSchema = z.object({
 
 const transactionSchema = z.object({
   description: z.string().optional(),
-  amount: z.coerce.number().optional(),
+  amount: z.coerce.number().optional(), // Optional for revenues, required for expenses via refine
   date: z.date(),
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   customerId: z.string().optional(),
@@ -133,7 +133,7 @@ const transactionSchema = z.object({
   }
   return true;
 }, {
-  message: 'O valor total deve ser positivo para despesas.',
+  message: 'O valor é obrigatório para despesas.',
   path: ['amount'],
 }).refine(data => {
   if (data.subtype === 'Venda') {
@@ -375,7 +375,8 @@ export function TransactionsClient() {
 
         const itemsTotal = data.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
         const servicesTotal = data.services?.reduce((sum, service) => sum + (service.price ?? 0), 0) || 0;
-        const totalAmount = transactionType === 'expense' ? data.amount : itemsTotal + servicesTotal;
+        
+        const totalAmount = transactionType === 'expense' ? data.amount! : itemsTotal + servicesTotal;
         
         let baseDescription = '';
         if (data.subtype === 'Despesa') {
@@ -391,7 +392,7 @@ export function TransactionsClient() {
         const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
           companyId,
-          amount: Math.abs(totalAmount || 0),
+          amount: Math.abs(totalAmount),
           description: finalDescription,
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
@@ -408,7 +409,7 @@ export function TransactionsClient() {
           payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
         }
 
-        if (data.paymentMethod === 'A Prazo' && data.firstDueDate && totalAmount) {
+        if (data.paymentMethod === 'A Prazo' && data.firstDueDate) {
             payload.installments = [{
                 installmentNumber: 1,
                 dueDate: Timestamp.fromDate(data.firstDueDate),
@@ -418,7 +419,7 @@ export function TransactionsClient() {
             payload.installmentsCount = 1;
         }
 
-        if (data.paymentMethod === 'Parcelado' && data.installmentsCount && totalAmount && data.firstDueDate) {
+        if (data.paymentMethod === 'Parcelado' && data.installmentsCount && data.firstDueDate) {
           payload.installments = [];
           const installmentAmount = totalAmount / data.installmentsCount;
           for (let i = 0; i < data.installmentsCount; i++) {
@@ -1186,7 +1187,7 @@ export function TransactionsClient() {
                     <FormLabel>Informação Adicional (Opcional)</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder={selectedSubtype === 'Despesa' ? 'Ex: Pagamento de aluguel' : 'Detalhes adicionais'}
+                        placeholder="Ex: Pagamento de aluguel ou detalhes do serviço"
                         {...field}
                         value={field.value ?? ''}
                         onChange={(e) =>
@@ -1199,26 +1200,27 @@ export function TransactionsClient() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor Total</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        value={isNaN(field.value as number) ? '' : field.value}
-                        onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
-                        disabled={selectedSubtype !== 'Despesa'}
-                        autoComplete="off"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {selectedSubtype === 'Despesa' && (
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor Total</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={isNaN(field.value as number) ? '' : field.value}
+                          onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
+                          autoComplete="off"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {selectedSubtype !== 'Despesa' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
