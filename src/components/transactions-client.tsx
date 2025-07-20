@@ -883,6 +883,7 @@ export function TransactionsClient() {
                                             form.setValue('customerName', selectedClient.name);
                                             form.clearErrors('customerName');
                                         }
+                                        setSearchValue(selectedClient ? selectedClient.name : '');
                                         setOpen(false);
                                     }}
                                 >
