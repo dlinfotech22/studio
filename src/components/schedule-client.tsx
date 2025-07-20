@@ -265,6 +265,49 @@ export function ScheduleClient() {
         toast({ title: 'Erro!', description: error.message || 'Não foi possível agendar o serviço.', variant: 'destructive' });
     }
   };
+
+  const TimeSlotPicker = () => {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedDate = form.watch('scheduledDate');
+    const selectedTime = form.watch('scheduledTime');
+
+    const bookedTimes = scheduledServices
+        .filter(s => s.scheduledDate && isSameDay(s.scheduledDate, selectedDate))
+        .map(s => format(s.scheduledDate as Date, 'HH:mm'));
+
+    const timeSlots = Array.from({ length: 11 }, (_, i) => {
+        const hour = i + 8;
+        return `${String(hour).padStart(2, '0')}:00`;
+    });
+
+    return (
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    {selectedTime || "Selecione uma hora"}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2">
+                <div className="grid grid-cols-4 gap-2">
+                    {timeSlots.map(slot => (
+                        <Button
+                            key={slot}
+                            variant={selectedTime === slot ? 'default' : 'outline'}
+                            disabled={bookedTimes.includes(slot)}
+                            onClick={() => {
+                                form.setValue('scheduledTime', slot);
+                                form.clearErrors('scheduledTime');
+                                setIsOpen(false);
+                            }}
+                        >
+                            {slot}
+                        </Button>
+                    ))}
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+  };
   
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
@@ -526,7 +569,7 @@ export function ScheduleClient() {
 
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="scheduledDate" render={({ field }) => (
-                          <FormItem className="flex flex-col">
+                          <FormItem className="flex flex-col !space-y-0">
                             <FormLabel className="mb-2">Data do Agendamento</FormLabel>
                             <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen} modal={true}>
                               <PopoverTrigger asChild>
@@ -552,11 +595,11 @@ export function ScheduleClient() {
                             <FormMessage className="pt-2" />
                           </FormItem>
                         )} />
-                        <FormField control={form.control} name="scheduledTime" render={({ field }) => (
+                        <FormField control={form.control} name="scheduledTime" render={() => (
                             <FormItem className="pt-1">
                                 <FormLabel className="mb-2">Hora</FormLabel>
                                 <FormControl>
-                                    <Input type="time" {...field} autoComplete="off" />
+                                    <TimeSlotPicker />
                                 </FormControl>
                                 <FormMessage className="pt-2"/>
                             </FormItem>
