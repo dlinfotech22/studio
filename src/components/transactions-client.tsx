@@ -1065,9 +1065,10 @@ export function TransactionsClient() {
                     )}
                   />
                   {selectedSubtype !== 'Despesa' && (
-                     <div className="pt-2">
+                     <FormItem className="flex flex-col pt-2">
+                        <FormLabel>Cliente (Opcional)</FormLabel>
                         <CustomerCombobox />
-                     </div>
+                     </FormItem>
                   )}
               </div>
 
@@ -1150,7 +1151,7 @@ export function TransactionsClient() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{selectedSubtype === 'Prestação de Serviço' ? 'Descrição do Serviço' : 'Descrição (Opcional)'}</FormLabel>
+                    <FormLabel>{selectedSubtype === 'Prestação de Serviço' ? 'Informação Adicional (Opcional)' : 'Descrição (Opcional)'}</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Ex: Pagamento de aluguel"
