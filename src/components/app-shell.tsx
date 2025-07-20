@@ -167,7 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </svg>
             </Button>
             <span className="text-2xl font-semibold tracking-tight text-sidebar-foreground">
-              Gestão Empresarial
+              GESTOR DL
             </span>
           </div>
         </SidebarHeader>

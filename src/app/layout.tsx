@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppShell } from '@/components/app-shell';
@@ -5,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'Gestão Empresarial',
+  title: 'GESTOR DL',
   description: 'Gerencie sua empresa de forma simples e eficiente.',
 };
 
