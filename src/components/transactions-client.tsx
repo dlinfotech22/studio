@@ -351,21 +351,6 @@ export function TransactionsClient() {
     control: form.control,
     name: "services",
   });
-  
-  const formSubtype = form.watch('subtype');
-
-  useEffect(() => {
-    const subscription = form.watch((value) => {
-      const itemsTotal = value.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
-      const servicesTotal = value.services?.reduce((sum, service) => sum + (service.price ?? 0), 0) || 0;
-      const totalAmount = itemsTotal + servicesTotal;
-      if (formSubtype !== 'Despesa') {
-        form.setValue('amount', totalAmount > 0 ? totalAmount : undefined, { shouldValidate: true });
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [form, formSubtype]);
-
 
   useEffect(() => {
     if (companyInfo?.allowedSubtypes) {
@@ -860,6 +845,11 @@ export function TransactionsClient() {
                     const target = e.target as HTMLElement;
                     if (target && target.closest('[cmdk-item]')) {
                         e.preventDefault();
+                    } else {
+                         const currentInput = form.getValues('customerName');
+                        if (currentInput && !allCustomers.some(c => c.name.toLowerCase() === currentInput.toLowerCase())) {
+                            form.setValue('customerId', undefined);
+                        }
                     }
                 }}
             >
@@ -871,12 +861,10 @@ export function TransactionsClient() {
                 >
                     <CommandInput 
                       placeholder="Buscar cliente..."
-                      value={form.getValues('customerName')}
+                      value={customerNameValue}
                       onValueChange={(search) => {
                           form.setValue('customerName', search.toUpperCase());
-                          if (!allCustomers.some(c => c.name.toLowerCase() === search.toLowerCase())) {
-                              form.setValue('customerId', undefined);
-                          }
+                          form.setValue('customerId', undefined);
                       }}
                       autoComplete="off"
                     />
