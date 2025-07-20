@@ -1151,7 +1151,7 @@ export function TransactionsClient() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{selectedSubtype === 'Prestação de Serviço' ? 'Informação Adicional (Opcional)' : 'Descrição (Opcional)'}</FormLabel>
+                    <FormLabel>Informação Adicional (Opcional)</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Ex: Pagamento de aluguel"
