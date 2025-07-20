@@ -214,7 +214,6 @@ export function ReportsClient() {
   const { toast } = useToast();
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
@@ -249,18 +248,6 @@ export function ReportsClient() {
           } as Transaction;
         });
         setTransactions(allTransactions);
-
-        const productsRef = collection(db, 'products');
-        const qProducts = query(
-          productsRef,
-          where('companyId', '==', id)
-        );
-        const productSnapshot = await getDocs(qProducts);
-        const allProducts = productSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Product));
-        setProducts(allProducts);
 
         const companiesRef = collection(db, 'companies');
         const qCompanies = query(companiesRef, where('document', '==', id));
@@ -393,6 +380,27 @@ export function ReportsClient() {
 
     return transaction.description;
   };
+  
+  const prepareExportData = (transactionsToExport: Transaction[]) => {
+    return transactionsToExport.map(t => {
+      const productTotal = t.items?.reduce((sum, item) => sum + item.quantity * item.price, 0) || 0;
+      const serviceTotal = t.services?.reduce((sum, service) => sum + service.price, 0) || 0;
+      const itemsList = t.items?.map(item => `${item.quantity}x ${item.productName}`).join('\n') || '';
+      const servicesList = t.services?.map(service => service.serviceName).join('\n') || '';
+
+      return {
+        'Data': format(new Date(t.date), 'dd/MM/yyyy'),
+        'ID': t.sequentialId ? String(t.sequentialId).padStart(8, '0') : t.id.substring(0,8).toUpperCase(),
+        'Cliente/Descrição': t.customerName || t.description,
+        'Itens': itemsList,
+        'Serviços': servicesList,
+        'Total Produtos (R$)': productTotal,
+        'Total Serviços (R$)': serviceTotal,
+        'Valor Total (R$)': t.amount,
+        'Tipo': t.type, // For PDF coloring
+      };
+    });
+  };
 
   const handleExport = (formatType: 'Excel' | 'PDF') => {
     if (filteredTransactions.length === 0) {
@@ -404,152 +412,87 @@ export function ReportsClient() {
       });
       return;
     }
-
-    if (formatType === 'PDF') {
-      const doc = new jsPDF();
-      let startY = 15;
-      const leftMargin = 14;
-
-      let logoRenderedSuccessfully = false;
-      if (companyInfo?.logo) {
-        try {
-          const img = new Image();
-          img.crossOrigin = 'Anonymous';
-          img.src = companyInfo.logo;
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0);
-            const dataUrl = canvas.toDataURL('image/png');
-
-            const imgProps = doc.getImageProperties(dataUrl);
-            const aspectRatio = imgProps.width / imgProps.height;
-            const imgWidth = 20;
-            const imgHeight = imgWidth / aspectRatio;
-            doc.addImage(
-              dataUrl,
-              'PNG',
-              leftMargin,
-              startY,
-              imgWidth,
-              imgHeight
-            );
-            logoRenderedSuccessfully = true;
-            generatePdfContent(
-              doc,
-              startY,
-              leftMargin,
-              logoRenderedSuccessfully
-            );
-          };
-          img.onerror = () => {
-            generatePdfContent(doc, startY, leftMargin, false);
-          };
-        } catch (e) {
-          console.error('Error adding logo to PDF', e);
-          generatePdfContent(doc, startY, leftMargin, false);
-        }
-      } else {
-        generatePdfContent(doc, startY, leftMargin, false);
-      }
-      return;
-    }
-
-    // Excel Export
-    const dataToExport = filteredTransactions.map(t => {
-      const productTotal = t.items?.reduce((sum, item) => sum + item.quantity * item.price, 0) || 0;
-      const serviceTotal = t.services?.reduce((sum, service) => sum + service.price, 0) || 0;
-      
-      return {
-        'Data': format(new Date(t.date), 'dd/MM/yyyy'),
-        'ID': t.sequentialId ? String(t.sequentialId).padStart(8, '0') : t.id.substring(0,8).toUpperCase(),
-        'Tipo': t.subtype,
-        'Cliente/Descrição': t.customerName || t.description,
-        'Total Produtos (R$)': productTotal > 0 ? productTotal : '',
-        'Total Serviços (R$)': serviceTotal > 0 ? serviceTotal : '',
-        'Valor Total (R$)': t.amount,
-      };
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-
-    worksheet['!cols'] = [
-      { wch: 12 }, { wch: 10 }, { wch: 25 }, { wch: 40 },
-      { wch: 20 }, { wch: 20 }, { wch: 20 }
-    ];
-
-    const range = XLSX.utils.decode_range(worksheet['!ref']!);
-    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-        for (let C of [4, 5, 6]) { // Columns for currency
-            const cell_address = { c: C, r: R };
-            const cell_ref = XLSX.utils.encode_cell(cell_address);
-            if (worksheet[cell_ref] && worksheet[cell_ref].v !== '' && typeof worksheet[cell_ref].v === 'number') {
-                worksheet[cell_ref].t = 'n';
-                worksheet[cell_ref].z = '"R$"#,##0.00';
-            }
-        }
-    }
-
-    // Add summary
-    XLSX.utils.sheet_add_aoa(
-      worksheet,
-      [
-        [],
-        ['', '', '', '', 'Receita Total', totalRevenue],
-        ['', '', '', '', 'Despesa Total', totalExpenses],
-        ['', '', '', '', 'Lucro/Prejuízo', profit],
-      ],
-      { origin: -1 }
-    );
     
-    const summaryStartRow = range.e.r + 3;
-    for (let R = summaryStartRow; R <= summaryStartRow + 2; ++R) {
-        const cell_address = { c: 5, r: R };
-        const cell_ref = XLSX.utils.encode_cell(cell_address);
-        if (worksheet[cell_ref] && typeof worksheet[cell_ref].v === 'number') {
-            worksheet[cell_ref].t = 'n';
-            worksheet[cell_ref].z = '"R$"#,##0.00';
-        }
+    const dataToExport = prepareExportData(filteredTransactions);
+
+    if (formatType === 'Excel') {
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport.map(d => {
+        const {Tipo, ...rest} = d;
+        return rest;
+      }));
+  
+      worksheet['!cols'] = [
+        { wch: 12 }, { wch: 10 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
+        { wch: 20 }, { wch: 20 }, { wch: 20 }
+      ];
+      
+      const range = XLSX.utils.decode_range(worksheet['!ref']!);
+      for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+          for (let C of [5, 6, 7]) { // Columns for currency
+              const cell_address = { c: C, r: R };
+              const cell_ref = XLSX.utils.encode_cell(cell_address);
+              if (worksheet[cell_ref] && typeof worksheet[cell_ref].v === 'number' && worksheet[cell_ref].v > 0) {
+                  worksheet[cell_ref].t = 'n';
+                  worksheet[cell_ref].z = '"R$"#,##0.00';
+              } else if (worksheet[cell_ref]) {
+                 worksheet[cell_ref].v = ''; // Clear cell if value is 0
+              }
+          }
+      }
+  
+      // Add summary
+      XLSX.utils.sheet_add_aoa(
+        worksheet,
+        [
+          [],
+          ['', '', '', '', 'Receita Total', totalRevenue],
+          ['', '', '', '', 'Despesa Total', totalExpenses],
+          ['', '', '', '', 'Lucro/Prejuízo', profit],
+        ],
+        { origin: -1 }
+      );
+      
+      const summaryStartRow = range.e.r + 3;
+      for (let R = summaryStartRow; R <= summaryStartRow + 2; ++R) {
+          const cell_address = { c: 5, r: R };
+          const cell_ref = XLSX.utils.encode_cell(cell_address);
+          if (worksheet[cell_ref] && typeof worksheet[cell_ref].v === 'number') {
+              worksheet[cell_ref].t = 'n';
+              worksheet[cell_ref].z = '"R$"#,##0.00';
+          }
+      }
+  
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Lançamentos');
+  
+      const fileName = `relatorio_financeiro_${format(
+        new Date(),
+        'yyyy-MM-dd'
+      )}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+  
+      toast({
+        title: 'Exportação Concluída',
+        description: `O arquivo ${fileName} foi gerado com sucesso.`,
+      });
+
+    } else if (formatType === 'PDF') {
+      const doc = new jsPDF({ orientation: 'landscape' });
+      generatePdfContent(doc, dataToExport);
     }
-
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Lançamentos');
-
-    const fileName = `relatorio_financeiro_${format(
-      new Date(),
-      'yyyy-MM-dd'
-    )}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
-
-    toast({
-      title: 'Exportação Concluída',
-      description: `O arquivo ${fileName} foi gerado com sucesso.`,
-    });
   };
 
-  const generatePdfContent = (
-    doc: jsPDF,
-    startY: number,
-    leftMargin: number,
-    logoRendered: boolean
-  ) => {
-    const textXOffset = logoRendered ? 25 : 0;
+  const generatePdfContent = (doc: jsPDF, data: any[]) => {
+    let startY = 15;
+    const leftMargin = 14;
+
     if (companyInfo?.name) {
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text(companyInfo.name, leftMargin + textXOffset, startY + 6);
+      doc.text(companyInfo.name, leftMargin, startY);
+      startY += 8;
     }
-    if (companyInfo?.document) {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(companyInfo.document, leftMargin + textXOffset, startY + 12);
-    }
-
-    startY += logoRendered ? 28 : 20;
-
+    
     const formatDateRange = () => {
       if (!date?.from) return 'Nenhum período selecionado';
       const from = format(date.from, 'dd/MM/yyyy');
@@ -576,7 +519,7 @@ export function ReportsClient() {
       body: summaryData,
       startY,
       theme: 'plain',
-      styles: { fontSize: 12 },
+      styles: { fontSize: 10 },
       columnStyles: { 1: { halign: 'right' } },
       didParseCell: (data: any) => {
         if (data.column.index === 0) data.cell.styles.fontStyle = 'bold';
@@ -588,30 +531,34 @@ export function ReportsClient() {
           data.cell.styles.textColor = profit >= 0 ? '#16a34a' : '#dc2626';
       },
     });
-    startY = (doc as any).lastAutoTable.finalY + 10;
+    startY = (doc as any).lastAutoTable.finalY + 8;
     
-    // Main table with transactions
-    const mainTableBody = filteredTransactions.map((t) => {
-      const productTotal = t.items?.reduce((sum, item) => sum + item.quantity * item.price, 0) || 0;
-      const serviceTotal = t.services?.reduce((sum, service) => sum + service.price, 0) || 0;
-      return [
-        format(new Date(t.date), 'dd/MM/yyyy'),
-        t.customerName || t.description,
-        { content: productTotal > 0 ? formatCurrency(productTotal) : '-', styles: { halign: 'right' } },
-        { content: serviceTotal > 0 ? formatCurrency(serviceTotal) : '-', styles: { halign: 'right' } },
-        { content: formatCurrency(t.amount), styles: { halign: 'right' } },
-      ];
-    });
+    const tableHead = [['Data', 'Cliente/Descrição', 'Itens', 'Serviços', 'Total Produtos', 'Total Serviços', 'Valor Total']];
+    const tableBody = data.map(t => [
+        t['Data'],
+        t['Cliente/Descrição'],
+        t['Itens'],
+        t['Serviços'],
+        t['Total Produtos (R$)'] > 0 ? formatCurrency(t['Total Produtos (R$)']) : '-',
+        t['Total Serviços (R$)'] > 0 ? formatCurrency(t['Total Serviços (R$)']) : '-',
+        formatCurrency(t['Valor Total (R$)'])
+    ]);
     
     (doc as any).autoTable({
-        head: [['Data', 'Cliente/Descrição', 'Total Produtos', 'Total Serviços', 'Valor Total']],
-        body: mainTableBody,
+        head: tableHead,
+        body: tableBody,
         startY,
-        headStyles: { fillColor: [41, 128, 185] },
-        didParseCell: (data: any) => {
-            if (data.column.index === 4 && data.cell.section === 'body') {
-                const transaction = filteredTransactions[data.row.index];
-                data.cell.styles.textColor = transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
+        headStyles: { fillColor: [41, 128, 185], fontSize: 8 },
+        styles: { fontSize: 7, cellPadding: 2 },
+        columnStyles: {
+            4: { halign: 'right' },
+            5: { halign: 'right' },
+            6: { halign: 'right' },
+        },
+        didParseCell: (hookData: any) => {
+            if (hookData.section === 'body' && hookData.column.index === 6) {
+                const transactionType = data[hookData.row.index].Tipo;
+                hookData.cell.styles.textColor = transactionType === 'revenue' ? '#16a34a' : '#dc2626';
             }
         },
     });
