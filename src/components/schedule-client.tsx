@@ -60,7 +60,7 @@ const scheduleServiceItemSchema = z.object({
 
 const scheduleSchema = z.object({
   scheduledDate: z.date({ required_error: 'A data do agendamento é obrigatória.' }),
-  scheduledTime: z.string().refine(val => /^\d{2}:\d{2}$/.test(val), { message: "A hora é obrigatória." }),
+  scheduledTime: z.string().refine(val => /^\d{2}:\d{2}$/.test(val) && val !== '', { message: "A hora é obrigatória." }),
   customerId: z.string().optional(),
   customerName: z.string().min(1, 'O nome do cliente é obrigatório.'),
   services: z.array(scheduleServiceItemSchema).min(1, 'Você deve adicionar pelo menos um serviço.'),
@@ -105,7 +105,7 @@ export function ScheduleClient() {
         const qServices = query(
             servicesRef,
             where('companyId', '==', cId),
-            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
+            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
         );
         const servicesSnapshot = await getDocs(qServices);
         const fetchedServices = servicesSnapshot.docs.map((doc) => {
@@ -482,7 +482,7 @@ export function ScheduleClient() {
             </DialogHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onScheduleSubmit)} className="space-y-4">
-                    <FormField control={form.control} name="customerName" render={() => (
+                     <FormField control={form.control} name="customerName" render={() => (
                         <FormItem className="flex flex-col pt-2">
                            <FormLabel>Cliente</FormLabel>
                            <CustomerCombobox />
@@ -492,7 +492,7 @@ export function ScheduleClient() {
 
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="scheduledDate" render={({ field }) => (
-                          <FormItem className="flex flex-col !space-y-0">
+                          <FormItem className="flex flex-col">
                             <FormLabel className="mb-2">Data do Agendamento</FormLabel>
                             <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen} modal={true}>
                               <PopoverTrigger asChild>
@@ -519,7 +519,7 @@ export function ScheduleClient() {
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="scheduledTime" render={({ field }) => (
-                            <FormItem className="!space-y-0">
+                            <FormItem className="pt-1.5">
                                 <FormLabel className="mb-2">Hora</FormLabel>
                                 <FormControl>
                                     <Input type="time" {...field} autoComplete="off" />
