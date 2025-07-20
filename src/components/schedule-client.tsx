@@ -482,6 +482,13 @@ export function ScheduleClient() {
             </DialogHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onScheduleSubmit)} className="space-y-4">
+                    <FormField control={form.control} name="customerName" render={() => (
+                        <FormItem className="flex flex-col pt-2">
+                           <FormLabel>Cliente</FormLabel>
+                           <CustomerCombobox />
+                           <FormMessage />
+                        </FormItem>
+                    )} />
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="scheduledDate" render={({ field }) => (
                           <FormItem className="flex flex-col">
@@ -520,13 +527,6 @@ export function ScheduleClient() {
                             </FormItem>
                         )}/>
                     </div>
-                     <FormField control={form.control} name="customerName" render={() => (
-                        <FormItem className="flex flex-col pt-2">
-                           <FormLabel>Cliente</FormLabel>
-                           <CustomerCombobox />
-                           <FormMessage />
-                        </FormItem>
-                    )} />
                     
                     <Card>
                       <CardHeader className="px-6 pt-4 pb-2">
