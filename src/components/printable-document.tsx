@@ -177,6 +177,13 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
         </div>
       </section>
 
+      <section className="mt-16 pt-8 text-center">
+        <div className="inline-block">
+          <div className="w-64 border-b border-black"></div>
+          <p className="text-sm mt-1">{customer?.name || transaction?.customerName || 'Assinatura do Cliente'}</p>
+        </div>
+      </section>
+
       <footer className="mt-16 text-center text-xs text-gray-400 border-t pt-4">
         <p>Este é um documento gerado pelo sistema.</p>
         {companyInfo?.name && <p>{companyInfo.name}</p>}
