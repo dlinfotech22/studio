@@ -218,7 +218,11 @@ const serviceStatusOptions: ServiceStatus[] = [
     'Cancelada',
 ];
 
-export function TransactionsClient() {
+interface TransactionsClientProps {
+  context?: 'transactions' | 'schedule';
+}
+
+export function TransactionsClient({ context = 'transactions' }: TransactionsClientProps) {
   const { toast } = useToast();
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<
@@ -1332,7 +1336,7 @@ export function TransactionsClient() {
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                   <DatePicker fieldName="date" />
-                  {isServiceRelated && <DatePicker fieldName="scheduledDate" />}
+                  {isServiceRelated && context === 'schedule' && <DatePicker fieldName="scheduledDate" />}
 
                   {selectedSubtype !== 'Despesa' && (
                     <>

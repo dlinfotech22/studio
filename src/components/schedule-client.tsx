@@ -258,12 +258,12 @@ export function ScheduleClient() {
                          Confirmar e Iniciar
                        </Button>
                     )}
-                    {service.serviceStatus === 'Aberta' || service.serviceStatus === 'Aprovada' ? (
+                    {(service.serviceStatus === 'Aberta' || service.serviceStatus === 'Aprovada') && (
                        <Button size="sm" className="w-full" onClick={() => handleStatusChange(service.id, 'Em Execução')}>
                          <PlayCircle className="mr-2 h-4 w-4" />
                          Iniciar Serviço
                        </Button>
-                    ) : null}
+                    )}
                  </div>
                 {service.serviceStatus !== 'Agendado' && (
                     <div className="flex items-center gap-2">
@@ -302,7 +302,7 @@ export function ScheduleClient() {
                     setIsFormOpen(false);
                     if (companyId) fetchScheduledServices(companyId);
                 }}>Voltar para Agenda</Button>
-                <TransactionsClient />
+                <TransactionsClient context="schedule" />
             </div>
         </div>
     );
