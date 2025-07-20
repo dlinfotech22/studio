@@ -157,6 +157,14 @@ const transactionSchema = z.object({
 }, {
     message: 'A data de vencimento é obrigatória para esta forma de pagamento.',
     path: ['firstDueDate']
+}).refine(data => {
+    if (data.subtype !== 'Despesa') {
+        return data.customerName && data.customerName.trim().length > 0;
+    }
+    return true;
+}, {
+    message: 'O campo cliente é obrigatório para receitas.',
+    path: ['customerName'],
 });
 
 
@@ -859,8 +867,8 @@ export function TransactionsClient() {
                       onValueChange={setValue}
                       autoComplete="off"
                     />
-                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                     <CommandList>
+                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                         <CommandGroup>
                             {allCustomers
                               .filter(c => c.name.toLowerCase().includes(value.toLowerCase()))
@@ -874,6 +882,7 @@ export function TransactionsClient() {
                                             setValue(selectedClient.name);
                                             form.setValue('customerId', selectedClient.id);
                                             form.setValue('customerName', selectedClient.name);
+                                            form.clearErrors('customerName');
                                         }
                                         setOpen(false);
                                     }}
@@ -1074,10 +1083,17 @@ export function TransactionsClient() {
                     )}
                   />
                   {selectedSubtype !== 'Despesa' && (
-                     <FormItem className="flex flex-col pt-2">
-                        <FormLabel>Cliente (Opcional)</FormLabel>
-                        <CustomerCombobox />
-                     </FormItem>
+                    <FormField
+                      control={form.control}
+                      name="customerName"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col pt-2">
+                           <FormLabel>Cliente</FormLabel>
+                           <CustomerCombobox />
+                           <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
               </div>
               
