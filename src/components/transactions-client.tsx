@@ -374,41 +374,63 @@ export function TransactionsClient() {
     
     try {
       await runTransaction(db, async (transaction) => {
+        // --- ALL READS FIRST ---
         const companyRef = doc(db, 'companies', companyInfo.id);
         const companyDoc = await transaction.get(companyRef);
         if (!companyDoc.exists()) {
           throw new Error("Dados da empresa não encontrados.");
         }
+  
+        const oldItems = editingTransaction?.items || [];
+        const newItems = data.items || [];
+        const itemChanges: { [productId: string]: number } = {};
         
+        oldItems.forEach(item => {
+          itemChanges[item.productId] = (itemChanges[item.productId] || 0) + item.quantity;
+        });
+        newItems.forEach(item => {
+          itemChanges[item.productId] = (itemChanges[item.productId] || 0) - item.quantity;
+        });
+  
+        const productRefs = Object.keys(itemChanges).map(productId => doc(db, 'products', productId));
+        const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+  
+        // --- VALIDATION AND LOGIC ---
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const productId = productRefs[i].id;
+          const quantityChange = itemChanges[productId];
+  
+          if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
+          const currentQuantity = productDoc.data().quantity;
+          if (currentQuantity < -quantityChange) throw new Error(`Estoque insuficiente para ${productDoc.data().name}.`);
+        }
+  
         let currentCounter = companyDoc.data().transactionCounter || 0;
         let nextSequentialId = currentCounter + 1;
         if (nextSequentialId > 99999999) {
           nextSequentialId = 1;
         }
-        
-        transaction.update(companyRef, { transactionCounter: nextSequentialId });
-
+  
         const transactionType = subtypeToTypeMap[data.subtype];
-
         const itemsTotal = data.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
         const servicesTotal = data.services?.reduce((sum, service) => sum + (service.price ?? 0), 0) || 0;
         
         let totalAmount: number;
-
         if (transactionType === 'expense') {
-            if (data.amount === undefined || data.amount <= 0) {
-                throw new Error("O valor da despesa deve ser um número positivo.");
-            }
-            totalAmount = data.amount;
+          if (data.amount === undefined || data.amount <= 0) {
+            throw new Error("O valor da despesa deve ser um número positivo.");
+          }
+          totalAmount = data.amount;
         } else {
-            totalAmount = itemsTotal + servicesTotal;
+          totalAmount = itemsTotal + servicesTotal;
         }
         
         let baseDescription = '';
         if (data.subtype === 'Despesa') {
-            baseDescription = 'DESPESA GERAL';
+          baseDescription = 'DESPESA GERAL';
         } else if (data.customerName) {
-            baseDescription = `LANÇAMENTO PARA ${data.customerName.toUpperCase()}`;
+          baseDescription = `LANÇAMENTO PARA ${data.customerName.toUpperCase()}`;
         }
         
         const finalDescription = data.description 
@@ -435,17 +457,17 @@ export function TransactionsClient() {
         } else {
           payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
         }
-
+  
         if (data.paymentMethod === 'A Prazo' && data.firstDueDate) {
-            payload.installments = [{
-                installmentNumber: 1,
-                dueDate: Timestamp.fromDate(data.firstDueDate),
-                amount: totalAmount,
-                status: 'Pendente'
-            }];
-            payload.installmentsCount = 1;
+          payload.installments = [{
+            installmentNumber: 1,
+            dueDate: Timestamp.fromDate(data.firstDueDate),
+            amount: totalAmount,
+            status: 'Pendente'
+          }];
+          payload.installmentsCount = 1;
         }
-
+  
         if (data.paymentMethod === 'Parcelado' && data.installmentsCount && data.firstDueDate) {
           payload.installments = [];
           const installmentAmount = totalAmount / data.installmentsCount;
@@ -459,34 +481,21 @@ export function TransactionsClient() {
           }
           payload.installmentsCount = data.installmentsCount;
         }
-
-        const oldItems = editingTransaction?.items || [];
-        const newItems = data.items || [];
-        const itemChanges: { [productId: string]: number } = {};
-
-        oldItems.forEach(item => {
-            itemChanges[item.productId] = (itemChanges[item.productId] || 0) + item.quantity;
-        });
-        newItems.forEach(item => {
-            itemChanges[item.productId] = (itemChanges[item.productId] || 0) - item.quantity;
-        });
   
-        for (const productId in itemChanges) {
-            const quantityChange = itemChanges[productId];
-            if (quantityChange !== 0) {
-                const productRef = doc(db, 'products', productId);
-                const productDoc = await transaction.get(productRef);
-                if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
-                const currentQuantity = productDoc.data().quantity;
-                if (currentQuantity < -quantityChange) throw new Error(`Estoque insuficiente para ${productDoc.data().name}.`);
-                transaction.update(productRef, { quantity: currentQuantity + quantityChange });
-            }
+        // --- ALL WRITES LAST ---
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const productId = productRefs[i].id;
+          const quantityChange = itemChanges[productId];
+          if (quantityChange !== 0) {
+            const currentQuantity = productDoc.data().quantity;
+            transaction.update(productRefs[i], { quantity: currentQuantity + quantityChange });
+          }
         }
   
         if (editingTransaction) {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
           const updatePayload = { ...payload };
-          // Don't update sequentialId on edit
           delete updatePayload.sequentialId;
           
           Object.keys(updatePayload).forEach(key => {
@@ -499,10 +508,12 @@ export function TransactionsClient() {
           transaction.update(transactionRef, updatePayload as any);
           finalTransaction = { ...editingTransaction, ...payload, date: data.date } as Transaction;
         } else {
-            const newTransactionRef = doc(collection(db, 'transactions'));
-            transaction.set(newTransactionRef, payload as any);
-            finalTransaction = { id: newTransactionRef.id, ...payload, date: data.date } as Transaction;
+          const newTransactionRef = doc(collection(db, 'transactions'));
+          transaction.set(newTransactionRef, payload as any);
+          finalTransaction = { id: newTransactionRef.id, ...payload, date: data.date } as Transaction;
         }
+        
+        transaction.update(companyRef, { transactionCounter: nextSequentialId });
       });
   
       // Manually refetch data to reflect changes
@@ -539,6 +550,7 @@ export function TransactionsClient() {
       });
     }
   };
+
 
   const handleEdit = (transaction: Transaction) => {
     let firstDueDate: Date | undefined;
@@ -1264,7 +1276,7 @@ export function TransactionsClient() {
                   )}
                 />
               )}
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                 {selectedSubtype !== 'Despesa' && (
                     <FormField
                       control={form.control}
@@ -1319,9 +1331,10 @@ export function TransactionsClient() {
                 {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
                   <DatePicker fieldName="firstDueDate" />
                 )}
+                 <DatePicker fieldName="date" />
               </div>
               
-              <DatePicker fieldName="date" />
+             
 
 
               <DialogFooter>
@@ -1361,7 +1374,3 @@ export function TransactionsClient() {
     </>
   );
 }
-
-
-
-
