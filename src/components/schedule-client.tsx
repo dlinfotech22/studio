@@ -79,6 +79,7 @@ export function ScheduleClient() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [currentService, setCurrentService] = useState<Service | null>(null);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   const form = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -463,7 +464,7 @@ export function ScheduleClient() {
                     <FormField control={form.control} name="scheduledDate" render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Data do Agendamento</FormLabel>
-                        <Popover modal={true}>
+                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen} modal={true}>
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
@@ -473,7 +474,15 @@ export function ScheduleClient() {
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0 z-[51]" align="start">
-                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={(date) => {
+                                    field.onChange(date);
+                                    setIsCalendarOpen(false);
+                                }}
+                                initialFocus
+                            />
                           </PopoverContent>
                         </Popover>
                         <FormMessage />
