@@ -117,7 +117,9 @@ const transactionServiceItemSchema = z.object({
 
 const transactionSchema = z.object({
   description: z.string().optional(),
-  amount: z.coerce.number().optional(), // Optional for revenues, required for expenses via refine
+  amount: z.coerce.number().optional().refine(val => val === undefined || val > 0, {
+    message: "O valor da despesa deve ser positivo.",
+  }),
   date: z.date(),
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   customerId: z.string().optional(),
@@ -128,14 +130,15 @@ const transactionSchema = z.object({
   items: z.array(transactionItemSchema).optional(),
   services: z.array(transactionServiceItemSchema).optional(),
 }).refine(data => {
-  if (data.subtype === 'Despesa') {
-    return data.amount && data.amount > 0;
-  }
-  return true;
-}, {
-  message: 'O valor é obrigatório para despesas.',
-  path: ['amount'],
-}).refine(data => {
+    if (data.subtype === 'Despesa') {
+      return data.amount !== undefined && data.amount > 0;
+    }
+    return true;
+  }, {
+    message: 'O valor é obrigatório para despesas.',
+    path: ['amount'],
+  })
+  .refine(data => {
   if (data.subtype === 'Venda') {
     return data.items && data.items.length > 0;
   }
@@ -865,7 +868,9 @@ export function TransactionsClient() {
                       value={customerNameValue}
                       onValueChange={(search) => {
                           form.setValue('customerName', search.toUpperCase());
-                          form.setValue('customerId', undefined);
+                          if (!allCustomers.some(c => c.name === search.toUpperCase())) {
+                              form.setValue('customerId', undefined);
+                          }
                       }}
                       autoComplete="off"
                     />
@@ -1200,6 +1205,7 @@ export function TransactionsClient() {
                   </FormItem>
                 )}
               />
+
               {selectedSubtype === 'Despesa' && (
                 <FormField
                   control={form.control}
@@ -1211,8 +1217,8 @@ export function TransactionsClient() {
                         <Input
                           type="number"
                           placeholder="0.00"
-                          value={isNaN(field.value as number) ? '' : field.value}
-                          onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
+                          value={field.value === undefined ? '' : field.value}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
                           autoComplete="off"
                         />
                       </FormControl>
@@ -1223,7 +1229,7 @@ export function TransactionsClient() {
               )}
 
               {selectedSubtype !== 'Despesa' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                   <FormField
                     control={form.control}
                     name="paymentMethod"
@@ -1263,8 +1269,8 @@ export function TransactionsClient() {
                              <Input
                               type="number"
                               placeholder="2"
-                              value={isNaN(field.value as number) ? '' : field.value}
-                              onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
+                              value={field.value === undefined ? '' : field.value}
+                              onChange={(e) => field.onChange(e.target.valueAsNumber)}
                               autoComplete="off"
                              />
                           </FormControl>
@@ -1273,13 +1279,14 @@ export function TransactionsClient() {
                       )}
                     />
                   )}
-                  {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
-                    <DatePicker fieldName="firstDueDate" />
-                  )}
                 </div>
               )}
-
+              
+              {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
+                <DatePicker fieldName="firstDueDate" />
+              )}
               <DatePicker fieldName="date" />
+
 
               <DialogFooter>
                 <DialogClose asChild>
@@ -1318,3 +1325,4 @@ export function TransactionsClient() {
     </>
   );
 }
+
