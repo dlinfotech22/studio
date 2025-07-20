@@ -205,27 +205,29 @@ export function CustomersClient() {
 
     const document = data.document?.replace(/\D/g, '') || '';
 
+    // Check for uniqueness only if document is provided
     if (document) {
-        const q = query(
-            collection(db, 'customers'),
-            where('companyId', '==', companyId),
-            where('document', '==', document)
-        );
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-            const existingCustomer = snapshot.docs[0];
-            if (!editingCustomer || existingCustomer.id !== editingCustomer.id) {
-                form.setError('document', { message: 'Este documento já está em uso.' });
-                return;
-            }
+      const q = query(
+        collection(db, 'customers'),
+        where('companyId', '==', companyId),
+        where('document', '==', document)
+      );
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const existingCustomer = snapshot.docs[0];
+        // If we are editing, allow saving if the found document belongs to the same customer
+        if (!editingCustomer || existingCustomer.id !== editingCustomer.id) {
+          form.setError('document', { message: 'Este documento já está em uso.' });
+          return;
         }
+      }
     }
 
     const payload = { 
         ...data, 
         companyId, 
         name: data.name.toUpperCase(), 
-        document: document,
+        document,
         phone: data.phone?.replace(/\D/g, '') || '' 
     };
 
