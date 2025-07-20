@@ -435,7 +435,16 @@ export function ScheduleClient() {
   return (
     <>
       <div className="flex justify-end mb-4">
-        <Button onClick={() => setIsFormOpen(true)}>
+        <Button onClick={() => {
+          form.reset({
+            scheduledDate: new Date(),
+            scheduledTime: '',
+            customerName: '',
+            customerId: '',
+            services: [],
+          });
+          setIsFormOpen(true);
+        }}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Agendar Serviço
         </Button>
@@ -473,13 +482,6 @@ export function ScheduleClient() {
             </DialogHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onScheduleSubmit)} className="space-y-4">
-                    <FormField control={form.control} name="customerName" render={() => (
-                        <FormItem className="flex flex-col pt-2">
-                           <FormLabel>Cliente</FormLabel>
-                           <CustomerCombobox />
-                           <FormMessage />
-                        </FormItem>
-                    )} />
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="scheduledDate" render={({ field }) => (
                           <FormItem className="flex flex-col">
@@ -518,6 +520,13 @@ export function ScheduleClient() {
                             </FormItem>
                         )}/>
                     </div>
+                     <FormField control={form.control} name="customerName" render={() => (
+                        <FormItem className="flex flex-col pt-2">
+                           <FormLabel>Cliente</FormLabel>
+                           <CustomerCombobox />
+                           <FormMessage />
+                        </FormItem>
+                    )} />
                     
                     <Card>
                       <CardHeader className="px-6 pt-4 pb-2">
@@ -560,3 +569,4 @@ export function ScheduleClient() {
     </>
   );
 }
+
