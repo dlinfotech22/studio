@@ -119,16 +119,11 @@ const transactionServiceItemSchema = z.object({
 });
 
 const serviceStatusEnum = z.enum([
-  'Aberta',
-  'Aguardando Aprovação',
-  'Aprovada',
-  'Aguardando Peça / Material',
-  'Em Execução',
-  'Pausada',
-  'Finalizada',
-  'Aguardando Pagamento',
-  'Encerrada / Concluída',
-  'Cancelada',
+    'Agendado',
+    'Aberta',
+    'Em Execução',
+    'Finalizado',
+    'Cancelado',
 ]);
 
 const transactionSchema = z.object({
@@ -205,16 +200,11 @@ const subtypeToTypeMap: Record<TransactionSubtype, TransactionType> = {
 };
 
 const serviceStatusOptions: ServiceStatus[] = [
-  'Aberta',
-  'Aguardando Aprovação',
-  'Aprovada',
-  'Aguardando Peça / Material',
-  'Em Execução',
-  'Pausada',
-  'Finalizada',
-  'Aguardando Pagamento',
-  'Encerrada / Concluída',
-  'Cancelada',
+    'Agendado',
+    'Aberta',
+    'Em Execução',
+    'Finalizado',
+    'Cancelado',
 ];
 
 export function TransactionsClient() {
@@ -372,7 +362,7 @@ export function TransactionsClient() {
       firstDueDate: undefined,
       items: [],
       services: [],
-      serviceStatus: 'Aberta',
+      serviceStatus: 'Agendado',
     },
   });
 
@@ -557,7 +547,7 @@ export function TransactionsClient() {
       form.reset({
         description: '', amount: undefined, date: new Date(), subtype: data.subtype,
         customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
-        firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberta'
+        firstDueDate: undefined, items: [], services: [], serviceStatus: 'Agendado'
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
@@ -602,7 +592,7 @@ export function TransactionsClient() {
       firstDueDate: firstDueDate,
       items: transaction.items || [],
       services: transaction.services || [],
-      serviceStatus: isServiceRelated ? (transaction.serviceStatus || 'Aberta') : undefined,
+      serviceStatus: isServiceRelated ? (transaction.serviceStatus || 'Agendado') : undefined,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -656,7 +646,7 @@ export function TransactionsClient() {
     form.reset({
       description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
       scheduledDate: new Date(), customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
-      firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberta'
+      firstDueDate: undefined, items: [], services: [], serviceStatus: 'Agendado'
     });
     setIsDialogOpen(true);
   };
@@ -1452,3 +1442,5 @@ export function TransactionsClient() {
     </>
   );
 }
+
+    
