@@ -81,6 +81,7 @@ export function ScheduleClient() {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [currentService, setCurrentService] = useState<Service | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isMainCalendarOpen, setIsMainCalendarOpen] = useState(false);
   
   const form = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -190,6 +191,7 @@ export function ScheduleClient() {
   
   const handleDaySelect = (day: Date | undefined) => {
       setSelectedDate(day ? startOfDay(day) : undefined);
+      setIsMainCalendarOpen(false);
   }
 
   const handleAddService = () => {
@@ -434,7 +436,26 @@ export function ScheduleClient() {
 
   return (
     <>
-      <div className="flex justify-end mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <Popover open={isMainCalendarOpen} onOpenChange={setIsMainCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button variant={'outline'} className={cn('w-[280px] justify-start text-left font-normal', !selectedDate && 'text-muted-foreground')}>
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {selectedDate ? format(selectedDate, 'PPP', { locale: ptBR }) : <span>Selecione uma data</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDaySelect}
+                initialFocus
+                locale={ptBR}
+                modifiers={{ scheduled: allServices.map(s => s.scheduledDate).filter((d): d is Date => !!d) }}
+                modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full' }}
+            />
+          </PopoverContent>
+        </Popover>
         <Button onClick={() => {
           form.reset({
             scheduledDate: new Date(),
@@ -449,19 +470,8 @@ export function ScheduleClient() {
           Agendar Serviço
         </Button>
       </div>
-
-      <div className="flex flex-col items-center">
-        <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={handleDaySelect}
-            className="rounded-md border"
-            locale={ptBR}
-            modifiers={{ scheduled: allServices.map(s => s.scheduledDate).filter((d): d is Date => !!d) }}
-            modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full' }}
-        />
-        {selectedDate && renderServiceCards(selectedDayServices)}
-      </div>
+      
+      {selectedDate && renderServiceCards(selectedDayServices)}
       
       <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
         if (!isOpen) {
@@ -482,8 +492,8 @@ export function ScheduleClient() {
             </DialogHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onScheduleSubmit)} className="space-y-4">
-                     <FormField control={form.control} name="customerName" render={() => (
-                        <FormItem className="flex flex-col pt-2">
+                    <FormField control={form.control} name="customerName" render={() => (
+                        <FormItem className="flex flex-col">
                            <FormLabel>Cliente</FormLabel>
                            <CustomerCombobox />
                            <FormMessage />
@@ -519,7 +529,7 @@ export function ScheduleClient() {
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="scheduledTime" render={({ field }) => (
-                            <FormItem className="pt-1.5">
+                            <FormItem className="flex flex-col pt-1">
                                 <FormLabel className="mb-2">Hora</FormLabel>
                                 <FormControl>
                                     <Input type="time" {...field} autoComplete="off" />
@@ -570,3 +580,5 @@ export function ScheduleClient() {
     </>
   );
 }
+
+    
