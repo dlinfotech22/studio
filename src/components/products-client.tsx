@@ -420,7 +420,14 @@ export function ProductsClient() {
                   <FormItem>
                     <FormLabel>Preço de Venda (R$)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0.00" {...field} autoComplete="off" />
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        autoComplete="off"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -434,7 +441,14 @@ export function ProductsClient() {
                     <FormItem>
                       <FormLabel>Quantidade Inicial em Estoque</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0" {...field} autoComplete="off" />
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          autoComplete="off"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -448,7 +462,14 @@ export function ProductsClient() {
                   <FormItem>
                     <FormLabel>Estoque Mínimo</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0" {...field} autoComplete="off" />
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        autoComplete="off"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
                     </FormControl>
                      <FormDescription>
                         Quando o estoque atingir este valor, será considerado baixo.

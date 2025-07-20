@@ -394,7 +394,14 @@ export function ServicesClient() {
                   <FormItem>
                     <FormLabel>Preço (R$)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0.00" {...field} autoComplete="off" />
+                       <Input
+                        type="number"
+                        placeholder="0.00"
+                        autoComplete="off"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
