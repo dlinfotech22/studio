@@ -351,18 +351,20 @@ export function TransactionsClient() {
     control: form.control,
     name: "services",
   });
+  
+  const formSubtype = form.watch('subtype');
 
   useEffect(() => {
     const subscription = form.watch((value) => {
       const itemsTotal = value.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
       const servicesTotal = value.services?.reduce((sum, service) => sum + (service.price ?? 0), 0) || 0;
       const totalAmount = itemsTotal + servicesTotal;
-      if (form.getValues('subtype') !== 'Despesa') {
-        form.setValue('amount', totalAmount > 0 ? totalAmount : undefined);
+      if (formSubtype !== 'Despesa') {
+        form.setValue('amount', totalAmount > 0 ? totalAmount : undefined, { shouldValidate: true });
       }
     });
     return () => subscription.unsubscribe();
-  }, [form]);
+  }, [form, formSubtype]);
 
 
   useEffect(() => {
@@ -392,7 +394,7 @@ export function TransactionsClient() {
         
         let baseDescription = '';
         if (data.subtype === 'Despesa') {
-            baseDescription = data.description?.toUpperCase() || 'DESPESA GERAL';
+            baseDescription = 'DESPESA GERAL';
         } else {
             baseDescription = `LANÇAMENTO PARA ${data.customerName?.toUpperCase() || 'CLIENTE'}`;
         }
@@ -837,7 +839,7 @@ export function TransactionsClient() {
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const customerName = form.watch('customerName');
+    const customerNameValue = form.watch('customerName');
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -848,7 +850,7 @@ export function TransactionsClient() {
                     aria-expanded={open}
                     className="w-full justify-between"
                 >
-                    {customerName || "Selecione ou digite um cliente"}
+                    {customerNameValue || "Selecione ou digite um cliente"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
@@ -856,7 +858,7 @@ export function TransactionsClient() {
                 className="w-[--radix-popover-trigger-width] p-0"
                 onCloseAutoFocus={(e) => {
                     const target = e.target as HTMLElement;
-                    if(target && target.closest('[cmdk-item]')) {
+                    if (target && target.closest('[cmdk-item]')) {
                         e.preventDefault();
                     }
                 }}
