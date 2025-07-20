@@ -121,9 +121,15 @@ const transactionServiceItemSchema = z.object({
 const serviceStatusEnum = z.enum([
     'Agendado',
     'Aberta',
+    'Aguardando Aprovação',
+    'Aprovada',
+    'Aguardando Peça / Material',
     'Em Execução',
-    'Finalizado',
-    'Cancelado',
+    'Pausada',
+    'Finalizada',
+    'Aguardando Pagamento',
+    'Encerrada / Concluída',
+    'Cancelada',
 ]);
 
 const transactionSchema = z.object({
@@ -200,11 +206,16 @@ const subtypeToTypeMap: Record<TransactionSubtype, TransactionType> = {
 };
 
 const serviceStatusOptions: ServiceStatus[] = [
-    'Agendado',
     'Aberta',
+    'Aguardando Aprovação',
+    'Aprovada',
+    'Aguardando Peça / Material',
     'Em Execução',
-    'Finalizado',
-    'Cancelado',
+    'Pausada',
+    'Finalizada',
+    'Aguardando Pagamento',
+    'Encerrada / Concluída',
+    'Cancelada',
 ];
 
 export function TransactionsClient() {
@@ -1393,6 +1404,7 @@ export function TransactionsClient() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
+                              <SelectItem value="Agendado">Agendado</SelectItem>
                               {serviceStatusOptions.map(status => (
                                 <SelectItem key={status} value={status}>{status}</SelectItem>
                               ))}

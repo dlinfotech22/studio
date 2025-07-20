@@ -43,11 +43,16 @@ import { TransactionsClient } from './transactions-client';
 import { Calendar } from './ui/calendar';
 
 const serviceStatusOptions: ServiceStatus[] = [
-    'Agendado',
     'Aberta',
+    'Aguardando Aprovação',
+    'Aprovada',
+    'Aguardando Peça / Material',
     'Em Execução',
-    'Finalizado',
-    'Cancelado',
+    'Pausada',
+    'Finalizada',
+    'Aguardando Pagamento',
+    'Encerrada / Concluída',
+    'Cancelada',
 ];
 
 export function ScheduleClient() {
@@ -67,7 +72,7 @@ export function ScheduleClient() {
         transactionsRef,
         where('companyId', '==', cId),
         where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
-        where('serviceStatus', 'in', ['Agendado', 'Aberta', 'Em Execução'])
+        where('serviceStatus', 'not-in', ['Encerrada / Concluída', 'Cancelada'])
       );
       const snapshot = await getDocs(q);
       const services = snapshot.docs.map((doc) => {
@@ -261,7 +266,7 @@ export function ScheduleClient() {
                         </SelectTrigger>
                         <SelectContent>
                         {serviceStatusOptions.map((status) => (
-                            <SelectItem key={status} value={status} disabled={status === 'Agendado'}>
+                            <SelectItem key={status} value={status}>
                             {status}
                             </SelectItem>
                         ))}
@@ -318,8 +323,8 @@ export function ScheduleClient() {
             className="rounded-md border"
             locale={ptBR}
             modifiers={{
-                scheduled: allServices.map(s => s.scheduledDate).filter((d): d is Date => !!d),
-                inProgress: allServices.filter(s => s.serviceStatus === 'Em Execução').map(s => s.scheduledDate).filter((d): d is Date => !!d),
+                scheduled: allServices.filter(s => s.serviceStatus === 'Agendado').map(s => s.scheduledDate).filter((d): d is Date => !!d),
+                inProgress: allServices.filter(s => s.serviceStatus !== 'Agendado').map(s => s.scheduledDate).filter((d): d is Date => !!d),
             }}
             modifiersClassNames={{
                 scheduled: 'bg-primary/20 text-primary-foreground rounded-full',
