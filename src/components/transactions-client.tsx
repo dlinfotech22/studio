@@ -705,6 +705,7 @@ export function TransactionsClient() {
   
   const selectedSubtype = form.watch('subtype');
   const selectedPaymentMethod = form.watch('paymentMethod');
+  const selectedServiceId = form.watch('serviceId');
 
   const handleAddProduct = () => {
     if (currentProduct && currentQuantity) {
@@ -1043,6 +1044,7 @@ export function TransactionsClient() {
                         <Select
                           onValueChange={(value: TransactionSubtype) => {
                             field.onChange(value);
+                            form.setValue('serviceId', undefined);
                             form.setValue('items', []);
                             form.setValue('serviceAmount', NaN);
                             form.setValue('amount', NaN);
@@ -1180,7 +1182,11 @@ export function TransactionsClient() {
                         placeholder="0.00"
                         value={isNaN(field.value as number) ? '' : field.value}
                         onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
-                        disabled={selectedSubtype !== 'Despesa' && selectedSubtype !== 'Prestação de Serviço' || (selectedSubtype === 'Prestação de Serviço' && !!form.watch('serviceId'))}
+                        disabled={
+                          selectedSubtype === 'Venda' ||
+                          selectedSubtype === 'Serviço + Venda' ||
+                          (selectedSubtype === 'Prestação de Serviço' && !!selectedServiceId)
+                        }
                         autoComplete="off"
                       />
                     </FormControl>
