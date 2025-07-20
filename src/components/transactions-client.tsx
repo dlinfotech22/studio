@@ -434,7 +434,7 @@ export function TransactionsClient() {
           totalAmount = itemsTotal + servicesTotal;
         }
         
-        const finalDescription = (data.description || '').toUpperCase();
+        const finalDescription = (data.description || '');
         
         const isServiceRelated = data.subtype === 'Prestação de Serviço' || data.subtype === 'Serviço + Venda';
 
@@ -448,7 +448,7 @@ export function TransactionsClient() {
           scheduledDate: isServiceRelated && data.scheduledDate ? Timestamp.fromDate(data.scheduledDate) : null,
           subtype: data.subtype,
           customerId: data.customerId,
-          customerName: data.customerName ? data.customerName.toUpperCase() : '',
+          customerName: data.customerName ? data.customerName : '',
           paymentMethod: data.paymentMethod,
           items: data.items,
           services: data.services,
@@ -1273,6 +1273,7 @@ export function TransactionsClient() {
                         placeholder="Ex: Pagamento de aluguel ou detalhes do serviço"
                         {...field}
                         value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         autoComplete="off"
                       />
                     </FormControl>

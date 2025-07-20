@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -142,7 +143,7 @@ export default function LoginPage() {
                 placeholder="Usuário"
                 required
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => setUsername(e.target.value.toUpperCase())}
                 disabled={isLoading}
                 autoComplete="off"
               />

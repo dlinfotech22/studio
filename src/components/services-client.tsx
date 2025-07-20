@@ -142,7 +142,7 @@ export function ServicesClient() {
   const onSubmit = async (data: ServiceFormValues) => {
     if (!companyId) return;
 
-    const payload = { ...data, name: data.name.toUpperCase(), companyId };
+    const payload = { ...data, name: data.name, companyId };
 
     try {
       if (editingService) {

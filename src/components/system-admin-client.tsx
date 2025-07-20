@@ -1032,7 +1032,7 @@ export function SystemAdminClient() {
                       <FormItem>
                         <FormLabel>Usuário do Admin</FormLabel>
                         <FormControl>
-                          <Input {...field} autoComplete="off" />
+                          <Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} autoComplete="off" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1106,7 +1106,7 @@ export function SystemAdminClient() {
                   <FormItem>
                     <FormLabel>Nome de Usuário</FormLabel>
                     <FormControl>
-                      <Input {...field} autoComplete="off" />
+                      <Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} autoComplete="off" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

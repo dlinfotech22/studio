@@ -226,7 +226,7 @@ export function CustomersClient() {
     const payload = { 
         ...data, 
         companyId, 
-        name: data.name.toUpperCase(), 
+        name: data.name, 
         document,
         phone: data.phone?.replace(/\D/g, '') || '' 
     };

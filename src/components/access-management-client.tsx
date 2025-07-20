@@ -492,6 +492,7 @@ export function AccessManagementClient() {
                         placeholder="ex: joao.silva"
                         {...field}
                         value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         disabled={editingUser?.role === 'system_admin'}
                         autoComplete="off"
                       />
