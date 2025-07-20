@@ -86,7 +86,7 @@ export function ScheduleClient() {
     resolver: zodResolver(scheduleSchema),
     defaultValues: {
         scheduledDate: new Date(),
-        scheduledTime: '',
+        scheduledTime: format(new Date(), 'HH:mm'),
         customerName: '',
         customerId: '',
         services: [],
@@ -243,7 +243,13 @@ export function ScheduleClient() {
 
         toast({ title: 'Sucesso!', description: 'Serviço agendado.' });
         setIsFormOpen(false);
-        form.reset();
+        form.reset({
+          scheduledDate: new Date(),
+          scheduledTime: format(new Date(), 'HH:mm'),
+          customerName: '',
+          customerId: '',
+          services: [],
+      });
         fetchCompanyData(companyId); // Refetch data
     } catch (error: any) {
         console.error('Failed to schedule service:', error);
@@ -448,7 +454,18 @@ export function ScheduleClient() {
         {selectedDate && renderServiceCards(selectedDayServices)}
       </div>
       
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          form.reset({
+            scheduledDate: new Date(),
+            scheduledTime: format(new Date(), 'HH:mm'),
+            customerName: '',
+            customerId: '',
+            services: [],
+          });
+        }
+        setIsFormOpen(isOpen);
+      }}>
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Novo Agendamento</DialogTitle>
