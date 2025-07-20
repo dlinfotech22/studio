@@ -460,7 +460,7 @@ export function ReportsClient() {
     // Excel Export
     const dataToExport: any[] = [];
     dataToExport.push([
-        'Data', 'ID', 'Tipo', 'Cliente', 'Item/Serviço', 'Qtde.', 'Preço Un.', 'Subtotal', 'Valor Total'
+        'Data', 'ID', 'Tipo', 'Cliente', 'Produtos', 'Serviços', 'Qtde.', 'Preço Un.', 'Subtotal', 'Valor Total'
     ]);
 
     filteredTransactions.forEach(t => {
@@ -471,44 +471,63 @@ export function ReportsClient() {
 
         for (let i = 0; i < totalLines; i++) {
             const row: any[] = [];
-            if (i === 0) {
-                // Main transaction row
+            let itemDescription = '';
+            let serviceDescription = '';
+            let itemQuantity = '';
+            let itemPrice = '';
+            let itemSubtotal = '';
+
+            if (i === 0) { // Main transaction row
                 row.push(
                     format(new Date(t.date), 'dd/MM/yyyy'),
                     t.sequentialId ? String(t.sequentialId).padStart(8, '0') : t.id.substring(0,8).toUpperCase(),
                     t.subtype,
                     t.customerName || '-',
                 );
-            } else {
-                row.push('', '', '', ''); // Empty cells for subsequent lines of the same transaction
+            } else { // Subsequent lines for the same transaction
+                row.push('', '', '', '');
             }
 
-            let itemDescription = '';
-            let itemQuantity = '';
-            let itemPrice = '';
-            let itemSubtotal = '';
-
             if (isRevenue) {
-                if (i < services.length) {
-                    itemDescription = `  ${services[i].serviceName}`;
-                    itemQuantity = '1';
-                    itemPrice = services[i].price;
-                    itemSubtotal = services[i].price;
-                } else if (i < services.length + items.length) {
-                    const item = items[i - services.length];
+                if (i < items.length) {
+                    const item = items[i];
                     itemDescription = `  ${item.productName}`;
                     itemQuantity = item.quantity.toString();
                     itemPrice = item.price;
                     itemSubtotal = item.quantity * item.price;
                 }
-            } else {
-                // For expenses on the first line
+                
+                if (i < services.length) {
+                    const service = services[i];
+                    serviceDescription = `  ${service.serviceName}`;
+                    // If it's a line for a service, quantity, price and subtotal are based on the service.
+                    // This assumes one service per line for simplicity in this structure.
+                    // To handle both on the same line number `i`, we need to decide the primary source of info.
+                    // The current loop structure handles them sequentially, which is fine.
+                    // Let's refine. We will put service and product on separate lines.
+                    if (items.length === 0 || i >= items.length) {
+                        itemQuantity = '1';
+                        itemPrice = service.price;
+                        itemSubtotal = service.price;
+                    }
+                }
+
+                if (i >= items.length) { // This handles services after all products are listed
+                    const serviceIndex = i - items.length;
+                    if(services[serviceIndex]) {
+                      serviceDescription = `  ${services[serviceIndex].serviceName}`;
+                      itemQuantity = '1';
+                      itemPrice = services[serviceIndex].price;
+                      itemSubtotal = services[serviceIndex].price;
+                    }
+                }
+            } else { // For expenses
                 if (i === 0) {
                     itemDescription = t.description;
                 }
             }
             
-            row.push(itemDescription, itemQuantity, itemPrice, itemSubtotal);
+            row.push(itemDescription, serviceDescription, itemQuantity, itemPrice, itemSubtotal);
 
             if (i === 0) {
                 row.push(t.amount);
@@ -523,17 +542,17 @@ export function ReportsClient() {
 
     // Style and format
     worksheet['!cols'] = [
-      { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 40 }, 
+      { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 40 }, { wch: 40 },
       { wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
     ];
 
     const range = XLSX.utils.decode_range(worksheet['!ref']!);
     for (let R = range.s.r + 1; R <= range.e.r; ++R) {
         // Price, Subtotal, Total
-        for (let C of [6, 7, 8]) {
+        for (let C of [7, 8, 9]) {
             const cell_address = { c: C, r: R };
             const cell_ref = XLSX.utils.encode_cell(cell_address);
-            if (worksheet[cell_ref] && worksheet[cell_ref].v !== '') {
+            if (worksheet[cell_ref] && worksheet[cell_ref].v !== '' && typeof worksheet[cell_ref].v === 'number') {
                 worksheet[cell_ref].t = 'n';
                 worksheet[cell_ref].z = '"R$"#,##0.00';
             }
@@ -545,18 +564,18 @@ export function ReportsClient() {
       worksheet,
       [
         [],
-        ['', '', '', '', '', '', '', 'Receita Total', totalRevenue],
-        ['', '', '', '', '', '', '', 'Despesa Total', totalExpenses],
-        ['', '', '', '', '', '', '', 'Lucro/Prejuízo', profit],
+        ['', '', '', '', '', '', '', '', 'Receita Total', totalRevenue],
+        ['', '', '', '', '', '', '', '', 'Despesa Total', totalExpenses],
+        ['', '', '', '', '', '', '', '', 'Lucro/Prejuízo', profit],
       ],
       { origin: -1 }
     );
     
     const summaryStartRow = range.e.r + 3;
     for (let R = summaryStartRow; R <= summaryStartRow + 2; ++R) {
-        const cell_address = { c: 8, r: R };
+        const cell_address = { c: 9, r: R };
         const cell_ref = XLSX.utils.encode_cell(cell_address);
-        if (worksheet[cell_ref]) {
+        if (worksheet[cell_ref] && typeof worksheet[cell_ref].v === 'number') {
             worksheet[cell_ref].t = 'n';
             worksheet[cell_ref].z = '"R$"#,##0.00';
         }
@@ -638,36 +657,79 @@ export function ReportsClient() {
     });
     startY = (doc as any).lastAutoTable.finalY + 10;
     
-    const tableBody = filteredTransactions.map((t) => {
-        const details = getTransactionDescription(t);
-        return [
-            format(new Date(t.date), 'dd/MM/yyyy'),
-            t.subtype,
-            details,
-            formatCurrency(t.amount),
-        ];
-    });
-
+    // Main table with transactions
+    const mainTableBody = filteredTransactions.map((t) => [
+        format(new Date(t.date), 'dd/MM/yyyy'),
+        t.subtype,
+        t.customerName || t.description,
+        { content: formatCurrency(t.amount), styles: { halign: 'right' } },
+    ]);
+    
     (doc as any).autoTable({
-        head: [['Data', 'Tipo', 'Detalhes', 'Valor']],
-        body: tableBody,
+        head: [['Data', 'Tipo', 'Cliente/Descrição', 'Valor Total']],
+        body: mainTableBody,
         startY,
         headStyles: { fillColor: [41, 128, 185] },
-        columnStyles: { 
-            0: { cellWidth: 25 },
-            1: { cellWidth: 35 },
-            2: { cellWidth: 'auto' },
-            3: { halign: 'right', cellWidth: 30 } 
-        },
         didParseCell: (data: any) => {
-          if (data.column.index === 3 && data.cell.section === 'body') {
-            const transaction = filteredTransactions[data.row.index];
-            data.cell.styles.textColor =
-              transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
-          }
+            if (data.column.index === 3 && data.cell.section === 'body') {
+                const transaction = filteredTransactions[data.row.index];
+                data.cell.styles.textColor = transaction.type === 'revenue' ? '#16a34a' : '#dc2626';
+            }
+        },
+        willDrawPage: (data: any) => {
+            startY = data.cursor.y + 10;
         },
     });
-    
+
+    startY = (doc as any).lastAutoTable.finalY + 15;
+
+    // Detailed tables for revenues
+    filteredTransactions.forEach(t => {
+      if (t.type === 'revenue' && ((t.items && t.items.length > 0) || (t.services && t.services.length > 0))) {
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        const transactionTitle = `Detalhes do Lançamento #${t.sequentialId || t.id.substring(0,8).toUpperCase()} - ${t.customerName}`;
+        if (startY + 20 > doc.internal.pageSize.height) {
+            doc.addPage();
+            startY = 20;
+        }
+        doc.text(transactionTitle, leftMargin, startY);
+        startY += 5;
+
+        if(t.items && t.items.length > 0) {
+            const productBody = t.items.map(p => [
+                p.productName, 
+                p.quantity, 
+                { content: formatCurrency(p.price), styles: { halign: 'right' } }, 
+                { content: formatCurrency(p.price * p.quantity), styles: { halign: 'right' } }
+            ]);
+            (doc as any).autoTable({
+                head: [['Produto', 'Qtde', 'Preço Un.', 'Subtotal']],
+                body: productBody,
+                startY,
+                headStyles: { fillColor: [22, 163, 74] },
+                margin: { left: leftMargin },
+            });
+            startY = (doc as any).lastAutoTable.finalY + 10;
+        }
+        if(t.services && t.services.length > 0) {
+             const serviceBody = t.services.map(s => [
+                s.serviceName, 
+                { content: formatCurrency(s.price), styles: { halign: 'right' } }
+            ]);
+            (doc as any).autoTable({
+                head: [['Serviço', 'Preço']],
+                body: serviceBody,
+                startY,
+                headStyles: { fillColor: [37, 99, 235] },
+                margin: { left: leftMargin },
+            });
+            startY = (doc as any).lastAutoTable.finalY + 10;
+        }
+      }
+    });
+
     const fileName = `relatorio_financeiro_${format(
       new Date(),
       'yyyy-MM-dd'
