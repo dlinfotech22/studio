@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -37,11 +38,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from './ui/separator';
 
 const serviceStatusOptions: ServiceStatus[] = [
-  'Aberto',
-  'Em Andamento',
+  'Aberta',
   'Aguardando Aprovação',
-  'Finalizado',
-  'Cancelado',
+  'Aprovada',
+  'Aguardando Peça / Material',
+  'Em Execução',
+  'Pausada',
+  'Finalizada',
+  'Aguardando Pagamento',
+  'Encerrada / Concluída',
+  'Cancelada',
 ];
 
 export function ScheduleClient() {
@@ -62,15 +68,12 @@ export function ScheduleClient() {
     setIsLoading(true);
     try {
       const transactionsRef = collection(db, 'transactions');
+      // Updated query to fetch all services that are not in a final state.
       const q = query(
         transactionsRef,
         where('companyId', '==', companyId),
         where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
-        where('serviceStatus', 'in', [
-          'Aberto',
-          'Em Andamento',
-          'Aguardando Aprovação',
-        ])
+        where('serviceStatus', 'not-in', ['Encerrada / Concluída', 'Cancelada'])
       );
       const snapshot = await getDocs(q);
       const services = snapshot.docs
@@ -115,7 +118,7 @@ export function ScheduleClient() {
         description: `O serviço foi atualizado para "${newStatus}".`,
       });
       // If status is final, remove it from the list after update
-      if (newStatus === 'Finalizado' || newStatus === 'Cancelado') {
+      if (newStatus === 'Encerrada / Concluída' || newStatus === 'Cancelada') {
         setScheduledServices((prev) =>
           prev.filter((s) => s.id !== transactionId)
         );

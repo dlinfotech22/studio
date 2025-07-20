@@ -118,7 +118,18 @@ const transactionServiceItemSchema = z.object({
     price: z.coerce.number(),
 });
 
-const serviceStatusEnum = z.enum(['Aberto', 'Em Andamento', 'Aguardando Aprovação', 'Finalizado', 'Cancelado']);
+const serviceStatusEnum = z.enum([
+  'Aberta',
+  'Aguardando Aprovação',
+  'Aprovada',
+  'Aguardando Peça / Material',
+  'Em Execução',
+  'Pausada',
+  'Finalizada',
+  'Aguardando Pagamento',
+  'Encerrada / Concluída',
+  'Cancelada',
+]);
 
 const transactionSchema = z.object({
   description: z.string().optional(),
@@ -193,7 +204,18 @@ const subtypeToTypeMap: Record<TransactionSubtype, TransactionType> = {
   'Despesa': 'expense',
 };
 
-const serviceStatusOptions: ServiceStatus[] = ['Aberto', 'Em Andamento', 'Aguardando Aprovação', 'Finalizado', 'Cancelado'];
+const serviceStatusOptions: ServiceStatus[] = [
+  'Aberta',
+  'Aguardando Aprovação',
+  'Aprovada',
+  'Aguardando Peça / Material',
+  'Em Execução',
+  'Pausada',
+  'Finalizada',
+  'Aguardando Pagamento',
+  'Encerrada / Concluída',
+  'Cancelada',
+];
 
 export function TransactionsClient() {
   const { toast } = useToast();
@@ -350,7 +372,7 @@ export function TransactionsClient() {
       firstDueDate: undefined,
       items: [],
       services: [],
-      serviceStatus: 'Aberto',
+      serviceStatus: 'Aberta',
     },
   });
 
@@ -384,11 +406,7 @@ export function TransactionsClient() {
     try {
       await runTransaction(db, async (transaction) => {
         const companyRef = doc(db, 'companies', companyInfo.id);
-        const companyDoc = await transaction.get(companyRef);
-        
-        if (!companyDoc.exists()) {
-          throw new Error("Dados da empresa não encontrados.");
-        }
+        const companyDocPromise = transaction.get(companyRef);
   
         const oldItems = editingTransaction?.items || [];
         const newItems = data.items || [];
@@ -402,7 +420,14 @@ export function TransactionsClient() {
         });
   
         const productRefs = Object.keys(itemChanges).map(productId => doc(db, 'products', productId));
-        const productDocs = productRefs.length > 0 ? await Promise.all(productRefs.map(ref => transaction.get(ref))) : [];
+        const productDocsPromise = productRefs.length > 0 ? Promise.all(productRefs.map(ref => transaction.get(ref))) : Promise.resolve([]);
+  
+        // Perform all reads first
+        const [companyDoc, productDocs] = await Promise.all([companyDocPromise, productDocsPromise]);
+        
+        if (!companyDoc.exists()) {
+          throw new Error("Dados da empresa não encontrados.");
+        }
   
         for (let i = 0; i < productDocs.length; i++) {
           const productDoc = productDocs[i];
@@ -413,7 +438,8 @@ export function TransactionsClient() {
           const currentQuantity = productDoc.data().quantity;
           if (currentQuantity < -quantityChange) throw new Error(`Estoque insuficiente para ${productDoc.data().name}.`);
         }
-  
+        
+        // Now perform writes
         let currentCounter = companyDoc.data().transactionCounter || 0;
         let nextSequentialId = editingTransaction ? editingTransaction.sequentialId : currentCounter + 1;
         if (!editingTransaction && nextSequentialId > 99999999) {
@@ -448,7 +474,7 @@ export function TransactionsClient() {
           scheduledDate: isServiceRelated && data.scheduledDate ? Timestamp.fromDate(data.scheduledDate) : null,
           subtype: data.subtype,
           customerId: data.customerId,
-          customerName: data.customerName ? data.customerName : '',
+          customerName: data.customerName ? data.customerName.toUpperCase() : '',
           paymentMethod: data.paymentMethod,
           items: data.items,
           services: data.services,
@@ -531,7 +557,7 @@ export function TransactionsClient() {
       form.reset({
         description: '', amount: undefined, date: new Date(), subtype: data.subtype,
         customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
-        firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberto'
+        firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberta'
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
@@ -576,7 +602,7 @@ export function TransactionsClient() {
       firstDueDate: firstDueDate,
       items: transaction.items || [],
       services: transaction.services || [],
-      serviceStatus: isServiceRelated ? (transaction.serviceStatus || 'Aberto') : undefined,
+      serviceStatus: isServiceRelated ? (transaction.serviceStatus || 'Aberta') : undefined,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -630,7 +656,7 @@ export function TransactionsClient() {
     form.reset({
       description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
       scheduledDate: new Date(), customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
-      firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberto'
+      firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberta'
     });
     setIsDialogOpen(true);
   };
@@ -1010,7 +1036,7 @@ export function TransactionsClient() {
                   </Button>
                 </FormControl>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-50" align="start">
+              <PopoverContent className="w-auto p-0 z-[51]" align="start">
                 <Calendar
                   mode="single"
                   selected={field.value}

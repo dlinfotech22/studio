@@ -10,7 +10,17 @@ export type TransactionSubtype =
 
 export type PaymentMethod = 'À Vista' | 'Parcelado' | 'A Prazo';
 export type TransactionStatus = 'Pago' | 'Pendente' | 'Parcialmente Pago';
-export type ServiceStatus = 'Aberto' | 'Em Andamento' | 'Aguardando Aprovação' | 'Finalizado' | 'Cancelado';
+export type ServiceStatus = 
+  | 'Aberta'
+  | 'Aguardando Aprovação'
+  | 'Aprovada'
+  | 'Aguardando Peça / Material'
+  | 'Em Execução'
+  | 'Pausada'
+  | 'Finalizada'
+  | 'Aguardando Pagamento'
+  | 'Encerrada / Concluída'
+  | 'Cancelada';
 
 
 export type Installment = {
