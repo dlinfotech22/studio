@@ -491,8 +491,8 @@ export function ScheduleClient() {
                     )} />
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="scheduledDate" render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Data do Agendamento</FormLabel>
+                          <FormItem className="flex flex-col !space-y-0">
+                            <FormLabel className="mb-2">Data do Agendamento</FormLabel>
                             <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen} modal={true}>
                               <PopoverTrigger asChild>
                                 <FormControl>
@@ -514,14 +514,14 @@ export function ScheduleClient() {
                                 />
                               </PopoverContent>
                             </Popover>
-                            <FormMessage />
+                            <FormMessage className="pt-2" />
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="scheduledTime" render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Hora</FormLabel>
                                 <FormControl>
-                                    <Input type="time" {...field} />
+                                    <Input type="time" {...field} autoComplete="off" />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
