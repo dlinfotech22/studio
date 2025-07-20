@@ -364,20 +364,18 @@ export function ReportsClient() {
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
   const profit = totalRevenue - totalExpenses;
 
-  const getTransactionDescription = (transaction: Transaction) => {
-    let details = [];
-    if (transaction.services && transaction.services.length > 0) {
-        const serviceDetails = transaction.services.map(s => s.serviceName).join(', ');
-        details.push(`Serviços: ${serviceDetails}`);
-    }
-    if (transaction.items && transaction.items.length > 0) {
-      const itemDetails = transaction.items.map(
-        (item) => `${item.quantity}x ${item.productName}`
-      ).join(', ');
-      details.push(`Produtos: ${itemDetails}`);
-    }
-    if (details.length > 0) return details.join(' | ');
+  const getTransactionAdditionalInfo = (transaction: Transaction) => {
+    const baseDescription = transaction.subtype === 'Despesa'
+        ? 'DESPESA GERAL'
+        : `LANÇAMENTO PARA ${transaction.customerName?.toUpperCase()}`;
 
+    if (transaction.description.startsWith(baseDescription)) {
+        const additionalInfo = transaction.description.substring(baseDescription.length);
+        if (additionalInfo.startsWith(' - ')) {
+            return additionalInfo.substring(3);
+        }
+        return additionalInfo;
+    }
     return transaction.description;
   };
   
@@ -385,13 +383,14 @@ export function ReportsClient() {
     return transactionsToExport.map(t => {
       const productTotal = t.items?.reduce((sum, item) => sum + item.quantity * item.price, 0) || 0;
       const serviceTotal = t.services?.reduce((sum, service) => sum + service.price, 0) || 0;
-      const itemsList = t.items?.map(item => `${item.quantity}x ${item.productName}`).join('\n') || '';
-      const servicesList = t.services?.map(service => service.serviceName).join('\n') || '';
+      const itemsList = t.items?.map(item => `${item.quantity}x ${item.productName}`).join(', ') || '';
+      const servicesList = t.services?.map(service => service.serviceName).join(', ') || '';
 
       return {
         'Data': format(new Date(t.date), 'dd/MM/yyyy'),
         'ID': t.sequentialId ? String(t.sequentialId).padStart(8, '0') : t.id.substring(0,8).toUpperCase(),
-        'Cliente/Descrição': t.customerName || t.description,
+        'Cliente': t.customerName || '',
+        'Descrição Adicional': getTransactionAdditionalInfo(t),
         'Itens': itemsList,
         'Serviços': servicesList,
         'Total Produtos (R$)': productTotal,
@@ -422,13 +421,13 @@ export function ReportsClient() {
       }));
   
       worksheet['!cols'] = [
-        { wch: 12 }, { wch: 10 }, { wch: 40 }, { wch: 40 }, { wch: 40 },
+        { wch: 12 }, { wch: 10 }, { wch: 30 }, { wch: 40 }, { wch: 30 }, { wch: 30 },
         { wch: 20 }, { wch: 20 }, { wch: 20 }
       ];
       
       const range = XLSX.utils.decode_range(worksheet['!ref']!);
       for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-          for (let C of [5, 6, 7]) { // Columns for currency
+          for (let C of [6, 7, 8]) { // Columns for currency
               const cell_address = { c: C, r: R };
               const cell_ref = XLSX.utils.encode_cell(cell_address);
               if (worksheet[cell_ref] && typeof worksheet[cell_ref].v === 'number' && worksheet[cell_ref].v > 0) {
@@ -445,16 +444,16 @@ export function ReportsClient() {
         worksheet,
         [
           [],
-          ['', '', '', '', 'Receita Total', totalRevenue],
-          ['', '', '', '', 'Despesa Total', totalExpenses],
-          ['', '', '', '', 'Lucro/Prejuízo', profit],
+          ['', '', '', '', '', '', 'Receita Total', totalRevenue],
+          ['', '', '', '', '', '', 'Despesa Total', totalExpenses],
+          ['', '', '', '', '', '', 'Lucro/Prejuízo', profit],
         ],
         { origin: -1 }
       );
       
       const summaryStartRow = range.e.r + 3;
       for (let R = summaryStartRow; R <= summaryStartRow + 2; ++R) {
-          const cell_address = { c: 5, r: R };
+          const cell_address = { c: 7, r: R };
           const cell_ref = XLSX.utils.encode_cell(cell_address);
           if (worksheet[cell_ref] && typeof worksheet[cell_ref].v === 'number') {
               worksheet[cell_ref].t = 'n';
@@ -533,10 +532,11 @@ export function ReportsClient() {
     });
     startY = (doc as any).lastAutoTable.finalY + 8;
     
-    const tableHead = [['Data', 'Cliente/Descrição', 'Itens', 'Serviços', 'Total Produtos', 'Total Serviços', 'Valor Total']];
+    const tableHead = [['Data', 'Cliente', 'Descrição Adicional', 'Itens', 'Serviços', 'Total Produtos', 'Total Serviços', 'Valor Total']];
     const tableBody = data.map(t => [
         t['Data'],
-        t['Cliente/Descrição'],
+        t['Cliente'],
+        t['Descrição Adicional'],
         t['Itens'],
         t['Serviços'],
         t['Total Produtos (R$)'] > 0 ? formatCurrency(t['Total Produtos (R$)']) : '-',
@@ -548,15 +548,20 @@ export function ReportsClient() {
         head: tableHead,
         body: tableBody,
         startY,
-        headStyles: { fillColor: [41, 128, 185], fontSize: 8 },
-        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: [41, 128, 185], fontSize: 7 },
+        styles: { fontSize: 6, cellPadding: 2, overflow: 'linebreak' },
         columnStyles: {
-            4: { halign: 'right' },
-            5: { halign: 'right' },
-            6: { halign: 'right' },
+            0: { cellWidth: 18 },
+            1: { cellWidth: 35 },
+            2: { cellWidth: 40 },
+            3: { cellWidth: 35 },
+            4: { cellWidth: 35 },
+            5: { halign: 'right', cellWidth: 20 },
+            6: { halign: 'right', cellWidth: 20 },
+            7: { halign: 'right', cellWidth: 20 },
         },
         didParseCell: (hookData: any) => {
-            if (hookData.section === 'body' && hookData.column.index === 6) {
+            if (hookData.section === 'body' && hookData.column.index === 7) {
                 const transactionType = data[hookData.row.index].Tipo;
                 hookData.cell.styles.textColor = transactionType === 'revenue' ? '#16a34a' : '#dc2626';
             }
@@ -799,7 +804,7 @@ export function ReportsClient() {
                 <TableRow>
                   <TableHead className="w-[100px]">Data</TableHead>
                   <TableHead className="w-[150px]">Tipo</TableHead>
-                  <TableHead>Descrição Detalhada</TableHead>
+                  <TableHead>Descrição</TableHead>
                   <TableHead className="w-[120px] text-right">Valor</TableHead>
                 </TableRow>
               </TableHeader>
@@ -813,7 +818,7 @@ export function ReportsClient() {
                             </TableCell>
                             <TableCell>{t.subtype}</TableCell>
                             <TableCell className="font-medium">
-                                {getTransactionDescription(t)}
+                                {t.description}
                             </TableCell>
                             <TableCell
                                 className={cn(
