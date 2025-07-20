@@ -37,6 +37,7 @@ export type Transaction = {
   id: string;
   sequentialId?: number;
   date: Date | Timestamp;
+  scheduledDate?: Date | Timestamp | null;
   description: string;
   amount: number;
   type: TransactionType;

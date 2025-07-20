@@ -124,6 +124,7 @@ const transactionSchema = z.object({
   description: z.string().optional(),
   amount: z.coerce.number().optional(),
   date: z.date(),
+  scheduledDate: z.date().optional(),
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   customerId: z.string().optional(),
   customerName: z.string().optional(),
@@ -340,6 +341,7 @@ export function TransactionsClient() {
       description: '',
       amount: undefined,
       date: new Date(),
+      scheduledDate: new Date(),
       subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
       customerId: undefined,
       customerName: undefined,
@@ -400,7 +402,7 @@ export function TransactionsClient() {
         });
   
         const productRefs = Object.keys(itemChanges).map(productId => doc(db, 'products', productId));
-        const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+        const productDocs = productRefs.length > 0 ? await Promise.all(productRefs.map(ref => transaction.get(ref))) : [];
   
         for (let i = 0; i < productDocs.length; i++) {
           const productDoc = productDocs[i];
@@ -413,8 +415,8 @@ export function TransactionsClient() {
         }
   
         let currentCounter = companyDoc.data().transactionCounter || 0;
-        let nextSequentialId = currentCounter + 1;
-        if (nextSequentialId > 99999999) {
+        let nextSequentialId = editingTransaction ? editingTransaction.sequentialId : currentCounter + 1;
+        if (!editingTransaction && nextSequentialId > 99999999) {
           nextSequentialId = 1;
         }
   
@@ -436,13 +438,14 @@ export function TransactionsClient() {
         
         const isServiceRelated = data.subtype === 'Prestação de Serviço' || data.subtype === 'Serviço + Venda';
 
-        const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
+        const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; scheduledDate: Timestamp | null; installments?: any[] }> = {
           type: transactionType,
           companyId,
-          sequentialId: editingTransaction ? editingTransaction.sequentialId : nextSequentialId,
+          sequentialId: nextSequentialId,
           amount: Math.abs(totalAmount),
           description: finalDescription,
           date: Timestamp.fromDate(data.date),
+          scheduledDate: isServiceRelated && data.scheduledDate ? Timestamp.fromDate(data.scheduledDate) : null,
           subtype: data.subtype,
           customerId: data.customerId,
           customerName: data.customerName ? data.customerName.toUpperCase() : '',
@@ -552,6 +555,11 @@ export function TransactionsClient() {
         const firstInstallmentDueDate = transaction.installments[0].dueDate;
         firstDueDate = (firstInstallmentDueDate as Timestamp).toDate();
     }
+    
+    let scheduledDate: Date | undefined;
+    if (transaction.scheduledDate) {
+        scheduledDate = (transaction.scheduledDate as Timestamp).toDate();
+    }
 
     const isServiceRelated = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
 
@@ -559,6 +567,7 @@ export function TransactionsClient() {
     form.reset({
       ...transaction,
       date: new Date(transaction.date as Date),
+      scheduledDate: scheduledDate,
       amount: Math.abs(transaction.amount),
       customerId: transaction.customerId || undefined,
       customerName: transaction.customerName || undefined,
@@ -620,7 +629,7 @@ export function TransactionsClient() {
     const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || (type === 'revenue' ? 'Prestação de Serviço' : 'Despesa');
     form.reset({
       description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
-      customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
+      scheduledDate: new Date(), customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
       firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberto'
     });
     setIsDialogOpen(true);
@@ -968,14 +977,23 @@ export function TransactionsClient() {
     );
   };
   
-  const DatePicker = ({fieldName}: {fieldName: "date" | "firstDueDate"}) => {
+  const DatePicker = ({fieldName}: {fieldName: "date" | "firstDueDate" | "scheduledDate"}) => {
+    const getLabel = () => {
+        switch(fieldName) {
+            case 'date': return 'Data do Lançamento';
+            case 'firstDueDate': return selectedPaymentMethod === 'Parcelado' ? 'Vencimento da 1ª Parcela' : 'Data de Vencimento';
+            case 'scheduledDate': return 'Data do Agendamento';
+            default: return 'Data';
+        }
+    }
+    
     return (
        <FormField
         control={form.control}
         name={fieldName}
         render={({ field }) => (
           <FormItem className="flex flex-col">
-            <FormLabel>{fieldName === 'date' ? 'Data do Lançamento' : (selectedPaymentMethod === 'Parcelado' ? 'Vencimento da 1ª Parcela' : 'Data de Vencimento')}</FormLabel>
+            <FormLabel>{getLabel()}</FormLabel>
             <Popover modal={true}>
               <PopoverTrigger asChild>
                 <FormControl>
@@ -1286,6 +1304,8 @@ export function TransactionsClient() {
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                   <DatePicker fieldName="date" />
+                  {isServiceRelated && <DatePicker fieldName="scheduledDate" />}
+
                   {selectedSubtype !== 'Despesa' && (
                     <>
                       <FormField

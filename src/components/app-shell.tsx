@@ -25,6 +25,7 @@ import {
   Contact,
   Book,
   Wrench,
+  CalendarClock,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -233,6 +234,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </SidebarMenuItem>
                  )}
                  {showServicesMenu && (
+                    <>
                     <SidebarMenuItem>
                       <Link href="/services">
                         <SidebarMenuButton
@@ -244,6 +246,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                         </SidebarMenuButton>
                       </Link>
                     </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <Link href="/schedule">
+                            <SidebarMenuButton
+                                tooltip="Agenda de Serviços"
+                                isActive={pathname === '/schedule'}
+                            >
+                                <CalendarClock />
+                                <span>Agenda</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                    </>
                  )}
                 {showProductsMenu && (
                     <SidebarMenuItem>
