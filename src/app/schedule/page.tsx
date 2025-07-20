@@ -11,9 +11,13 @@ import { db } from '@/lib/firebase';
 export default function SchedulePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const companyId = sessionStorage.getItem('current-user-company-id');
+    const role = sessionStorage.getItem('current-user-role');
+    setUserRole(role);
+
     if (companyId) {
       const fetchCompanyInfo = async () => {
         try {
@@ -47,7 +51,7 @@ export default function SchedulePage() {
     );
   }
 
-  const canViewPage = companyInfo?.allowedSubtypes?.some(
+  const canViewPage = userRole === 'system_admin' ? false : companyInfo?.allowedSubtypes?.some(
     (st) => st === 'Prestação de Serviço' || st === 'Serviço + Venda'
   );
 
@@ -59,7 +63,17 @@ export default function SchedulePage() {
           Acompanhe e gerencie o status de todos os serviços pendentes.
         </p>
       </header>
-      {canViewPage ? (
+      {userRole === 'system_admin' ? (
+          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm p-8 text-center h-[400px]">
+          <div className="flex flex-col items-center gap-2">
+            <CalendarClock className="w-16 h-16 text-muted-foreground" />
+            <h2 className="text-2xl font-semibold">Função exclusiva para empresas</h2>
+            <p className="max-w-md mt-2 text-sm text-muted-foreground">
+              A tela de agenda é utilizada para gerenciar os serviços de uma empresa específica. Como administrador do sistema, seu foco está na gestão de empresas e usuários globais.
+            </p>
+          </div>
+        </div>
+      ) : canViewPage ? (
         <ScheduleClient />
       ) : (
         <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm p-8 text-center h-[400px]">
