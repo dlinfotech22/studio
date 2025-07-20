@@ -29,6 +29,7 @@ import {
   X,
   Check,
   ChevronsUpDown,
+  Printer,
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
@@ -117,9 +118,7 @@ const transactionServiceItemSchema = z.object({
 
 const transactionSchema = z.object({
   description: z.string().optional(),
-  amount: z.coerce.number().optional().refine(val => val === undefined || val > 0, {
-    message: "O valor da despesa deve ser positivo.",
-  }),
+  amount: z.coerce.number().optional(),
   date: z.date(),
   subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
   customerId: z.string().optional(),
@@ -379,13 +378,22 @@ export function TransactionsClient() {
         const itemsTotal = data.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
         const servicesTotal = data.services?.reduce((sum, service) => sum + (service.price ?? 0), 0) || 0;
         
-        const totalAmount = transactionType === 'expense' ? data.amount! : itemsTotal + servicesTotal;
+        let totalAmount: number;
+
+        if (transactionType === 'expense') {
+            if (data.amount === undefined || data.amount <= 0) {
+                throw new Error("O valor da despesa deve ser um número positivo.");
+            }
+            totalAmount = data.amount;
+        } else {
+            totalAmount = itemsTotal + servicesTotal;
+        }
         
         let baseDescription = '';
         if (data.subtype === 'Despesa') {
             baseDescription = 'DESPESA GERAL';
-        } else {
-            baseDescription = `LANÇAMENTO PARA ${data.customerName?.toUpperCase() || 'CLIENTE'}`;
+        } else if (data.customerName) {
+            baseDescription = `LANÇAMENTO PARA ${data.customerName.toUpperCase()}`;
         }
         
         const finalDescription = data.description 
@@ -495,8 +503,7 @@ export function TransactionsClient() {
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
-        setTransactionToPrint(finalTransaction);
-        setIsPrintDialogOpen(true);
+        handlePrint(finalTransaction);
       }
   
     } catch (error: any) {
@@ -570,6 +577,10 @@ export function TransactionsClient() {
     }
   };
 
+  const handlePrint = (transactionToPrint: Transaction) => {
+    setTransactionToPrint(transactionToPrint);
+    setIsPrintDialogOpen(true);
+  }
 
   const openNewTransactionDialog = (type: 'revenue' | 'expense') => {
     setEditingTransaction(null);
@@ -647,6 +658,11 @@ export function TransactionsClient() {
                           <DropdownMenuItem onClick={() => handleEdit(item)}>
                             <Edit className="mr-2 h-4 w-4" /> Editar
                           </DropdownMenuItem>
+                          {item.type === 'revenue' && (
+                            <DropdownMenuItem onClick={() => handlePrint(item)}>
+                                <Printer className="mr-2 h-4 w-4" /> Reimprimir
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={() => handleDelete(item)}
                             className="text-red-500"
@@ -1227,60 +1243,59 @@ export function TransactionsClient() {
                   )}
                 />
               )}
-
-              {selectedSubtype !== 'Despesa' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                  <FormField
-                    control={form.control}
-                    name="paymentMethod"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Forma de Pagamento</FormLabel>
-                        <Select 
-                          onValueChange={(value: PaymentMethod) => {
-                            field.onChange(value);
-                            form.setValue('installmentsCount', undefined);
-                            form.setValue('firstDueDate', undefined);
-                          }} 
-                          value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione a forma de pagamento" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="À Vista">À Vista</SelectItem>
-                            <SelectItem value="A Prazo">A Prazo</SelectItem>
-                            <SelectItem value="Parcelado">Parcelado</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  {selectedPaymentMethod === 'Parcelado' && (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                {selectedSubtype !== 'Despesa' && (
                     <FormField
                       control={form.control}
-                      name="installmentsCount"
+                      name="paymentMethod"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Número de Parcelas</FormLabel>
-                          <FormControl>
-                             <Input
-                              type="number"
-                              placeholder="2"
-                              value={field.value === undefined ? '' : field.value}
-                              onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                              autoComplete="off"
-                             />
-                          </FormControl>
+                          <FormLabel>Forma de Pagamento</FormLabel>
+                          <Select 
+                            onValueChange={(value: PaymentMethod) => {
+                              field.onChange(value);
+                              form.setValue('installmentsCount', undefined);
+                              form.setValue('firstDueDate', undefined);
+                            }} 
+                            value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione a forma de pagamento" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="À Vista">À Vista</SelectItem>
+                              <SelectItem value="A Prazo">A Prazo</SelectItem>
+                              <SelectItem value="Parcelado">Parcelado</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  )}
-                </div>
-              )}
+                )}
+                {selectedPaymentMethod === 'Parcelado' && (
+                  <FormField
+                    control={form.control}
+                    name="installmentsCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número de Parcelas</FormLabel>
+                        <FormControl>
+                            <Input
+                            type="number"
+                            placeholder="2"
+                            value={field.value === undefined ? '' : field.value}
+                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                            autoComplete="off"
+                            />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
               
               {(selectedPaymentMethod === 'Parcelado' || selectedPaymentMethod === 'A Prazo') && (
                 <DatePicker fieldName="firstDueDate" />
@@ -1325,4 +1340,5 @@ export function TransactionsClient() {
     </>
   );
 }
+
 
