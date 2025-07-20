@@ -390,7 +390,12 @@ export function TransactionsClient() {
       await runTransaction(db, async (transaction) => {
         const transactionType = subtypeToTypeMap[data.subtype];
         
-        let description = data.description ? data.description.toUpperCase() : '';
+        let description = '';
+        if (data.subtype === 'Despesa') {
+            description = data.description?.toUpperCase() || data.subtype.toUpperCase();
+        } else {
+            description = `LANÇAMENTO PARA ${data.customerName?.toUpperCase() || 'CLIENTE'}`;
+        }
         
         const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
@@ -405,10 +410,13 @@ export function TransactionsClient() {
           items: data.items,
           services: data.services,
         };
+
+        if (data.description) {
+            payload.description = `${payload.description} - ${data.description.toUpperCase()}`;
+        }
   
         if (transactionType === 'expense') {
           payload.status = 'Pago';
-          payload.description = data.description ? data.description.toUpperCase() : data.subtype.toUpperCase();
         } else {
           payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
         }
@@ -462,23 +470,17 @@ export function TransactionsClient() {
   
         if (editingTransaction) {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
-          Object.keys(payload).forEach(key => {
-            const typedKey = key as keyof typeof payload;
-            if (payload[typedKey] === undefined || (typeof payload[typedKey] === 'number' && isNaN(payload[typedKey] as number))) {
+          const updatePayload = { ...payload };
+          Object.keys(updatePayload).forEach(key => {
+            const typedKey = key as keyof typeof updatePayload;
+            if (updatePayload[typedKey] === undefined || (typeof updatePayload[typedKey] === 'number' && isNaN(updatePayload[typedKey] as number))) {
               // @ts-ignore
-              delete payload[typedKey];
+              delete updatePayload[typedKey];
             }
           });
-          transaction.update(transactionRef, payload as any);
+          transaction.update(transactionRef, updatePayload as any);
           finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId } as Transaction;
         } else {
-            Object.keys(payload).forEach(key => {
-              const typedKey = key as keyof typeof payload;
-               if (payload[typedKey] === undefined || (typeof payload[typedKey] === 'number' && isNaN(payload[typedKey] as number))) {
-                // @ts-ignore
-                delete payload[typedKey];
-              }
-            });
             const newTransactionRef = doc(collection(db, 'transactions'));
             transaction.set(newTransactionRef, payload as any);
             finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId } as Transaction;
@@ -852,10 +854,14 @@ export function TransactionsClient() {
             <PopoverContent 
                 className="w-[--radix-popover-trigger-width] p-0"
                 onCloseAutoFocus={(e) => {
-                    e.preventDefault();
-                    const currentVal = form.getValues('customerName');
-                    if (currentVal && !allCustomers.some(c => c.name.toLowerCase() === currentVal.toLowerCase())) {
-                       form.setValue('customerId', undefined);
+                    const target = e.target as HTMLElement;
+                    if(target && target.closest('[cmdk-item]')) {
+                        e.preventDefault();
+                    } else {
+                        const currentVal = form.getValues('customerName');
+                        if (currentVal && !allCustomers.some(c => c.name.toLowerCase() === currentVal.toLowerCase())) {
+                            form.setValue('customerId', undefined);
+                        }
                     }
                 }}
             >
@@ -865,7 +871,9 @@ export function TransactionsClient() {
                       value={customerName}
                       onValueChange={(search) => {
                           form.setValue('customerName', search.toUpperCase());
-                          form.setValue('customerId', undefined);
+                          if (allCustomers.some(c => c.name.toLowerCase() !== search.toLowerCase())) {
+                              form.setValue('customerId', undefined);
+                          }
                       }}
                       autoComplete="off"
                     />
@@ -1178,7 +1186,7 @@ export function TransactionsClient() {
                         {...field}
                         value={field.value ?? ''}
                         onChange={(e) =>
-                          field.onChange(e.target.value.toUpperCase())
+                          field.onChange(e.target.value)
                         }
                         autoComplete="off"
                       />
