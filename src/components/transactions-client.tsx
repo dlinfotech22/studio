@@ -329,13 +329,13 @@ export function TransactionsClient() {
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       description: '',
-      amount: NaN,
+      amount: undefined,
       date: new Date(),
       subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
-      customerId: '',
-      customerName: '',
+      customerId: undefined,
+      customerName: undefined,
       paymentMethod: 'À Vista',
-      installmentsCount: NaN,
+      installmentsCount: undefined,
       firstDueDate: undefined,
       items: [],
       services: [],
@@ -353,21 +353,17 @@ export function TransactionsClient() {
   });
 
   useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-        if (name === 'items' || name === 'services') {
-            const itemsTotal = value.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
-            const servicesTotal = value.services?.reduce((sum, service) => sum + (service.price ?? 0), 0) || 0;
-            const totalAmount = itemsTotal + servicesTotal;
-            if (totalAmount > 0) {
-              form.setValue('amount', totalAmount);
-              form.clearErrors('amount');
-            } else {
-              form.setValue('amount', NaN);
-            }
-        }
+    const subscription = form.watch((value) => {
+      const itemsTotal = value.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
+      const servicesTotal = value.services?.reduce((sum, service) => sum + (service.price ?? 0), 0) || 0;
+      const totalAmount = itemsTotal + servicesTotal;
+      if (form.getValues('subtype') !== 'Despesa') {
+        form.setValue('amount', totalAmount > 0 ? totalAmount : undefined);
+      }
     });
     return () => subscription.unsubscribe();
   }, [form]);
+
 
   useEffect(() => {
     if (companyInfo?.allowedSubtypes) {
@@ -389,10 +385,14 @@ export function TransactionsClient() {
     try {
       await runTransaction(db, async (transaction) => {
         const transactionType = subtypeToTypeMap[data.subtype];
+
+        const itemsTotal = data.items?.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 0), 0) || 0;
+        const servicesTotal = data.services?.reduce((sum, service) => sum + (service.price ?? 0), 0) || 0;
+        const totalAmount = transactionType === 'expense' ? data.amount : itemsTotal + servicesTotal;
         
         let baseDescription = '';
         if (data.subtype === 'Despesa') {
-            baseDescription = data.subtype.toUpperCase();
+            baseDescription = data.description?.toUpperCase() || 'DESPESA GERAL';
         } else {
             baseDescription = `LANÇAMENTO PARA ${data.customerName?.toUpperCase() || 'CLIENTE'}`;
         }
@@ -404,7 +404,7 @@ export function TransactionsClient() {
         const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
           type: transactionType,
           companyId,
-          amount: Math.abs(data.amount || 0),
+          amount: Math.abs(totalAmount || 0),
           description: finalDescription,
           date: Timestamp.fromDate(data.date),
           subtype: data.subtype,
@@ -421,19 +421,19 @@ export function TransactionsClient() {
           payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
         }
 
-        if (data.paymentMethod === 'A Prazo' && data.firstDueDate && data.amount) {
+        if (data.paymentMethod === 'A Prazo' && data.firstDueDate && totalAmount) {
             payload.installments = [{
                 installmentNumber: 1,
                 dueDate: Timestamp.fromDate(data.firstDueDate),
-                amount: data.amount,
+                amount: totalAmount,
                 status: 'Pendente'
             }];
             payload.installmentsCount = 1;
         }
 
-        if (data.paymentMethod === 'Parcelado' && data.installmentsCount && data.amount && data.firstDueDate) {
+        if (data.paymentMethod === 'Parcelado' && data.installmentsCount && totalAmount && data.firstDueDate) {
           payload.installments = [];
-          const installmentAmount = data.amount / data.installmentsCount;
+          const installmentAmount = totalAmount / data.installmentsCount;
           for (let i = 0; i < data.installmentsCount; i++) {
             payload.installments.push({
               installmentNumber: i + 1,
@@ -479,11 +479,11 @@ export function TransactionsClient() {
             }
           });
           transaction.update(transactionRef, updatePayload as any);
-          finalTransaction = { ...editingTransaction, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId, description: finalDescription } as Transaction;
+          finalTransaction = { ...editingTransaction, ...payload, date: data.date } as Transaction;
         } else {
             const newTransactionRef = doc(collection(db, 'transactions'));
             transaction.set(newTransactionRef, payload as any);
-            finalTransaction = { id: newTransactionRef.id, ...data, date: data.date, type: transactionType, customerName: data.customerName, customerId: data.customerId, description: finalDescription } as Transaction;
+            finalTransaction = { id: newTransactionRef.id, ...payload, date: data.date } as Transaction;
         }
       });
   
@@ -498,8 +498,9 @@ export function TransactionsClient() {
       setEditingTransaction(null);
       setIsDialogOpen(false);
       form.reset({
-        description: '', amount: NaN, date: new Date(), subtype: data.subtype,
-        customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN, firstDueDate: undefined, items: [], services: []
+        description: '', amount: undefined, date: new Date(), subtype: data.subtype,
+        customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
+        firstDueDate: undefined, items: [], services: []
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
@@ -529,8 +530,8 @@ export function TransactionsClient() {
       ...transaction,
       date: new Date(transaction.date as Date),
       amount: Math.abs(transaction.amount),
-      customerId: transaction.customerId || '',
-      customerName: transaction.customerName || '',
+      customerId: transaction.customerId || undefined,
+      customerName: transaction.customerName || undefined,
       paymentMethod: transaction.paymentMethod || 'À Vista',
       installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
       firstDueDate: firstDueDate,
@@ -583,8 +584,8 @@ export function TransactionsClient() {
     setEditingTransaction(null);
     const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || (type === 'revenue' ? 'Prestação de Serviço' : 'Despesa');
     form.reset({
-      description: '', amount: NaN, date: new Date(), subtype: defaultSubtype,
-      customerId: '', customerName: '', paymentMethod: 'À Vista', installmentsCount: NaN,
+      description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
+      customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
       firstDueDate: undefined, items: [], services: []
     });
     setIsDialogOpen(true);
@@ -857,21 +858,21 @@ export function TransactionsClient() {
                     const target = e.target as HTMLElement;
                     if(target && target.closest('[cmdk-item]')) {
                         e.preventDefault();
-                    } else {
-                        const currentVal = form.getValues('customerName');
-                        if (currentVal && !allCustomers.some(c => c.name.toLowerCase() === currentVal.toLowerCase())) {
-                            form.setValue('customerId', undefined);
-                        }
                     }
                 }}
             >
-                <Command>
+                <Command
+                  filter={(value, search) => {
+                    if (value.toLowerCase().includes(search.toLowerCase())) return 1
+                    return 0
+                  }}
+                >
                     <CommandInput 
                       placeholder="Buscar cliente..."
-                      value={customerName}
+                      value={form.getValues('customerName')}
                       onValueChange={(search) => {
                           form.setValue('customerName', search.toUpperCase());
-                          if (allCustomers.some(c => c.name.toLowerCase() !== search.toLowerCase())) {
+                          if (!allCustomers.some(c => c.name.toLowerCase() === search.toLowerCase())) {
                               form.setValue('customerId', undefined);
                           }
                       }}
@@ -1083,7 +1084,7 @@ export function TransactionsClient() {
                             field.onChange(value);
                             form.setValue('items', []);
                             form.setValue('services', []);
-                            form.setValue('amount', NaN);
+                            form.setValue('amount', undefined);
                           }}
                           value={field.value}
                         >
@@ -1106,7 +1107,7 @@ export function TransactionsClient() {
                     <FormField
                       control={form.control}
                       name="customerName"
-                      render={({ field }) => (
+                      render={() => (
                         <FormItem className="flex flex-col pt-2">
                            <FormLabel>Cliente</FormLabel>
                            <CustomerCombobox />
@@ -1220,11 +1221,7 @@ export function TransactionsClient() {
                         placeholder="0.00"
                         value={isNaN(field.value as number) ? '' : field.value}
                         onChange={(e) => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)}
-                        disabled={
-                          selectedSubtype === 'Venda' ||
-                          selectedSubtype === 'Serviço + Venda' ||
-                          selectedSubtype === 'Prestação de Serviço'
-                        }
+                        disabled={selectedSubtype !== 'Despesa'}
                         autoComplete="off"
                       />
                     </FormControl>
@@ -1244,7 +1241,7 @@ export function TransactionsClient() {
                         <Select 
                           onValueChange={(value: PaymentMethod) => {
                             field.onChange(value);
-                            form.setValue('installmentsCount', NaN);
+                            form.setValue('installmentsCount', undefined);
                             form.setValue('firstDueDate', undefined);
                           }} 
                           value={field.value}>
