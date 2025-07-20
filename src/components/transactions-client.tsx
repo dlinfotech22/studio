@@ -968,7 +968,7 @@ export function TransactionsClient() {
         render={({ field }) => (
           <FormItem className="flex flex-col">
             <FormLabel>{fieldName === 'date' ? 'Data do Lançamento' : (selectedPaymentMethod === 'Parcelado' ? 'Vencimento da 1ª Parcela' : 'Data de Vencimento')}</FormLabel>
-            <Popover>
+            <Popover modal={true}>
               <PopoverTrigger asChild>
                 <FormControl>
                   <Button
@@ -984,7 +984,7 @@ export function TransactionsClient() {
                   </Button>
                 </FormControl>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-50" align="start">
+              <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
                   selected={field.value}
