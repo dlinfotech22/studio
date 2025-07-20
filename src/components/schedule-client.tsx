@@ -71,11 +71,10 @@ export function ScheduleClient() {
       const q = query(
         transactionsRef,
         where('companyId', '==', cId),
-        where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
-        where('serviceStatus', 'not-in', ['Encerrada / Concluída', 'Cancelada'])
+        where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
       );
       const snapshot = await getDocs(q);
-      const services = snapshot.docs.map((doc) => {
+      const fetchedServices = snapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -87,9 +86,14 @@ export function ScheduleClient() {
         } as Transaction;
       });
 
+      // Filter out completed/canceled services on the client-side
+      const activeServices = fetchedServices.filter(s => 
+          s.serviceStatus !== 'Encerrada / Concluída' && s.serviceStatus !== 'Cancelada'
+      );
+
       const now = new Date();
       const cutoffDate = subHours(now, 24);
-      const servicesToCleanup = services.filter(
+      const servicesToCleanup = activeServices.filter(
         (s) =>
           s.serviceStatus === 'Agendado' &&
           s.scheduledDate &&
@@ -105,9 +109,9 @@ export function ScheduleClient() {
             description: `${servicesToCleanup.length} agendamento(s) não comparecidos foram removidos.`,
         });
         const cleanedServiceIds = new Set(servicesToCleanup.map(s => s.id));
-        setAllServices(services.filter(s => !cleanedServiceIds.has(s.id)));
+        setAllServices(activeServices.filter(s => !cleanedServiceIds.has(s.id)));
       } else {
-        setAllServices(services);
+        setAllServices(activeServices);
       }
 
     } catch (error) {
@@ -153,8 +157,11 @@ export function ScheduleClient() {
       const payload: {serviceStatus: ServiceStatus, date?: Timestamp} = { serviceStatus: newStatus };
 
       // When confirming, set the transaction date to today
-      if (newStatus === 'Aberta') {
-        payload.date = Timestamp.fromDate(new Date());
+      if (newStatus === 'Aberta' || newStatus === 'Em Execução') {
+        const docSnap = await getDoc(transactionRef);
+        if (docSnap.exists() && docSnap.data().serviceStatus === 'Agendado') {
+          payload.date = Timestamp.fromDate(new Date());
+        }
       }
       
       await updateDoc(transactionRef, payload);
@@ -251,6 +258,12 @@ export function ScheduleClient() {
                          Confirmar e Iniciar
                        </Button>
                     )}
+                    {service.serviceStatus === 'Aberta' || service.serviceStatus === 'Aprovada' ? (
+                       <Button size="sm" className="w-full" onClick={() => handleStatusChange(service.id, 'Em Execução')}>
+                         <PlayCircle className="mr-2 h-4 w-4" />
+                         Iniciar Serviço
+                       </Button>
+                    ) : null}
                  </div>
                 {service.serviceStatus !== 'Agendado' && (
                     <div className="flex items-center gap-2">
@@ -337,5 +350,3 @@ export function ScheduleClient() {
     </>
   );
 }
-
-    
