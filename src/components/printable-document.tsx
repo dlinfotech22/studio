@@ -18,8 +18,8 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
 
   const getTitle = () => {
     switch(transaction.subtype) {
-      case 'Prestação de Serviço': return 'Recibo de Serviço';
-      case 'Serviço + Venda': return 'Recibo de Serviço e Venda';
+      case 'Prestação de Serviço': return 'Ordem de Serviço';
+      case 'Serviço + Venda': return 'Ordem de Serviço';
       case 'Venda': return 'Comprovante de Venda';
       default: return 'Documento';
     }

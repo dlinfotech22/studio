@@ -954,6 +954,19 @@ export function TransactionsClient() {
     )
   }
 
+  const getPrintDialogTitle = () => {
+    if (!transactionToPrint) return 'Gerar Documento';
+    switch (transactionToPrint.subtype) {
+      case 'Prestação de Serviço':
+      case 'Serviço + Venda':
+        return 'Gerar Ordem de Serviço';
+      case 'Venda':
+        return 'Gerar Comprovante de Venda';
+      default:
+        return 'Gerar Documento';
+    }
+  };
+
   return (
     <>
       <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
@@ -1297,7 +1310,7 @@ export function TransactionsClient() {
       <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Gerar Documento</DialogTitle>
+            <DialogTitle>{getPrintDialogTitle()}</DialogTitle>
             <DialogDescription>
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
