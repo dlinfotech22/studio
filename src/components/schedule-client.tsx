@@ -37,6 +37,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 
 const scheduleServiceItemSchema = z.object({
@@ -83,7 +84,7 @@ export function ScheduleClient() {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [currentService, setCurrentService] = useState<Service | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isMainCalendarOpen, setIsMainCalendarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('agenda');
   
   const form = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -190,11 +191,6 @@ export function ScheduleClient() {
     }
   };
   
-  const handleDaySelect = (day: Date | undefined) => {
-      setSelectedDate(day ? startOfDay(day) : undefined);
-      setIsMainCalendarOpen(false);
-  }
-
   const handleAddService = () => {
     if (currentService) {
         appendService({
@@ -476,47 +472,63 @@ export function ScheduleClient() {
 
   return (
     <>
-        <div className="flex items-center justify-between mb-4">
-            <Popover open={isMainCalendarOpen} onOpenChange={setIsMainCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button variant={'outline'} className={cn('w-[280px] justify-start text-left font-normal', !selectedDate && 'text-muted-foreground')}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? format(selectedDate, 'PPP', { locale: ptBR }) : <span>Selecione uma data</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDaySelect}
-                    initialFocus
-                    locale={ptBR}
-                    modifiers={{ scheduled: scheduledServices.map(s => s.scheduledDate).filter((d): d is Date => !!d) }}
-                    modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full' }}
-                />
-              </PopoverContent>
-            </Popover>
-            <Button onClick={() => {
-              form.reset({
-                scheduledDate: new Date(),
-                scheduledTime: '',
-                customerName: '',
-                customerId: '',
-                services: [],
-              });
-              setIsFormOpen(true);
-            }}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Agendar Serviço
-            </Button>
-        </div>
-        
-        {selectedDate && renderServiceCards(
-            selectedDayServices, 
-            'Nenhum agendamento para este dia.',
-            '',
-            <CalendarIcon className="w-16 h-16 text-muted-foreground" />
-        )}
+      <div className="flex items-center justify-end mb-4">
+        <Button onClick={() => {
+          form.reset({
+            scheduledDate: new Date(),
+            scheduledTime: '',
+            customerName: '',
+            customerId: '',
+            services: [],
+          });
+          setIsFormOpen(true);
+        }}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Agendar Serviço
+        </Button>
+      </div>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList>
+          <TabsTrigger value="agenda">Agenda</TabsTrigger>
+          <TabsTrigger value="active">Serviços em Andamento</TabsTrigger>
+        </TabsList>
+        <TabsContent value="agenda">
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Calendário de Agendamentos</CardTitle>
+              <CardDescription>Selecione um dia para ver os serviços agendados.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(day) => setSelectedDate(day ? startOfDay(day) : undefined)}
+                  initialFocus
+                  locale={ptBR}
+                  modifiers={{ scheduled: scheduledServices.map(s => s.scheduledDate).filter((d): d is Date => !!d) }}
+                  modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full' }}
+                  className="rounded-md border"
+              />
+            </CardContent>
+          </Card>
+          
+          {selectedDate && renderServiceCards(
+              selectedDayServices, 
+              'Nenhum agendamento para este dia.',
+              'Selecione outro dia no calendário para visualizar os agendamentos.',
+              <CalendarIcon className="w-16 h-16 text-muted-foreground" />
+          )}
+        </TabsContent>
+        <TabsContent value="active">
+          {renderServiceCards(
+            activeServices, 
+            'Nenhum serviço em andamento.',
+            'Assim que um serviço for confirmado na agenda, ele aparecerá aqui.',
+            <CheckCircle className="w-16 h-16 text-muted-foreground" />
+          )}
+        </TabsContent>
+      </Tabs>
       
       <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
         if (!isOpen) {
@@ -545,43 +557,60 @@ export function ScheduleClient() {
                         </FormItem>
                     )} />
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="scheduledDate" render={({ field }) => (
+                    <div className="grid grid-cols-2 gap-4 items-start">
+                      <FormField
+                        control={form.control}
+                        name="scheduledDate"
+                        render={({ field }) => (
                           <FormItem className="flex flex-col !space-y-0">
                             <FormLabel className="mb-2">Data do Agendamento</FormLabel>
                             <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen} modal={true}>
                               <PopoverTrigger asChild>
                                 <FormControl>
-                                  <Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
-                                    {field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
+                                  <Button
+                                    variant={'outline'}
+                                    className={cn(
+                                      'w-full pl-3 text-left font-normal',
+                                      !field.value && 'text-muted-foreground'
+                                    )}
+                                  >
+                                    {field.value
+                                      ? format(field.value, 'PPP', { locale: ptBR })
+                                      : <span>Escolha uma data</span>}
                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                   </Button>
                                 </FormControl>
                               </PopoverTrigger>
                               <PopoverContent className="w-auto p-0 z-[51]" align="start">
                                 <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={(date) => {
-                                        field.onChange(date);
-                                        setIsCalendarOpen(false);
-                                    }}
-                                    initialFocus
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={(date) => {
+                                      if (date) field.onChange(date);
+                                      setIsCalendarOpen(false);
+                                  }}
+                                  initialFocus
                                 />
                               </PopoverContent>
                             </Popover>
                             <FormMessage className="pt-2" />
                           </FormItem>
-                        )} />
-                        <FormField control={form.control} name="scheduledTime" render={() => (
-                            <FormItem className="pt-1">
-                                <FormLabel className="mb-2">Hora</FormLabel>
-                                <FormControl>
-                                    <TimeSlotPicker />
-                                </FormControl>
-                                <FormMessage className="pt-2"/>
-                            </FormItem>
-                        )}/>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="scheduledTime"
+                        render={() => (
+                          <FormItem>
+                            <FormLabel className="mb-2">Hora</FormLabel>
+                            <FormControl>
+                              <TimeSlotPicker />
+                            </FormControl>
+                            <FormMessage className="pt-2"/>
+                          </FormItem>
+                        )}
+                      />
                     </div>
                     
                     <Card>
