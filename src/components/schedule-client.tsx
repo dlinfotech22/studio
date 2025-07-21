@@ -21,10 +21,9 @@ import { format, isSameDay, startOfDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon, Wrench, CheckCircle, PlusCircle, Trash2, ChevronsUpDown, Check } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { type Transaction, type CompanyInfo, type Service, type Customer, ServiceStatus } from '@/lib/types';
+import { type Transaction, type CompanyInfo, type Service, type Customer } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from './ui/separator';
@@ -36,9 +35,6 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-
 
 const scheduleServiceItemSchema = z.object({
     serviceId: z.string().min(1),
@@ -56,22 +52,8 @@ const scheduleSchema = z.object({
 
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
-const serviceStatusOptions: ServiceStatus[] = [
-    'Aberta',
-    'Aguardando Aprovação',
-    'Aprovada',
-    'Aguardando Peça / Material',
-    'Em Execução',
-    'Pausada',
-    'Finalizada',
-    'Aguardando Pagamento',
-    'Encerrada / Concluída',
-    'Cancelada',
-];
-
 export function ScheduleClient() {
   const [scheduledServices, setScheduledServices] = useState<Transaction[]>([]);
-  const [activeServices, setActiveServices] = useState<Transaction[]>([]);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
   const [selectedDayServices, setSelectedDayServices] = useState<Transaction[]>([]);
@@ -84,7 +66,6 @@ export function ScheduleClient() {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [currentService, setCurrentService] = useState<Service | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('agenda');
   
   const form = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -109,7 +90,8 @@ export function ScheduleClient() {
         const qServices = query(
             servicesRef,
             where('companyId', '==', cId),
-            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
+            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
+            where('serviceStatus', '==', 'Agendado')
         );
 
         const servicesSnapshot = await getDocs(qServices);
@@ -118,8 +100,7 @@ export function ScheduleClient() {
             return { id: doc.id, ...data, date: (data.date as Timestamp).toDate(), scheduledDate: data.scheduledDate ? (data.scheduledDate as Timestamp).toDate() : null } as Transaction;
         });
         
-        setScheduledServices(fetchedServices.filter(s => s.serviceStatus === 'Agendado').sort((a,b) => (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0)));
-        setActiveServices(fetchedServices.filter(s => s.serviceStatus && !['Agendado', 'Encerrada / Concluída', 'Cancelada'].includes(s.serviceStatus)).sort((a,b) => (a.date as Date).getTime() - (b.date as Date).getTime()));
+        setScheduledServices(fetchedServices.sort((a,b) => (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0)));
 
         const customersSnapshot = await getDocs(query(collection(db, 'customers'), where('companyId', '==', cId)));
         setAllCustomers(customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)));
@@ -174,20 +155,6 @@ export function ScheduleClient() {
     } catch (error) {
       console.error('Failed to update service status:', error);
       toast({ title: 'Erro ao iniciar serviço', description: 'Não foi possível iniciar o serviço.', variant: 'destructive' });
-    }
-  };
-
-  const handleStatusChange = async (transactionId: string, newStatus: ServiceStatus) => {
-    try {
-      const transactionRef = doc(db, 'transactions', transactionId);
-      await updateDoc(transactionRef, { serviceStatus: newStatus });
-      toast({ title: 'Status Atualizado!', description: `O serviço foi atualizado para "${newStatus}".` });
-      if (companyId) {
-          fetchCompanyData(companyId);
-      }
-    } catch (error) {
-      console.error('Failed to update service status:', error);
-      toast({ title: 'Erro ao atualizar status', description: 'Não foi possível alterar o status do serviço.', variant: 'destructive' });
     }
   };
   
@@ -409,7 +376,6 @@ export function ScheduleClient() {
                       {service.scheduledDate && <span className="font-semibold capitalize text-base">{format(new Date(service.scheduledDate), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>}
                     </CardDescription>
                   </div>
-                   <Badge variant="secondary">{service.serviceStatus}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="flex-grow space-y-4">
@@ -430,28 +396,10 @@ export function ScheduleClient() {
                     <span className="font-bold">Valor Total:</span>
                     <span className="font-bold text-lg">{formatCurrency(service.amount)}</span>
                  </div>
-                 {service.serviceStatus === 'Agendado' ? (
-                     <Button size="sm" className="w-full" onClick={() => handleStartService(service.id)}>
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Confirmar e Iniciar
-                     </Button>
-                 ) : (
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Mudar Status:</span>
-                        <Select value={service.serviceStatus} onValueChange={(newStatus: ServiceStatus) => handleStatusChange(service.id, newStatus)}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Alterar status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                            {serviceStatusOptions.map((status) => (
-                                <SelectItem key={status} value={status}>
-                                {status}
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                 )}
+                 <Button size="sm" className="w-full" onClick={() => handleStartService(service.id)}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Confirmar e Iniciar
+                 </Button>
               </CardFooter>
             </Card>
           ))}
@@ -472,7 +420,28 @@ export function ScheduleClient() {
 
   return (
     <>
-      <div className="flex items-center justify-end mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="outline">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, 'PPP', { locale: ptBR }) : "Selecionar Data"}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+                <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(day) => setSelectedDate(day ? startOfDay(day) : undefined)}
+                    initialFocus
+                    locale={ptBR}
+                    modifiers={{ scheduled: scheduledServices.map(s => s.scheduledDate).filter((d): d is Date => !!d) }}
+                    modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full' }}
+                    className="rounded-md border"
+                />
+            </PopoverContent>
+        </Popover>
+
         <Button onClick={() => {
           form.reset({
             scheduledDate: new Date(),
@@ -487,48 +456,13 @@ export function ScheduleClient() {
           Agendar Serviço
         </Button>
       </div>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList>
-          <TabsTrigger value="agenda">Agenda</TabsTrigger>
-          <TabsTrigger value="active">Serviços em Andamento</TabsTrigger>
-        </TabsList>
-        <TabsContent value="agenda">
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle>Calendário de Agendamentos</CardTitle>
-              <CardDescription>Selecione um dia para ver os serviços agendados.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-center">
-              <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(day) => setSelectedDate(day ? startOfDay(day) : undefined)}
-                  initialFocus
-                  locale={ptBR}
-                  modifiers={{ scheduled: scheduledServices.map(s => s.scheduledDate).filter((d): d is Date => !!d) }}
-                  modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full' }}
-                  className="rounded-md border"
-              />
-            </CardContent>
-          </Card>
           
-          {selectedDate && renderServiceCards(
-              selectedDayServices, 
-              'Nenhum agendamento para este dia.',
-              'Selecione outro dia no calendário para visualizar os agendamentos.',
-              <CalendarIcon className="w-16 h-16 text-muted-foreground" />
-          )}
-        </TabsContent>
-        <TabsContent value="active">
-          {renderServiceCards(
-            activeServices, 
-            'Nenhum serviço em andamento.',
-            'Assim que um serviço for confirmado na agenda, ele aparecerá aqui.',
-            <CheckCircle className="w-16 h-16 text-muted-foreground" />
-          )}
-        </TabsContent>
-      </Tabs>
+      {selectedDate && renderServiceCards(
+          selectedDayServices, 
+          'Nenhum agendamento para este dia.',
+          'Selecione outro dia no calendário para visualizar os agendamentos.',
+          <CalendarIcon className="w-16 h-16 text-muted-foreground" />
+      )}
       
       <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
         if (!isOpen) {
@@ -562,7 +496,7 @@ export function ScheduleClient() {
                         control={form.control}
                         name="scheduledDate"
                         render={({ field }) => (
-                          <FormItem className="flex flex-col !space-y-0">
+                          <FormItem className="flex flex-col">
                             <FormLabel className="mb-2">Data do Agendamento</FormLabel>
                             <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen} modal={true}>
                               <PopoverTrigger asChild>
