@@ -483,8 +483,9 @@ export function ScheduleClient() {
             </DialogHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onScheduleSubmit)} className="space-y-4">
+                    
                     <FormField control={form.control} name="customerName" render={() => (
-                        <FormItem className="flex flex-col">
+                        <FormItem>
                            <FormLabel>Cliente</FormLabel>
                            <CustomerCombobox />
                            <FormMessage />
@@ -520,7 +521,10 @@ export function ScheduleClient() {
                                   mode="single"
                                   selected={field.value}
                                   onSelect={(date) => {
-                                      if (date) field.onChange(date);
+                                      if (date) {
+                                        field.onChange(date);
+                                        form.setValue('scheduledTime', ''); // Reset time when date changes
+                                      }
                                       setIsCalendarOpen(false);
                                   }}
                                   initialFocus
@@ -536,7 +540,7 @@ export function ScheduleClient() {
                         control={form.control}
                         name="scheduledTime"
                         render={() => (
-                          <FormItem>
+                          <FormItem className="-mt-1">
                             <FormLabel className="mb-2">Hora</FormLabel>
                             <FormControl>
                               <TimeSlotPicker />
