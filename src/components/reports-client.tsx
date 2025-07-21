@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -901,11 +902,11 @@ export function ReportsClient() {
       >
         <DialogContent>
           <DialogHeader>
-            <AlertDialogTitle>Limpar Dados Antigos</AlertDialogTitle>
-            <AlertDialogDescription>
+            <DialogTitle>Limpar Dados Antigos</DialogTitle>
+            <DialogDescription>
               Selecione o ano cujos dados de transações você deseja remover
               permanentemente. Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <Label htmlFor="year-select">Ano para Limpeza</Label>
