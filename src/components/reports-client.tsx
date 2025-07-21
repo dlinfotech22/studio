@@ -16,7 +16,7 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   Timestamp,
   writeBatch,
   doc,
@@ -231,50 +231,41 @@ export function ReportsClient() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
-    const fetchData = async (id: string) => {
-      try {
-        const transactionsRef = collection(db, 'transactions');
-        const qTransactions = query(
-          transactionsRef,
-          where('companyId', '==', id)
-        );
-        const transactionSnapshot = await getDocs(qTransactions);
-        const allTransactions = transactionSnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            date: (data.date as Timestamp).toDate(),
-          } as Transaction;
-        });
-        setTransactions(allTransactions);
-
-        const companiesRef = collection(db, 'companies');
-        const qCompanies = query(companiesRef, where('document', '==', id));
-        const companySnapshot = await getDocs(qCompanies);
-        if (!companySnapshot.empty) {
-          const companyDoc = companySnapshot.docs[0];
-          setCompanyInfo({
-            id: companyDoc.id,
-            ...companyDoc.data(),
-          } as CompanyInfo);
-        }
-      } catch (error) {
-        console.error('Failed to load data from Firestore', error);
-      } finally {
-        setIsClient(true);
-      }
-    };
-
     const id = sessionStorage.getItem('current-user-company-id');
     const role = sessionStorage.getItem('current-user-role');
     setCompanyId(id);
     setUserRole(role);
+
     if (!id) {
       setIsClient(true);
       return;
     }
-    fetchData(id);
+
+    const transactionsQuery = query(collection(db, 'transactions'), where('companyId', '==', id));
+    const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+      const allTransactions = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        date: (doc.data().date as Timestamp).toDate(),
+      } as Transaction));
+      setTransactions(allTransactions);
+      setIsClient(true);
+    }, (error) => {
+      console.error("Failed to load transactions from Firestore", error);
+      setIsClient(true);
+    });
+
+    const companyQuery = query(collection(db, 'companies'), where('document', '==', id));
+    const unsubCompany = onSnapshot(companyQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        setCompanyInfo({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as CompanyInfo);
+      }
+    }, (error) => console.error("Failed to load company info from Firestore", error));
+
+    return () => {
+      unsubTransactions();
+      unsubCompany();
+    };
   }, []);
 
   useEffect(() => {

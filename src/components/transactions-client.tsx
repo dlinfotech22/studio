@@ -11,7 +11,7 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   doc,
   addDoc,
   updateDoc,
@@ -252,67 +252,53 @@ export function TransactionsClient({ context = 'transactions' }: TransactionsCli
 
 
   useEffect(() => {
-    const fetchData = async (id: string) => {
-      try {
-        const transactionsRef = collection(db, 'transactions');
-        const qTransactions = query(
-          transactionsRef,
-          where('companyId', '==', id)
-        );
-        const transactionSnapshot = await getDocs(qTransactions);
-        const transactions = transactionSnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            date: (data.date as Timestamp).toDate(),
-          } as Transaction;
-        });
-        setAllTransactions(transactions.filter(t => t.serviceStatus !== 'Agendado'));
-
-        const productsRef = collection(db, 'products');
-        const qProducts = query(productsRef, where('companyId', '==', id));
-        const productSnapshot = await getDocs(qProducts);
-        const products = productSnapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Product)
-        );
-        setAllProducts(products);
-        
-        const servicesRef = collection(db, 'services');
-        const qServices = query(servicesRef, where('companyId', '==', id));
-        const serviceSnapshot = await getDocs(qServices);
-        const services = serviceSnapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Service)
-        );
-        setAllServices(services);
-        
-        const customersRef = collection(db, 'customers');
-        const qCustomers = query(customersRef, where('companyId', '==', id));
-        const customerSnapshot = await getDocs(qCustomers);
-        const customers = customerSnapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Customer)
-        );
-        setAllCustomers(customers);
-
-        const companiesRef = collection(db, 'companies');
-        const qCompany = query(companiesRef, where('document', '==', id));
-        const companySnapshotQuery = await getDocs(qCompany);
-        if(!companySnapshotQuery.empty) {
-            setCompanyInfo({id: companySnapshotQuery.docs[0].id, ...companySnapshotQuery.docs[0].data()} as CompanyInfo);
-        }
-
-      } catch (error) {
-        console.error('Failed to load data from Firestore', error);
-        setAllTransactions([]);
-      }
-    };
-
     const id = sessionStorage.getItem('current-user-company-id');
     setCompanyId(id);
-    if (id) {
-      fetchData(id);
-    }
-  }, [companyId]);
+    if (!id) return;
+
+    // --- Data Fetching with Real-time Listeners ---
+    const transactionsQuery = query(collection(db, 'transactions'), where('companyId', '==', id));
+    const productsQuery = query(collection(db, 'products'), where('companyId', '==', id));
+    const servicesQuery = query(collection(db, 'services'), where('companyId', '==', id));
+    const customersQuery = query(collection(db, 'customers'), where('companyId', '==', id));
+    const companyQuery = query(collection(db, 'companies'), where('document', '==', id));
+
+    const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+        const transactions = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            date: (doc.data().date as Timestamp).toDate(),
+        } as Transaction));
+        setAllTransactions(transactions.filter(t => t.serviceStatus !== 'Agendado'));
+    }, (error) => console.error("Error fetching transactions:", error));
+
+    const unsubProducts = onSnapshot(productsQuery, (snapshot) => {
+        setAllProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+    }, (error) => console.error("Error fetching products:", error));
+
+    const unsubServices = onSnapshot(servicesQuery, (snapshot) => {
+        setAllServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service)));
+    }, (error) => console.error("Error fetching services:", error));
+
+    const unsubCustomers = onSnapshot(customersQuery, (snapshot) => {
+        setAllCustomers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)));
+    }, (error) => console.error("Error fetching customers:", error));
+    
+    const unsubCompany = onSnapshot(companyQuery, (snapshot) => {
+        if(!snapshot.empty) {
+            setCompanyInfo({id: snapshot.docs[0].id, ...snapshot.docs[0].data()} as CompanyInfo);
+        }
+    }, (error) => console.error("Error fetching company info:", error));
+
+
+    return () => { // Cleanup function to unsubscribe from listeners
+        unsubTransactions();
+        unsubProducts();
+        unsubServices();
+        unsubCustomers();
+        unsubCompany();
+    };
+}, []);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
@@ -553,15 +539,6 @@ export function TransactionsClient({ context = 'transactions' }: TransactionsCli
         }
       });
   
-      const productSnapshot = await getDocs(query(collection(db, 'products'), where('companyId', '==', companyId)));
-      setAllProducts(productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
-      const transactionSnapshot = await getDocs(query(collection(db, 'transactions'), where('companyId', '==', companyId)));
-      setAllTransactions(transactionSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Transaction)));
-      
-      const updatedCompanyInfo = await getDoc(doc(db, 'companies', companyInfo.id));
-      if (updatedCompanyInfo.exists()) {
-          setCompanyInfo({ id: updatedCompanyInfo.id, ...updatedCompanyInfo.data() } as CompanyInfo);
-      }
       
       toast({ title: 'Sucesso!', description: `Lançamento ${editingTransaction ? 'atualizado' : 'adicionado'}.` });
       
@@ -637,10 +614,6 @@ export function TransactionsClient({ context = 'transactions' }: TransactionsCli
             }
             dbTransaction.delete(doc(db, 'transactions', transactionToDelete.id));
         });
-
-        const productSnapshot = await getDocs(query(collection(db, 'products'), where('companyId', '==', companyId)));
-        setAllProducts(productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
-        setAllTransactions(allTransactions.filter((t) => t.id !== transactionToDelete.id));
 
         toast({ title: 'Sucesso!', description: 'Lançamento removido.' });
 
