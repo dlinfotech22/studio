@@ -9,7 +9,7 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   doc,
   addDoc,
   updateDoc,
@@ -125,14 +125,14 @@ export function CustomersClient() {
     const currentCompanyId = sessionStorage.getItem('current-user-company-id');
     if (currentCompanyId) {
       setCompanyId(currentCompanyId);
-      const fetchCustomers = async () => {
-        const q = query(collection(db, 'customers'), where('companyId', '==', currentCompanyId));
-        const snapshot = await getDocs(q);
+
+      const qCustomers = query(collection(db, 'customers'), where('companyId', '==', currentCompanyId));
+      const unsubCustomers = onSnapshot(qCustomers, (snapshot) => {
         setCustomers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)));
-      };
-      const fetchTransactions = async () => {
-        const q = query(collection(db, 'transactions'), where('companyId', '==', currentCompanyId), where('status', 'in', ['Pendente', 'Parcialmente Pago']));
-        const snapshot = await getDocs(q);
+      });
+
+      const qTransactions = query(collection(db, 'transactions'), where('companyId', '==', currentCompanyId), where('status', 'in', ['Pendente', 'Parcialmente Pago']));
+      const unsubTransactions = onSnapshot(qTransactions, (snapshot) => {
         setTransactions(snapshot.docs.map(doc => {
             const data = doc.data();
             return {
@@ -145,9 +145,12 @@ export function CustomersClient() {
               })),
             } as Transaction
         }));
+      });
+      
+      return () => {
+        unsubCustomers();
+        unsubTransactions();
       };
-      fetchCustomers();
-      fetchTransactions();
     }
   }, []);
 
@@ -234,11 +237,9 @@ export function CustomersClient() {
     try {
       if (editingCustomer) {
         await updateDoc(doc(db, 'customers', editingCustomer.id), payload);
-        setCustomers(customers.map(c => c.id === editingCustomer.id ? { ...c, ...payload } : c));
         toast({ title: 'Sucesso!', description: 'Cliente atualizado.' });
       } else {
-        const docRef = await addDoc(collection(db, 'customers'), payload);
-        setCustomers([...customers, { id: docRef.id, ...payload }]);
+        await addDoc(collection(db, 'customers'), payload);
         toast({ title: 'Sucesso!', description: 'Cliente adicionado.' });
       }
       setIsDialogOpen(false);
@@ -267,7 +268,6 @@ export function CustomersClient() {
     if (customerToDelete) {
       try {
           await deleteDoc(doc(db, 'customers', customerToDelete.id));
-          setCustomers(customers.filter(c => c.id !== customerToDelete.id));
           toast({ title: 'Sucesso!', description: 'Cliente removido.' });
       } catch (error) {
           console.error(error);

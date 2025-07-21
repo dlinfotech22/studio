@@ -6,7 +6,7 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   doc,
   runTransaction,
   Timestamp,
@@ -57,16 +57,18 @@ export function AccountsReceivableClient() {
   } | null>(null);
 
   useEffect(() => {
-    const fetchData = async (id: string) => {
+    const id = sessionStorage.getItem('current-user-company-id');
+    if (id) {
+      setCompanyId(id);
       setIsLoading(true);
-      try {
-        const transactionsRef = collection(db, 'transactions');
-        const q = query(
-          transactionsRef,
-          where('companyId', '==', id),
-          where('status', 'in', ['Pendente', 'Parcialmente Pago'])
-        );
-        const snapshot = await getDocs(q);
+      const transactionsRef = collection(db, 'transactions');
+      const q = query(
+        transactionsRef,
+        where('companyId', '==', id),
+        where('status', 'in', ['Pendente', 'Parcialmente Pago'])
+      );
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedTransactions = snapshot.docs
           .map((doc) => {
             const data = doc.data();
@@ -84,23 +86,18 @@ export function AccountsReceivableClient() {
             (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
           );
         setTransactions(fetchedTransactions);
-        
-      } catch (error) {
+        setIsLoading(false);
+      }, (error) => {
         console.error('Failed to load accounts receivable:', error);
         toast({
           title: 'Erro!',
           description: 'Não foi possível carregar as contas a receber.',
           variant: 'destructive',
         });
-      } finally {
         setIsLoading(false);
-      }
-    };
+      });
 
-    const id = sessionStorage.getItem('current-user-company-id');
-    if (id) {
-      setCompanyId(id);
-      fetchData(id);
+      return () => unsubscribe();
     } else {
       setIsLoading(false);
     }
@@ -145,32 +142,6 @@ export function AccountsReceivableClient() {
           status: newStatus,
         });
       });
-
-      // Optimistic update
-      setTransactions((prev) =>
-        prev
-          .map((t) => {
-            if (t.id === transactionId) {
-              const updatedInstallments =
-                t.installments?.map((inst) =>
-                  inst.installmentNumber === installmentNumber
-                    ? { ...inst, status: 'Paga' as const }
-                    : inst
-                ) || [];
-              const allPaid = updatedInstallments.every(
-                (inst) => inst.status === 'Paga'
-              );
-              return {
-                ...t,
-                installments: updatedInstallments,
-                status: allPaid ? ('Pago' as const) : ('Parcialmente Pago' as const),
-              };
-            }
-            return t;
-          })
-          .filter((t) => t.status !== 'Pago')
-      );
-
       toast({
         title: 'Sucesso!',
         description: 'Pagamento da parcela confirmado.',

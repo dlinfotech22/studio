@@ -9,12 +9,9 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   doc,
-  updateDoc,
   Timestamp,
-  writeBatch,
-  getDoc,
   runTransaction,
 } from 'firebase/firestore';
 import { format, isSameDay, startOfDay, setHours, setMinutes } from 'date-fns';
@@ -100,49 +97,59 @@ export function ScheduleClient() {
     name: "services",
   });
 
-  const fetchCompanyData = async (cId: string) => {
-    setIsLoading(true);
-    try {
-        const servicesRef = collection(db, 'transactions');
-        const qServices = query(
-            servicesRef,
-            where('companyId', '==', cId),
-            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
-            where('serviceStatus', '==', 'Agendado')
-        );
+  const setupListeners = (cId: string) => {
+      setIsLoading(true);
+      
+      const qServices = query(
+          collection(db, 'transactions'),
+          where('companyId', '==', cId),
+          where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
+          where('serviceStatus', '==', 'Agendado')
+      );
+      const unsubTransactions = onSnapshot(qServices, (snapshot) => {
+          const fetchedServices = snapshot.docs.map((doc) => {
+              const data = doc.data();
+              return { id: doc.id, ...data, date: (data.date as Timestamp).toDate(), scheduledDate: data.scheduledDate ? (data.scheduledDate as Timestamp).toDate() : null } as Transaction;
+          });
+          setScheduledServices(fetchedServices.sort((a,b) => (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0)));
+          setIsLoading(false);
+      }, (error) => {
+          console.error('Failed to fetch scheduled services:', error);
+          toast({ title: 'Erro ao buscar agendamentos', description: 'Não foi possível carregar os dados. Tente novamente.', variant: 'destructive' });
+          setIsLoading(false);
+      });
+      
+      const qCustomers = query(collection(db, 'customers'), where('companyId', '==', cId));
+      const unsubCustomers = onSnapshot(qCustomers, (snapshot) => {
+          setAllCustomers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)));
+      });
 
-        const servicesSnapshot = await getDocs(qServices);
-        const fetchedServices = servicesSnapshot.docs.map((doc) => {
-            const data = doc.data();
-            return { id: doc.id, ...data, date: (data.date as Timestamp).toDate(), scheduledDate: data.scheduledDate ? (data.scheduledDate as Timestamp).toDate() : null } as Transaction;
-        });
-        
-        setScheduledServices(fetchedServices.sort((a,b) => (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0)));
+      const qAvailableServices = query(collection(db, 'services'), where('companyId', '==', cId));
+      const unsubAvailableServices = onSnapshot(qAvailableServices, (snapshot) => {
+          setAvailableServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service)));
+      });
 
-        const customersSnapshot = await getDocs(query(collection(db, 'customers'), where('companyId', '==', cId)));
-        setAllCustomers(customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)));
+      const qCompanyInfo = query(collection(db, 'companies'), where('document', '==', cId));
+      const unsubCompanyInfo = onSnapshot(qCompanyInfo, (snapshot) => {
+          if (!snapshot.empty) {
+              setCompanyInfo({id: snapshot.docs[0].id, ...snapshot.docs[0].data()} as CompanyInfo);
+          }
+      });
 
-        const availableServicesSnapshot = await getDocs(query(collection(db, 'services'), where('companyId', '==', cId)));
-        setAvailableServices(availableServicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service)));
-
-        const companyInfoSnapshot = await getDocs(query(collection(db, 'companies'), where('document', '==', cId)));
-        if (!companyInfoSnapshot.empty) {
-            setCompanyInfo({id: companyInfoSnapshot.docs[0].id, ...companyInfoSnapshot.docs[0].data()} as CompanyInfo);
-        }
-
-    } catch (error) {
-        console.error('Failed to fetch scheduled services:', error);
-        toast({ title: 'Erro ao buscar dados', description: 'Não foi possível carregar os dados. Tente novamente.', variant: 'destructive' });
-    } finally {
-        setIsLoading(false);
-    }
-  };
+      return () => {
+          unsubTransactions();
+          unsubCustomers();
+          unsubAvailableServices();
+          unsubCompanyInfo();
+      }
+  }
 
   useEffect(() => {
     const cId = sessionStorage.getItem('current-user-company-id');
     setCompanyId(cId);
     if (cId) {
-      fetchCompanyData(cId);
+      const unsubscribe = setupListeners(cId);
+      return () => unsubscribe();
     } else {
       setIsLoading(false);
     }
@@ -221,7 +228,6 @@ export function ScheduleClient() {
           customerId: '',
           services: [],
       });
-        fetchCompanyData(companyId); // Refetch data
     } catch (error: any) {
         console.error('Failed to schedule service:', error);
         toast({ title: 'Erro!', description: error.message || 'Não foi possível agendar o serviço.', variant: 'destructive' });

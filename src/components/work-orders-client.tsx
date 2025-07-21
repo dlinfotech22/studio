@@ -6,7 +6,7 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   doc,
   updateDoc,
   Timestamp,
@@ -42,9 +42,11 @@ export function WorkOrdersClient() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const fetchActiveServices = async (cId: string) => {
-    setIsLoading(true);
-    try {
+  useEffect(() => {
+    const cId = sessionStorage.getItem('current-user-company-id');
+    setCompanyId(cId);
+    if (cId) {
+        setIsLoading(true);
         const servicesRef = collection(db, 'transactions');
         const qServices = query(
             servicesRef,
@@ -52,32 +54,26 @@ export function WorkOrdersClient() {
             where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
         );
 
-        const servicesSnapshot = await getDocs(qServices);
-        const fetchedServices = servicesSnapshot.docs
-            .map((doc) => {
-                const data = doc.data();
-                return { id: doc.id, ...data, date: (data.date as Timestamp).toDate() } as Transaction;
-            })
-            .filter(service => 
-                service.serviceStatus && 
-                !['Agendado', 'Encerrada / Concluída', 'Cancelada'].includes(service.serviceStatus)
-            );
-        
-        setActiveServices(fetchedServices.sort((a,b) => (a.date as Date).getTime() - (b.date as Date).getTime()));
+        const unsubscribe = onSnapshot(qServices, (snapshot) => {
+            const fetchedServices = snapshot.docs
+                .map((doc) => {
+                    const data = doc.data();
+                    return { id: doc.id, ...data, date: (data.date as Timestamp).toDate() } as Transaction;
+                })
+                .filter(service => 
+                    service.serviceStatus && 
+                    !['Agendado', 'Encerrada / Concluída', 'Cancelada'].includes(service.serviceStatus)
+                );
+            
+            setActiveServices(fetchedServices.sort((a,b) => (a.date as Date).getTime() - (b.date as Date).getTime()));
+            setIsLoading(false);
+        }, (error) => {
+            console.error('Failed to fetch active services:', error);
+            toast({ title: 'Erro ao buscar dados', description: 'Não foi possível carregar as ordens de serviço. Tente novamente.', variant: 'destructive' });
+            setIsLoading(false);
+        });
 
-    } catch (error) {
-        console.error('Failed to fetch active services:', error);
-        toast({ title: 'Erro ao buscar dados', description: 'Não foi possível carregar as ordens de serviço. Tente novamente.', variant: 'destructive' });
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const cId = sessionStorage.getItem('current-user-company-id');
-    setCompanyId(cId);
-    if (cId) {
-      fetchActiveServices(cId);
+        return () => unsubscribe();
     } else {
       setIsLoading(false);
     }
@@ -88,9 +84,6 @@ export function WorkOrdersClient() {
       const transactionRef = doc(db, 'transactions', transactionId);
       await updateDoc(transactionRef, { serviceStatus: newStatus });
       toast({ title: 'Status Atualizado!', description: `O serviço foi atualizado para "${newStatus}".` });
-      if (companyId) {
-          fetchActiveServices(companyId);
-      }
     } catch (error) {
       console.error('Failed to update service status:', error);
       toast({ title: 'Erro ao atualizar status', description: 'Não foi possível alterar o status do serviço.', variant: 'destructive' });
