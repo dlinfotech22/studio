@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -48,15 +49,19 @@ export function WorkOrdersClient() {
         const qServices = query(
             servicesRef,
             where('companyId', '==', cId),
-            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
-            where('serviceStatus', 'not-in', ['Agendado', 'Encerrada / Concluída', 'Cancelada'])
+            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
         );
 
         const servicesSnapshot = await getDocs(qServices);
-        const fetchedServices = servicesSnapshot.docs.map((doc) => {
-            const data = doc.data();
-            return { id: doc.id, ...data, date: (data.date as Timestamp).toDate() } as Transaction;
-        });
+        const fetchedServices = servicesSnapshot.docs
+            .map((doc) => {
+                const data = doc.data();
+                return { id: doc.id, ...data, date: (data.date as Timestamp).toDate() } as Transaction;
+            })
+            .filter(service => 
+                service.serviceStatus && 
+                !['Agendado', 'Encerrada / Concluída', 'Cancelada'].includes(service.serviceStatus)
+            );
         
         setActiveServices(fetchedServices.sort((a,b) => (a.date as Date).getTime() - (b.date as Date).getTime()));
 
