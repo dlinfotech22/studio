@@ -35,6 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { useRouter } from 'next/navigation';
 
 const scheduleServiceItemSchema = z.object({
     serviceId: z.string().min(1),
@@ -81,6 +82,7 @@ export function ScheduleClient() {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [currentService, setCurrentService] = useState<Service | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const router = useRouter();
   
   const form = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -156,21 +158,9 @@ export function ScheduleClient() {
     }
   }, [selectedDate, scheduledServices]);
 
-  const handleStartService = async (transactionId: string) => {
-    try {
-      const transactionRef = doc(db, 'transactions', transactionId);
-      const payload = { serviceStatus: 'Aberta' as const, date: Timestamp.fromDate(new Date()) };
-      await updateDoc(transactionRef, payload);
-      
-      toast({ title: 'Serviço Iniciado!', description: `O serviço foi movido para Ordens de Serviço.` });
-      
-      if (companyId) {
-          fetchCompanyData(companyId);
-      }
-    } catch (error) {
-      console.error('Failed to update service status:', error);
-      toast({ title: 'Erro ao iniciar serviço', description: 'Não foi possível iniciar o serviço.', variant: 'destructive' });
-    }
+  const handleStartService = (transactionId: string) => {
+    sessionStorage.setItem('transaction-to-edit', transactionId);
+    router.push('/transactions');
   };
   
   const handleAddService = () => {

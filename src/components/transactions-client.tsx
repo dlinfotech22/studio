@@ -398,6 +398,17 @@ export function TransactionsClient({ context = 'transactions' }: TransactionsCli
     }
   }, [companyInfo, form]);
 
+  useEffect(() => {
+    const transactionId = sessionStorage.getItem('transaction-to-edit');
+    if (transactionId) {
+      sessionStorage.removeItem('transaction-to-edit');
+      const transactionToEdit = allTransactions.find(t => t.id === transactionId);
+      if (transactionToEdit) {
+        handleEdit(transactionToEdit);
+      }
+    }
+  }, [allTransactions]);
+
   const revenue = filteredTransactions.filter((t) => t.type === 'revenue');
   const expenses = filteredTransactions.filter((t) => t.type === 'expense');
 
