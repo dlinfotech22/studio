@@ -48,7 +48,22 @@ const scheduleSchema = z.object({
   customerId: z.string().optional(),
   customerName: z.string().min(1, 'O nome do cliente é obrigatório.'),
   services: z.array(scheduleServiceItemSchema).min(1, 'Você deve adicionar pelo menos um serviço.'),
+}).refine((data) => {
+    const { scheduledDate, scheduledTime } = data;
+    if (!scheduledDate || !scheduledTime) {
+      return true; // Other validators will handle this
+    }
+    const [hours, minutes] = scheduledTime.split(':').map(Number);
+    const scheduledDateTime = new Date(scheduledDate);
+    scheduledDateTime.setHours(hours, minutes, 0, 0);
+
+    const now = new Date();
+    return scheduledDateTime > now;
+}, {
+    message: "Não é possível agendar em uma data ou hora passada.",
+    path: ["scheduledTime"],
 });
+
 
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
@@ -444,7 +459,7 @@ export function ScheduleClient() {
 
         <Button onClick={() => {
           form.reset({
-            scheduledDate: new Date(),
+            scheduledDate: selectedDate || new Date(),
             scheduledTime: '',
             customerName: '',
             customerId: '',
@@ -527,6 +542,7 @@ export function ScheduleClient() {
                                       }
                                       setIsCalendarOpen(false);
                                   }}
+                                  disabled={(date) => date < startOfDay(new Date())}
                                   initialFocus
                                 />
                               </PopoverContent>
