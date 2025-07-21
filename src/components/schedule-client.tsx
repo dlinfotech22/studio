@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,7 +21,7 @@ import { format, isSameDay, startOfDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon, Wrench, CheckCircle, PlusCircle, Trash2, ChevronsUpDown, Check } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { type Transaction, type CompanyInfo, type Service, type Customer } from '@/lib/types';
+import { type Transaction, type CompanyInfo, type Service, type Customer, ServiceStatus } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,8 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+
 
 const scheduleServiceItemSchema = z.object({
     serviceId: z.string().min(1),
@@ -52,8 +55,22 @@ const scheduleSchema = z.object({
 
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
+const serviceStatusOptions: ServiceStatus[] = [
+    'Aberta',
+    'Aguardando Aprovação',
+    'Aprovada',
+    'Aguardando Peça / Material',
+    'Em Execução',
+    'Pausada',
+    'Finalizada',
+    'Aguardando Pagamento',
+    'Encerrada / Concluída',
+    'Cancelada',
+];
+
 export function ScheduleClient() {
   const [scheduledServices, setScheduledServices] = useState<Transaction[]>([]);
+  const [activeServices, setActiveServices] = useState<Transaction[]>([]);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
   const [selectedDayServices, setSelectedDayServices] = useState<Transaction[]>([]);
@@ -91,8 +108,7 @@ export function ScheduleClient() {
         const qServices = query(
             servicesRef,
             where('companyId', '==', cId),
-            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda']),
-            where('serviceStatus', '==', 'Agendado')
+            where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
         );
 
         const servicesSnapshot = await getDocs(qServices);
@@ -101,7 +117,8 @@ export function ScheduleClient() {
             return { id: doc.id, ...data, date: (data.date as Timestamp).toDate(), scheduledDate: data.scheduledDate ? (data.scheduledDate as Timestamp).toDate() : null } as Transaction;
         });
         
-        setScheduledServices(fetchedServices.sort((a,b) => (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0)));
+        setScheduledServices(fetchedServices.filter(s => s.serviceStatus === 'Agendado').sort((a,b) => (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0)));
+        setActiveServices(fetchedServices.filter(s => s.serviceStatus && !['Agendado', 'Encerrada / Concluída', 'Cancelada'].includes(s.serviceStatus)).sort((a,b) => (a.date as Date).getTime() - (b.date as Date).getTime()));
 
         const customersSnapshot = await getDocs(query(collection(db, 'customers'), where('companyId', '==', cId)));
         setAllCustomers(customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)));
@@ -156,6 +173,20 @@ export function ScheduleClient() {
     } catch (error) {
       console.error('Failed to update service status:', error);
       toast({ title: 'Erro ao iniciar serviço', description: 'Não foi possível iniciar o serviço.', variant: 'destructive' });
+    }
+  };
+
+  const handleStatusChange = async (transactionId: string, newStatus: ServiceStatus) => {
+    try {
+      const transactionRef = doc(db, 'transactions', transactionId);
+      await updateDoc(transactionRef, { serviceStatus: newStatus });
+      toast({ title: 'Status Atualizado!', description: `O serviço foi atualizado para "${newStatus}".` });
+      if (companyId) {
+          fetchCompanyData(companyId);
+      }
+    } catch (error) {
+      console.error('Failed to update service status:', error);
+      toast({ title: 'Erro ao atualizar status', description: 'Não foi possível alterar o status do serviço.', variant: 'destructive' });
     }
   };
   
@@ -355,15 +386,16 @@ export function ScheduleClient() {
     )
   }
 
-  const renderServiceCards = (servicesToRender: Transaction[]) => {
+  const renderServiceCards = (servicesToRender: Transaction[], title: string, emptyMessage: string, emptyIcon: React.ReactNode) => {
       if(servicesToRender.length === 0) {
           return (
              <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm p-8 text-center h-[200px] mt-4">
                 <div className="flex flex-col items-center gap-2">
-                    <CalendarIcon className="w-16 h-16 text-muted-foreground" />
+                    {emptyIcon}
                     <h2 className="text-2xl font-semibold">
-                      Nenhum agendamento para este dia.
+                      {title}
                     </h2>
+                    <p className="max-w-md mt-2 text-sm text-muted-foreground">{emptyMessage}</p>
                 </div>
             </div>
           )
@@ -378,7 +410,7 @@ export function ScheduleClient() {
                   <div>
                     <CardTitle className="text-lg">{service.customerName}</CardTitle>
                     <CardDescription>
-                      {service.scheduledDate && <span className="font-semibold capitalize text-base">{format(new Date(service.scheduledDate), "HH:mm", { locale: ptBR })}</span>}
+                      {service.scheduledDate && <span className="font-semibold capitalize text-base">{format(new Date(service.scheduledDate), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>}
                     </CardDescription>
                   </div>
                    <Badge variant="secondary">{service.serviceStatus}</Badge>
@@ -402,10 +434,28 @@ export function ScheduleClient() {
                     <span className="font-bold">Valor Total:</span>
                     <span className="font-bold text-lg">{formatCurrency(service.amount)}</span>
                  </div>
-                 <Button size="sm" className="w-full" onClick={() => handleStartService(service.id)}>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Confirmar e Iniciar
-                 </Button>
+                 {service.serviceStatus === 'Agendado' ? (
+                     <Button size="sm" className="w-full" onClick={() => handleStartService(service.id)}>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Confirmar e Iniciar
+                     </Button>
+                 ) : (
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Mudar Status:</span>
+                        <Select value={service.serviceStatus} onValueChange={(newStatus: ServiceStatus) => handleStatusChange(service.id, newStatus)}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Alterar status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {serviceStatusOptions.map((status) => (
+                                <SelectItem key={status} value={status}>
+                                {status}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                 )}
               </CardFooter>
             </Card>
           ))}
@@ -460,7 +510,13 @@ export function ScheduleClient() {
               Agendar Serviço
             </Button>
         </div>
-        {selectedDate && renderServiceCards(selectedDayServices)}
+        
+        {selectedDate && renderServiceCards(
+            selectedDayServices, 
+            'Nenhum agendamento para este dia.',
+            '',
+            <CalendarIcon className="w-16 h-16 text-muted-foreground" />
+        )}
       
       <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
         if (!isOpen) {
@@ -555,6 +611,7 @@ export function ScheduleClient() {
                               ))}
                               {services.length === 0 && <p className="text-sm text-center text-muted-foreground">Nenhum serviço adicionado.</p>}
                           </div>
+                          <FormField control={form.control} name="services" render={({ fieldState }) => <FormMessage>{fieldState.error?.message || fieldState.error?.root?.message}</FormMessage>} />
                       </CardContent>
                     </Card>
 
