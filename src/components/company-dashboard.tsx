@@ -67,7 +67,7 @@ export function CompanyDashboard() {
                 return true; // Include all sales
             }
             if (t.subtype === 'Prestação de Serviço' || t.subtype === 'Serviço + Venda') {
-                return t.serviceStatus === 'Finalizado'; // Include services only when finalized
+                return t.serviceStatus === 'Finalizado' || t.serviceStatus === 'Encerrada / Concluída';
             }
             return false; // Exclude other cases by default
         });
