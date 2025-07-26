@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
@@ -26,6 +27,8 @@ import {
   Wrench,
   CalendarClock,
   Workflow,
+  Maximize,
+  Minimize,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -58,6 +61,25 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [hasCompany, setHasCompany] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
+  }, []);
+  
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   useEffect(() => {
     const token = sessionStorage.getItem('auth-token');
@@ -334,6 +356,21 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
           <SidebarTrigger className="md:hidden" />
           <div className="ml-auto flex items-center gap-4">
+             <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleFullScreen}
+                className="h-8 w-8"
+              >
+                {isFullscreen ? (
+                  <Minimize className="h-5 w-5" />
+                ) : (
+                  <Maximize className="h-5 w-5" />
+                )}
+                <span className="sr-only">
+                  {isFullscreen ? 'Sair da tela cheia' : 'Entrar em tela cheia'}
+                </span>
+              </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2">
