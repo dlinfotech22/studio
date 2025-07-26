@@ -501,9 +501,9 @@ export function TransactionsClient({}: {}) {
           const productId = productRefs[i].id;
           const quantityChange = itemChanges[productId];
   
-          if (!productDoc.exists()) throw new Error(`Produto com ID ${productId} não encontrado.`);
+          if (!productDoc.exists()) throw new Error('Produto com ID ' + productId + ' não encontrado.');
           const currentQuantity = productDoc.data().quantity;
-          if (currentQuantity < -quantityChange) throw new Error(`Estoque insuficiente para ${productDoc.data().name}.`);
+          if (currentQuantity < -quantityChange) throw new Error('Estoque insuficiente para ' + productDoc.data().name + '.');
         }
         
         // Now perform writes
@@ -597,7 +597,7 @@ export function TransactionsClient({}: {}) {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
           const updatePayload: { [key: string]: any } = { ...payload };
           
-          if (!isServiceRelated) {
+          if (!isServiceRelated && updatePayload.serviceStatus !== undefined) {
             delete updatePayload.serviceStatus;
           }
           
@@ -956,29 +956,23 @@ export function TransactionsClient({}: {}) {
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const [inputValue, setInputValue] = useState(form.getValues('customerName') || '');
+    const [inputValue, setInputValue] = useState("");
   
     useEffect(() => {
-        // Sync local state if form value changes from outside
         setInputValue(form.getValues('customerName') || '');
     }, [form.watch('customerName')]);
-  
+
     return (
       <Popover open={open} onOpenChange={(isOpen) => {
-          setOpen(isOpen);
-          if (!isOpen) { // When popover closes
-              const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
-              if (matchedCustomer) {
-                  form.setValue('customerId', matchedCustomer.id);
-                  form.setValue('customerName', matchedCustomer.name);
-              } else {
-                  form.setValue('customerId', undefined);
-                  form.setValue('customerName', inputValue.toUpperCase());
-              }
-              if(inputValue) {
-                form.clearErrors('customerName');
-              }
-          }
+        setOpen(isOpen);
+        if (!isOpen) {
+            const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
+            if (!matchedCustomer && inputValue) {
+              form.setValue('customerName', inputValue.toUpperCase());
+              form.setValue('customerId', undefined);
+              form.clearErrors('customerName');
+            }
+        }
       }}>
         <PopoverTrigger asChild>
           <Button
@@ -992,7 +986,9 @@ export function TransactionsClient({}: {}) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
-          <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
+          <Command 
+            filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}
+          >
             <CommandInput
               placeholder="Buscar cliente..."
               value={inputValue}
@@ -1006,19 +1002,18 @@ export function TransactionsClient({}: {}) {
                   <CommandItem
                     key={client.id}
                     value={client.name}
-                    onSelect={(currentValue) => {
-                      const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
-                      if (selectedClient) {
-                          setInputValue(selectedClient.name);
-                          form.setValue('customerId', selectedClient.id);
-                          form.setValue('customerName', selectedClient.name);
-                          form.clearErrors('customerName');
-                      }
+                    onSelect={() => {
+                      form.setValue('customerId', client.id);
+                      form.setValue('customerName', client.name);
+                      form.clearErrors('customerName');
                       setOpen(false);
                     }}
                   >
                     <Check
-                      className={cn("mr-2 h-4 w-4", client.name === inputValue ? "opacity-100" : "opacity-0")}
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0"
+                      )}
                     />
                     {client.name}
                   </CommandItem>
