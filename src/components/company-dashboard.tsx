@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -59,10 +60,16 @@ export function CompanyDashboard() {
         });
         
         const financiallyRelevantTransactions = allTransactions.filter(t => {
-          if (t.subtype === 'Prestação de Serviço' || t.subtype === 'Serviço + Venda') {
-            return t.serviceStatus === 'Finalizado';
-          }
-          return true;
+            if (t.type === 'expense') {
+                return true; // Include all expenses
+            }
+            if (t.subtype === 'Venda') {
+                return true; // Include all sales
+            }
+            if (t.subtype === 'Prestação de Serviço' || t.subtype === 'Serviço + Venda') {
+                return t.serviceStatus === 'Finalizado'; // Include services only when finalized
+            }
+            return false; // Exclude other cases by default
         });
 
         if (allTransactions.length > 0) {
