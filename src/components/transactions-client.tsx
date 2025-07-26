@@ -148,53 +148,60 @@ const transactionSchema = z.object({
   items: z.array(transactionItemSchema).optional(),
   services: z.array(transactionServiceItemSchema).optional(),
   serviceStatus: serviceStatusEnum.optional(),
-}).refine(data => {
+}).superRefine((data, ctx) => {
     if (data.subtype === 'Despesa') {
-      return data.amount !== undefined && data.amount > 0;
+      if (data.amount === undefined || data.amount <= 0) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'O valor é obrigatório para despesas.',
+            path: ['amount'],
+        });
+      }
     }
-    return true;
-  }, {
-    message: 'O valor é obrigatório para despesas.',
-    path: ['amount'],
-  })
-  .refine(data => {
-  if (data.subtype === 'Venda') {
-    return data.items && data.items.length > 0;
-  }
-   if (data.subtype === 'Serviço + Venda') {
-    return (data.items && data.items.length > 0) || (data.services && data.services.length > 0);
-  }
-  if (data.subtype === 'Prestação de Serviço') {
-    return data.services && data.services.length > 0;
-  }
-  return true;
-}, {
-    message: 'Você deve adicionar pelo menos um item ou serviço para este tipo de lançamento.',
-    path: ['items'],
-}).refine(data => {
-  if (data.paymentMethod === 'Parcelado' && (!data.installmentsCount || data.installmentsCount <= 1)) {
-    return false;
-  }
-  return true;
-}, {
-  message: 'O número de parcelas deve ser maior que 1.',
-  path: ['installmentsCount']
-}).refine(data => {
+    if (data.subtype === 'Venda' && (!data.items || data.items.length === 0)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Você deve adicionar pelo menos um produto para este tipo de lançamento.',
+            path: ['items'],
+        });
+    }
+    if (data.subtype === 'Serviço + Venda' && (!data.items || data.items.length === 0) && (!data.services || data.services.length === 0)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Você deve adicionar pelo menos um item ou serviço.',
+            path: ['items'], // can be items or services, but items is fine for UI
+        });
+    }
+    if (data.subtype === 'Prestação de Serviço' && (!data.services || data.services.length === 0)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Você deve adicionar pelo menos um serviço para este tipo de lançamento.',
+            path: ['services'],
+        });
+    }
+    if (data.paymentMethod === 'Parcelado' && (!data.installmentsCount || data.installmentsCount <= 1)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'O número de parcelas deve ser maior que 1.',
+            path: ['installmentsCount'],
+        });
+    }
     if ((data.paymentMethod === 'Parcelado' || data.paymentMethod === 'A Prazo') && !data.firstDueDate) {
-        return false;
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'A data de vencimento é obrigatória para esta forma de pagamento.',
+            path: ['firstDueDate'],
+        });
     }
-    return true;
-}, {
-    message: 'A data de vencimento é obrigatória para esta forma de pagamento.',
-    path: ['firstDueDate']
-}).refine(data => {
     if (data.subtype !== 'Despesa') {
-        return data.customerName && data.customerName.trim().length > 0;
+        if (!data.customerName || data.customerName.trim().length === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'O campo cliente é obrigatório para receitas.',
+                path: ['customerName'],
+            });
+        }
     }
-    return true;
-}, {
-    message: 'O campo cliente é obrigatório para receitas.',
-    path: ['customerName'],
 });
 
 
@@ -348,8 +355,8 @@ export function TransactionsClient({}: {}) {
           handleEdit(transactionToEdit);
           sessionStorage.removeItem('transaction-to-edit');
         }
-        setHasInitialTransactionBeenHandled(true);
       }
+      setHasInitialTransactionBeenHandled(true);
     }
   }, [allTransactions, isLoading, hasInitialTransactionBeenHandled]);
 
@@ -524,7 +531,7 @@ export function TransactionsClient({}: {}) {
         
         const isServiceRelated = data.subtype === 'Prestação de Serviço' || data.subtype === 'Serviço + Venda';
 
-        const payload: Partial<Omit<Transaction, 'id' | 'date'> & { date: Timestamp; installments?: any[] }> = {
+        const payload: Partial<Omit<Transaction, 'id' | 'date'>> & { date: Timestamp; installments?: any[], serviceStatus?: ServiceStatus } = {
           type: transactionType,
           companyId,
           sequentialId: nextSequentialId,
@@ -584,16 +591,20 @@ export function TransactionsClient({}: {}) {
   
         if (editingTransaction) {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
-          const updatePayload = { ...payload };
+          const updatePayload: { [key: string]: any } = { ...payload };
+          
+          if (!isServiceRelated) {
+            delete updatePayload.serviceStatus;
+          }
           
           Object.keys(updatePayload).forEach(key => {
             const typedKey = key as keyof typeof updatePayload;
-            if (updatePayload[typedKey] === undefined || (typeof updatePayload[typedKey] === 'number' && isNaN(updatePayload[typedKey] as number))) {
-              delete (updatePayload as any)[typedKey];
+            if (updatePayload[typedKey] === undefined) {
+              delete updatePayload[typedKey];
             }
           });
-          transaction.update(transactionRef, updatePayload as any);
-          finalTransaction = { ...editingTransaction, ...payload, date: data.date } as Transaction;
+          transaction.update(transactionRef, updatePayload);
+          finalTransaction = { ...editingTransaction, ...updatePayload, date: data.date } as Transaction;
         } else {
           const newTransactionRef = doc(collection(db, 'transactions'));
           transaction.set(newTransactionRef, payload as any);
@@ -1109,7 +1120,7 @@ export function TransactionsClient({}: {}) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Descrição</TableHead>
+                  <TableHead className="w-full">Descrição</TableHead>
                   <TableHead>Tipo</TableHead>
                   {activeTab === 'revenue' && <TableHead>Status do Serviço</TableHead>}
                   <TableHead className="text-right">Valor</TableHead>
@@ -1120,11 +1131,11 @@ export function TransactionsClient({}: {}) {
               <TableBody>
                 {skeletonRows.map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell><Skeleton className="h-5 w-[200px]" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-[100px]" /></TableCell>
-                    {activeTab === 'revenue' && <TableCell><Skeleton className="h-5 w-[120px]" /></TableCell>}
-                    <TableCell className="text-right"><Skeleton className="h-5 w-[80px] ml-auto" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-5 w-[80px] ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                    {activeTab === 'revenue' && <TableCell><Skeleton className="h-5 w-full" /></TableCell>}
+                    <TableCell className="text-right"><Skeleton className="h-5 w-20 ml-auto" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8 rounded-full" /></TableCell>
                   </TableRow>
                 ))}
@@ -1319,6 +1330,7 @@ export function TransactionsClient({}: {}) {
                           ))}
                           {services.length === 0 && <p className="text-sm text-center text-muted-foreground">Nenhum serviço adicionado.</p>}
                       </div>
+                      <FormField control={form.control} name="services" render={({ fieldState }) => <FormMessage>{fieldState.error?.message || fieldState.error?.root?.message}</FormMessage>} />
                   </CardContent>
                 </Card>
               )}
