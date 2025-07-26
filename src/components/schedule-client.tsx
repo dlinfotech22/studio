@@ -76,7 +76,7 @@ export function ScheduleClient() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const { toast } = useToast();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
@@ -117,7 +117,17 @@ export function ScheduleClient() {
               const data = doc.data();
               return { id: doc.id, ...data, date: (data.date as Timestamp).toDate(), scheduledDate: data.scheduledDate ? (data.scheduledDate as Timestamp).toDate() : null } as Transaction;
           });
-          setScheduledServices(fetchedServices.sort((a,b) => (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0)));
+          const sortedServices = fetchedServices.sort((a,b) => (a.scheduledDate?.getTime() ?? 0) - (b.scheduledDate?.getTime() ?? 0));
+          setScheduledServices(sortedServices);
+
+          // Auto-select the first upcoming day with schedules
+          if (!selectedDate && sortedServices.length > 0) {
+            const firstUpcomingSchedule = sortedServices.find(s => s.scheduledDate && startOfDay(s.scheduledDate) >= startOfDay(new Date()));
+            setSelectedDate(firstUpcomingSchedule ? startOfDay(firstUpcomingSchedule.scheduledDate!) : startOfDay(sortedServices[0].scheduledDate!));
+          } else if (sortedServices.length === 0) {
+            setSelectedDate(undefined);
+          }
+
           setIsLoading(false);
       }, (error) => {
           console.error('Failed to fetch scheduled services:', error);
@@ -170,6 +180,13 @@ export function ScheduleClient() {
       setSelectedDayServices([]);
     }
   }, [selectedDate, scheduledServices]);
+
+  const uniqueScheduledDays = [...new Set(
+    scheduledServices
+      .map(s => s.scheduledDate ? startOfDay(s.scheduledDate).getTime() : 0)
+      .filter(time => time > 0)
+  )].map(time => new Date(time)).sort((a,b) => a.getTime() - b.getTime());
+
 
   const handleStartService = (transactionId: string) => {
     sessionStorage.setItem('transaction-to-edit', transactionId);
@@ -493,27 +510,18 @@ export function ScheduleClient() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button variant="outline">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, 'PPP', { locale: ptBR }) : "Selecionar Data"}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-                <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(day) => setSelectedDate(day ? startOfDay(day) : undefined)}
-                    initialFocus
-                    locale={ptBR}
-                    modifiers={{ scheduled: scheduledServices.map(s => s.scheduledDate).filter((d): d is Date => !!d) }}
-                    modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full font-bold' }}
-                    className="rounded-md border"
-                />
-            </PopoverContent>
-        </Popover>
+      <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {uniqueScheduledDays.map(day => (
+                 <Button 
+                    key={day.getTime()} 
+                    variant={selectedDate && isSameDay(day, selectedDate) ? "default" : "outline"}
+                    onClick={() => setSelectedDate(day)}
+                 >
+                   {format(day, 'dd/MM/yyyy')}
+                 </Button>
+            ))}
+          </div>
 
         <Button onClick={() => {
           form.reset({
@@ -530,10 +538,10 @@ export function ScheduleClient() {
         </Button>
       </div>
           
-      {selectedDate && renderServiceCards(
+      {renderServiceCards(
           selectedDayServices, 
           'Nenhum agendamento para este dia.',
-          'Selecione outro dia no calendário para visualizar os agendamentos.',
+          'Selecione outro dia para visualizar os agendamentos.',
           <CalendarIcon className="w-16 h-16 text-muted-foreground" />
       )}
       
@@ -602,6 +610,8 @@ export function ScheduleClient() {
                                   }}
                                   disabled={(date) => date < startOfDay(new Date())}
                                   initialFocus
+                                  modifiers={{ scheduled: scheduledServices.map(s => s.scheduledDate).filter((d): d is Date => !!d) }}
+                                  modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full font-bold' }}
                                 />
                               </PopoverContent>
                             </Popover>
