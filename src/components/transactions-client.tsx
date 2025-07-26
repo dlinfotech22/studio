@@ -249,7 +249,7 @@ export function TransactionsClient({}: {}) {
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
+  const hasHandledInitialTransaction = useRef(false);
 
 
   useEffect(() => {
@@ -272,7 +272,7 @@ export function TransactionsClient({}: {}) {
             ...doc.data(),
             date: (doc.data().date as Timestamp).toDate(),
         } as Transaction));
-        setAllTransactions(transactions.filter(t => t.serviceStatus !== 'Agendado'));
+        setAllTransactions(transactions);
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching transactions:", error);
@@ -340,7 +340,7 @@ export function TransactionsClient({}: {}) {
   };
   
   useEffect(() => {
-    if (!isLoading && allTransactions.length > 0 && !hasInitialTransactionBeenHandled) {
+    if (!isLoading && allTransactions.length > 0 && !hasHandledInitialTransaction.current) {
       const transactionId = sessionStorage.getItem('transaction-to-edit');
       if (transactionId) {
         const transactionToEdit = allTransactions.find(t => t.id === transactionId);
@@ -348,17 +348,17 @@ export function TransactionsClient({}: {}) {
           handleEdit(transactionToEdit);
           sessionStorage.removeItem('transaction-to-edit');
         }
+        hasHandledInitialTransaction.current = true;
       }
-      setHasInitialTransactionBeenHandled(true);
     }
-  }, [allTransactions, isLoading, hasInitialTransactionBeenHandled]);
+  }, [allTransactions, isLoading]);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
-    let transactionsToDisplay = allTransactions;
+    let transactionsToDisplay = allTransactions.filter(t => t.serviceStatus !== 'Agendado');
 
     if (hasActiveFilter) {
-      transactionsToDisplay = allTransactions.filter((t) => {
+      transactionsToDisplay = transactionsToDisplay.filter((t) => {
         const searchTermLower = searchTerm.toLowerCase();
         const searchMatch =
           searchTerm === '' ||
@@ -382,7 +382,7 @@ export function TransactionsClient({}: {}) {
       const now = new Date();
       const currentMonth = getMonth(now);
       const currentYear = getYear(now);
-      transactionsToDisplay = allTransactions.filter((t) => {
+      transactionsToDisplay = transactionsToDisplay.filter((t) => {
         const transactionDate = new Date(t.date as Date);
         return (
           getMonth(transactionDate) === currentMonth &&
