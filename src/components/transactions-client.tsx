@@ -339,13 +339,13 @@ export function TransactionsClient({}: {}) {
   };
   
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && allTransactions.length > 0) {
       const transactionId = sessionStorage.getItem('transaction-to-edit');
       if (transactionId) {
-        sessionStorage.removeItem('transaction-to-edit');
         const transactionToEdit = allTransactions.find(t => t.id === transactionId);
         if (transactionToEdit) {
           handleEdit(transactionToEdit);
+          sessionStorage.removeItem('transaction-to-edit');
         }
       }
     }
@@ -1523,3 +1523,6 @@ export function TransactionsClient({}: {}) {
 
 
 
+
+
+    
