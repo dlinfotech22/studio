@@ -1095,12 +1095,17 @@ export function TransactionsClient({}: {}) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <Skeleton className="h-12 w-full" />
+                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-5 w-10" /></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell>
+                  <TableCell colSpan={6}>
                     <Skeleton className="h-24 w-full" />
                   </TableCell>
                 </TableRow>
@@ -1493,4 +1498,5 @@ export function TransactionsClient({}: {}) {
     </>
   );
 }
+
 
