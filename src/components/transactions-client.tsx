@@ -104,6 +104,7 @@ import { Separator } from './ui/separator';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
+import { Skeleton } from './ui/skeleton';
 
 const transactionItemSchema = z.object({
     productId: z.string().min(1),
@@ -305,6 +306,51 @@ export function TransactionsClient({}: {}) {
     };
   }, []);
 
+  const handleEdit = (transaction: Transaction) => {
+    let firstDueDate: Date | undefined;
+    if (transaction.installments && transaction.installments.length > 0) {
+        const firstInstallmentDueDate = transaction.installments[0].dueDate;
+        firstDueDate = (firstInstallmentDueDate as Timestamp).toDate();
+    }
+    
+    let scheduledDate: Date | undefined;
+    if (transaction.scheduledDate) {
+        scheduledDate = (transaction.scheduledDate as Timestamp).toDate();
+    }
+
+    const isServiceRelated = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
+
+    setEditingTransaction(transaction);
+    form.reset({
+      ...transaction,
+      date: new Date(transaction.date as Date),
+      amount: Math.abs(transaction.amount),
+      customerId: transaction.customerId || undefined,
+      customerName: transaction.customerName || undefined,
+      paymentMethod: transaction.paymentMethod || 'À Vista',
+      installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
+      firstDueDate: firstDueDate,
+      items: transaction.items || [],
+      services: transaction.services || [],
+      serviceStatus: isServiceRelated ? (transaction.serviceStatus || 'Aberta') : undefined,
+    });
+    setActiveTab(transaction.type);
+    setIsDialogOpen(true);
+  };
+  
+  useEffect(() => {
+    if (!isLoading) {
+      const transactionId = sessionStorage.getItem('transaction-to-edit');
+      if (transactionId) {
+        sessionStorage.removeItem('transaction-to-edit');
+        const transactionToEdit = allTransactions.find(t => t.id === transactionId);
+        if (transactionToEdit) {
+          handleEdit(transactionToEdit);
+        }
+      }
+    }
+  }, [allTransactions, isLoading]);
+
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
     let transactionsToDisplay = allTransactions;
@@ -406,51 +452,6 @@ export function TransactionsClient({}: {}) {
     });
 
   }, [paymentMethod, form, updateProduct]);
-
-  const handleEdit = (transaction: Transaction) => {
-    let firstDueDate: Date | undefined;
-    if (transaction.installments && transaction.installments.length > 0) {
-        const firstInstallmentDueDate = transaction.installments[0].dueDate;
-        firstDueDate = (firstInstallmentDueDate as Timestamp).toDate();
-    }
-    
-    let scheduledDate: Date | undefined;
-    if (transaction.scheduledDate) {
-        scheduledDate = (transaction.scheduledDate as Timestamp).toDate();
-    }
-
-    const isServiceRelated = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
-
-    setEditingTransaction(transaction);
-    form.reset({
-      ...transaction,
-      date: new Date(transaction.date as Date),
-      amount: Math.abs(transaction.amount),
-      customerId: transaction.customerId || undefined,
-      customerName: transaction.customerName || undefined,
-      paymentMethod: transaction.paymentMethod || 'À Vista',
-      installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
-      firstDueDate: firstDueDate,
-      items: transaction.items || [],
-      services: transaction.services || [],
-      serviceStatus: isServiceRelated ? (transaction.serviceStatus || 'Aberta') : undefined,
-    });
-    setActiveTab(transaction.type);
-    setIsDialogOpen(true);
-  };
-  
-  useEffect(() => {
-    if (allTransactions.length > 0) {
-      const transactionId = sessionStorage.getItem('transaction-to-edit');
-      if (transactionId) {
-        sessionStorage.removeItem('transaction-to-edit');
-        const transactionToEdit = allTransactions.find(t => t.id === transactionId);
-        if (transactionToEdit) {
-          handleEdit(transactionToEdit);
-        }
-      }
-    }
-  }, [allTransactions]);
 
   const revenue = filteredTransactions.filter((t) => t.type === 'revenue');
   const expenses = filteredTransactions.filter((t) => t.type === 'expense');
@@ -1081,96 +1082,126 @@ export function TransactionsClient({}: {}) {
 
   return (
     <>
-      <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
-        <div className="relative w-full md:max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Pesquisar por descrição ou cliente..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-            autoComplete="off"
-          />
+    {isLoading ? (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center">
+            <Skeleton className="h-10 w-full md:max-w-sm" />
+            <Skeleton className="h-10 w-full md:w-52" />
+            <Skeleton className="h-10 w-full md:w-60" />
+            <Skeleton className="h-10 w-full md:w-36" />
+          </div>
+          <Skeleton className="h-10 w-48" />
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <Skeleton className="h-12 w-full" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell>
+                    <Skeleton className="h-24 w-full" />
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
         </div>
-        <Input
-          type="number"
-          placeholder="Filtrar por valor (ex: 500)"
-          value={amountFilter}
-          onChange={(e) => setAmountFilter(e.target.value)}
-          className="w-full md:w-52"
-          autoComplete="off"
-        />
-        <Popover
-          open={isFilterDatePickerOpen}
-          onOpenChange={setIsFilterDatePickerOpen}
-        >
-          <PopoverTrigger asChild>
-            <Button
-              variant={'outline'}
-              className={cn(
-                'w-full justify-start text-left font-normal md:w-[240px]',
-                !dateFilter && 'text-muted-foreground'
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateFilter?.from ? (
-                dateFilter.to ? (
-                  <>
-                    {format(dateFilter.from, "LLL dd, y")} -{" "}
-                    {format(dateFilter.to, "LLL dd, y")}
-                  </>
-                ) : (
-                  format(dateFilter.from, "LLL dd, y")
-                )
-              ) : (
-                <span>Filtrar por período</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              initialFocus
-              mode="range"
-              defaultMonth={dateFilter?.from}
-              selected={dateFilter}
-              onSelect={(range) => {
-                setDateFilter(range);
-                if(range?.from && range.to) {
-                  setIsFilterDatePickerOpen(false);
-                }
-              }}
-              numberOfMonths={2}
+      ) : (
+        <>
+          <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
+            <div className="relative w-full md:max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar por descrição ou cliente..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+                autoComplete="off"
+              />
+            </div>
+            <Input
+              type="number"
+              placeholder="Filtrar por valor (ex: 500)"
+              value={amountFilter}
+              onChange={(e) => setAmountFilter(e.target.value)}
+              className="w-full md:w-52"
+              autoComplete="off"
             />
-          </PopoverContent>
-        </Popover>
-        {(searchTerm || amountFilter || dateFilter) && (
-          <Button variant="ghost" onClick={clearFilters} className="w-full md:w-auto">
-            <X className="mr-2 h-4 w-4" />
-            Limpar Filtros
-          </Button>
-        )}
-      </div>
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as 'revenue' | 'expense')}
-      >
-        <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="revenue">Receitas</TabsTrigger>
-            <TabsTrigger value="expense">Despesas</TabsTrigger>
-          </TabsList>
-          <Button onClick={() => openNewTransactionDialog(activeTab)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar Lançamento
-          </Button>
-        </div>
-        <TabsContent value="revenue" className="mt-4">
-          {renderTable(revenue, 'revenue')}
-        </TabsContent>
-        <TabsContent value="expense" className="mt-4">
-          {renderTable(expenses, 'expense')}
-        </TabsContent>
-      </Tabs>
+            <Popover
+              open={isFilterDatePickerOpen}
+              onOpenChange={setIsFilterDatePickerOpen}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant={'outline'}
+                  className={cn(
+                    'w-full justify-start text-left font-normal md:w-[240px]',
+                    !dateFilter && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFilter?.from ? (
+                    dateFilter.to ? (
+                      <>
+                        {format(dateFilter.from, "LLL dd, y")} -{" "}
+                        {format(dateFilter.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateFilter.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Filtrar por período</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateFilter?.from}
+                  selected={dateFilter}
+                  onSelect={(range) => {
+                    setDateFilter(range);
+                    if(range?.from && range.to) {
+                      setIsFilterDatePickerOpen(false);
+                    }
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+            {(searchTerm || amountFilter || dateFilter) && (
+              <Button variant="ghost" onClick={clearFilters} className="w-full md:w-auto">
+                <X className="mr-2 h-4 w-4" />
+                Limpar Filtros
+              </Button>
+            )}
+          </div>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as 'revenue' | 'expense')}
+          >
+            <div className="flex items-center justify-between">
+              <TabsList>
+                <TabsTrigger value="revenue">Receitas</TabsTrigger>
+                <TabsTrigger value="expense">Despesas</TabsTrigger>
+              </TabsList>
+              <Button onClick={() => openNewTransactionDialog(activeTab)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Adicionar Lançamento
+              </Button>
+            </div>
+            <TabsContent value="revenue" className="mt-4">
+              {renderTable(revenue, 'revenue')}
+            </TabsContent>
+            <TabsContent value="expense" className="mt-4">
+              {renderTable(expenses, 'expense')}
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1462,3 +1493,4 @@ export function TransactionsClient({}: {}) {
     </>
   );
 }
+
