@@ -172,7 +172,7 @@ const transactionSchema = z.object({
             path: ['items'], // can be items or services, but items is fine for UI
         });
     }
-    if (data.subtype === 'Prestação de Serviço' && (!data.services || data.services.length === 0)) {
+     if (data.subtype === 'Prestação de Serviço' && (!data.services || data.services.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'Você deve adicionar pelo menos um serviço para este tipo de lançamento.',
@@ -531,7 +531,7 @@ export function TransactionsClient({}: {}) {
         
         const isServiceRelated = data.subtype === 'Prestação de Serviço' || data.subtype === 'Serviço + Venda';
 
-        const payload: Partial<Omit<Transaction, 'id' | 'date'>> & { date: Timestamp; installments?: any[], serviceStatus?: ServiceStatus } = {
+        const payload: Partial<Omit<Transaction, 'id' | 'date'>> & { date: Timestamp; installments?: any[]} = {
           type: transactionType,
           companyId,
           sequentialId: nextSequentialId,
@@ -548,6 +548,10 @@ export function TransactionsClient({}: {}) {
   
         if (isServiceRelated) {
           payload.serviceStatus = data.serviceStatus;
+        }
+        
+        if (!isServiceRelated && 'serviceStatus' in payload) {
+            delete payload.serviceStatus;
         }
 
         if (transactionType === 'expense') {
@@ -955,7 +959,15 @@ export function TransactionsClient({}: {}) {
     const customerNameValue = form.watch('customerName');
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={(isOpen) => {
+            setOpen(isOpen);
+            if (!isOpen) {
+                const currentInput = form.getValues('customerName');
+                if (currentInput && !allCustomers.some(c => c.name.toLowerCase() === currentInput.toLowerCase())) {
+                    form.setValue('customerId', undefined);
+                }
+            }
+        }}>
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"
@@ -967,20 +979,7 @@ export function TransactionsClient({}: {}) {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent 
-                className="w-[--radix-popover-trigger-width] p-0"
-                onCloseAutoFocus={(e) => {
-                    const target = e.target as HTMLElement;
-                    if (target && target.closest('[cmdk-item]')) {
-                        e.preventDefault();
-                    } else {
-                         const currentInput = form.getValues('customerName');
-                        if (currentInput && !allCustomers.some(c => c.name.toLowerCase() === currentInput.toLowerCase())) {
-                            form.setValue('customerId', undefined);
-                        }
-                    }
-                }}
-            >
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                 <Command
                   filter={(value, search) => {
                     if (value.toLowerCase().includes(search.toLowerCase())) return 1
