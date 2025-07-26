@@ -291,11 +291,7 @@ export function ScheduleClient() {
             </PopoverTrigger>
             <PopoverContent
               className="w-[--radix-popover-trigger-width] p-0"
-              onCloseAutoFocus={(e) => {
-                  if (e.target && (e.target as HTMLElement).closest('[cmdk-input]')) {
-                      e.preventDefault();
-                  }
-              }}
+              onOpenAutoFocus={(e) => e.preventDefault()}
             >
                 <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
                     <CommandInput placeholder="Buscar cliente..." value={customerNameValue} onValueChange={(search) => form.setValue('customerName', search.toUpperCase())} autoComplete="off" />
