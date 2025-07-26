@@ -6,7 +6,7 @@ import { InventoryClient } from '@/components/inventory-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Package } from 'lucide-react';
 
-export default function InventoryPage() {
+export default function InventoryPage({}: {}) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

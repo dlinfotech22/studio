@@ -5,7 +5,7 @@ import { ReportsClient } from '@/components/reports-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3 } from 'lucide-react';
 
-export default function ReportsPage() {
+export default function ReportsPage({}: {}) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

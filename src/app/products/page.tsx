@@ -6,7 +6,7 @@ import { ProductsClient } from '@/components/products-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Book } from 'lucide-react';
 
-export default function ProductsPage() {
+export default function ProductsPage({}: {}) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

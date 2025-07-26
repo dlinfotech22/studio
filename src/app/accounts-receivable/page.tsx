@@ -3,7 +3,7 @@
 
 import { AccountsReceivableClient } from '@/components/accounts-receivable-client';
 
-export default function AccountsReceivablePage() {
+export default function AccountsReceivablePage({}: {}) {
   return (
     <div className="flex flex-col gap-6">
       <header>

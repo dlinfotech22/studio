@@ -5,7 +5,7 @@ import { TransactionsClient } from '@/components/transactions-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRightLeft } from 'lucide-react';
 
-export default function TransactionsPage() {
+export default function TransactionsPage({}: {}) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

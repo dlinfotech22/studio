@@ -6,7 +6,7 @@ import { ServicesClient } from '@/components/services-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Wrench } from 'lucide-react';
 
-export default function ServicesPage() {
+export default function ServicesPage({}: {}) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

@@ -6,7 +6,7 @@ import { AccessManagementClient } from '@/components/access-management-client';
 import { SystemAdminClient } from '@/components/system-admin-client';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export default function AccessManagementPage() {
+export default function AccessManagementPage({}: {}) {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);

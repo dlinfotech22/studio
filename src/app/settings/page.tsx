@@ -430,7 +430,7 @@ function AppearanceSettings() {
   );
 }
 
-export default function SettingsPage() {
+export default function SettingsPage({}: {}) {
   const [hasCompany, setHasCompany] = useState(false);
 
   useEffect(() => {

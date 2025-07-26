@@ -8,7 +8,7 @@ import { type CompanyInfo } from '@/lib/types';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-export default function WorkOrdersPage() {
+export default function WorkOrdersPage({}: {}) {
   const [isLoading, setIsLoading] = useState(true);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);

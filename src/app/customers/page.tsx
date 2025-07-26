@@ -6,7 +6,7 @@ import { CustomersClient } from '@/components/customers-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Contact } from 'lucide-react';
 
-export default function CustomersPage() {
+export default function CustomersPage({}: {}) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

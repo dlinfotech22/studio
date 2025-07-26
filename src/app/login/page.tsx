@@ -28,7 +28,7 @@ import { db } from '@/lib/firebase';
 
 const SYSTEM_ADMIN_USERNAME = 'davidleonardo';
 
-export default function LoginPage() {
+export default function LoginPage({}: {}) {
   const router = useRouter();
   const { toast } = useToast();
   const [username, setUsername] = useState('');
