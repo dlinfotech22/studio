@@ -279,46 +279,69 @@ export function ScheduleClient() {
   
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const customerNameValue = form.watch('customerName');
+    const [currentCustomerName, setCurrentCustomerName] = useState(form.getValues('customerName'));
+
+    useEffect(() => {
+        setCurrentCustomerName(form.getValues('customerName'));
+    }, [form.watch('customerName')]);
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
-                    {customerNameValue || "Selecione ou digite um cliente"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-[--radix-popover-trigger-width] p-0"
-              onOpenAutoFocus={(e) => e.preventDefault()}
-            >
-                <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-                    <CommandInput placeholder="Buscar cliente..." value={customerNameValue} onValueChange={(search) => form.setValue('customerName', search.toUpperCase())} autoComplete="off" />
-                    <CommandList>
-                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                        <CommandGroup>
-                            {allCustomers.map((client) => (
-                                <CommandItem key={client.id} value={client.name}
-                                    onSelect={(currentValue) => {
-                                        const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
-                                        if(selectedClient) {
-                                            form.setValue('customerId', selectedClient.id);
-                                            form.setValue('customerName', selectedClient.name);
-                                            form.clearErrors('customerName');
-                                        }
-                                        setOpen(false);
-                                    }}
-                                >
-                                    <Check className={cn("mr-2 h-4 w-4", client.id === form.getValues("customerId") ? "opacity-100" : "opacity-0")} />
-                                    {client.name}
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn("w-full justify-between", !currentCustomerName && "text-muted-foreground")}
+          >
+            {currentCustomerName || "Selecione ou digite um cliente"}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+          <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
+            <CommandInput
+              placeholder="Buscar cliente..."
+              value={currentCustomerName}
+              onValueChange={(search) => {
+                setCurrentCustomerName(search.toUpperCase());
+                form.setValue('customerName', search.toUpperCase());
+                if (!allCustomers.some(c => c.name === search.toUpperCase())) {
+                  form.setValue('customerId', undefined);
+                }
+                form.clearErrors('customerName');
+              }}
+              autoComplete="off"
+            />
+            <CommandList>
+              <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+              <CommandGroup>
+                {allCustomers.map((client) => (
+                  <CommandItem
+                    key={client.id}
+                    value={client.name}
+                    onSelect={(currentValue) => {
+                      const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
+                      if (selectedClient) {
+                        form.setValue('customerId', selectedClient.id);
+                        form.setValue('customerName', selectedClient.name);
+                        setCurrentCustomerName(selectedClient.name);
+                        form.clearErrors('customerName');
+                      }
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn("mr-2 h-4 w-4", client.id === form.getValues("customerId") ? "opacity-100" : "opacity-0")}
+                    />
+                    {client.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     );
   };
   
