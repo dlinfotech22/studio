@@ -249,6 +249,7 @@ export function TransactionsClient({}: {}) {
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
 
 
   useEffect(() => {
@@ -339,7 +340,7 @@ export function TransactionsClient({}: {}) {
   };
   
   useEffect(() => {
-    if (!isLoading && allTransactions.length > 0) {
+    if (!isLoading && allTransactions.length > 0 && !hasInitialTransactionBeenHandled) {
       const transactionId = sessionStorage.getItem('transaction-to-edit');
       if (transactionId) {
         const transactionToEdit = allTransactions.find(t => t.id === transactionId);
@@ -348,8 +349,9 @@ export function TransactionsClient({}: {}) {
           sessionStorage.removeItem('transaction-to-edit');
         }
       }
+      setHasInitialTransactionBeenHandled(true);
     }
-  }, [allTransactions, isLoading]);
+  }, [allTransactions, isLoading, hasInitialTransactionBeenHandled]);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
@@ -1520,9 +1522,3 @@ export function TransactionsClient({}: {}) {
     </>
   );
 }
-
-
-
-
-
-    
