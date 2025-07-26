@@ -279,38 +279,48 @@ export function ScheduleClient() {
   
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const [currentCustomerName, setCurrentCustomerName] = useState(form.getValues('customerName'));
-
+    const [inputValue, setInputValue] = useState(form.getValues('customerName') || '');
+  
     useEffect(() => {
-        setCurrentCustomerName(form.getValues('customerName'));
+        // Sync local state if form value changes from outside
+        setInputValue(form.getValues('customerName') || '');
     }, [form.watch('customerName')]);
 
     return (
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          // On close, if the input value doesn't match a customer, treat it as a new customer
+          if (!isOpen) {
+              const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
+              if (matchedCustomer) {
+                  form.setValue('customerId', matchedCustomer.id);
+                  form.setValue('customerName', matchedCustomer.name);
+              } else {
+                  form.setValue('customerId', undefined);
+                  form.setValue('customerName', inputValue.toUpperCase());
+              }
+              if(inputValue) {
+                form.clearErrors('customerName');
+              }
+          }
+      }}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className={cn("w-full justify-between", !currentCustomerName && "text-muted-foreground")}
+            className={cn("w-full justify-between", !inputValue && "text-muted-foreground")}
           >
-            {currentCustomerName || "Selecione ou digite um cliente"}
+            {inputValue || "Selecione ou digite um cliente"}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
           <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
             <CommandInput
               placeholder="Buscar cliente..."
-              value={currentCustomerName}
-              onValueChange={(search) => {
-                setCurrentCustomerName(search.toUpperCase());
-                form.setValue('customerName', search.toUpperCase());
-                if (!allCustomers.some(c => c.name === search.toUpperCase())) {
-                  form.setValue('customerId', undefined);
-                }
-                form.clearErrors('customerName');
-              }}
+              value={inputValue}
+              onValueChange={setInputValue}
               autoComplete="off"
             />
             <CommandList>
@@ -323,16 +333,16 @@ export function ScheduleClient() {
                     onSelect={(currentValue) => {
                       const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
                       if (selectedClient) {
-                        form.setValue('customerId', selectedClient.id);
-                        form.setValue('customerName', selectedClient.name);
-                        setCurrentCustomerName(selectedClient.name);
-                        form.clearErrors('customerName');
+                          setInputValue(selectedClient.name);
+                          form.setValue('customerId', selectedClient.id);
+                          form.setValue('customerName', selectedClient.name);
+                          form.clearErrors('customerName');
                       }
                       setOpen(false);
                     }}
                   >
                     <Check
-                      className={cn("mr-2 h-4 w-4", client.id === form.getValues("customerId") ? "opacity-100" : "opacity-0")}
+                      className={cn("mr-2 h-4 w-4", client.name === inputValue ? "opacity-100" : "opacity-0")}
                     />
                     {client.name}
                   </CommandItem>
@@ -627,3 +637,4 @@ export function ScheduleClient() {
     </>
   );
 }
+
