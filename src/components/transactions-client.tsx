@@ -249,7 +249,7 @@ export function TransactionsClient({}: {}) {
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const hasHandledInitialTransaction = useRef(false);
+  const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
 
 
   useEffect(() => {
@@ -340,7 +340,7 @@ export function TransactionsClient({}: {}) {
   };
   
   useEffect(() => {
-    if (!isLoading && allTransactions.length > 0 && !hasHandledInitialTransaction.current) {
+    if (!isLoading && allTransactions.length > 0 && !hasInitialTransactionBeenHandled) {
       const transactionId = sessionStorage.getItem('transaction-to-edit');
       if (transactionId) {
         const transactionToEdit = allTransactions.find(t => t.id === transactionId);
@@ -348,10 +348,10 @@ export function TransactionsClient({}: {}) {
           handleEdit(transactionToEdit);
           sessionStorage.removeItem('transaction-to-edit');
         }
-        hasHandledInitialTransaction.current = true;
+        setHasInitialTransactionBeenHandled(true);
       }
     }
-  }, [allTransactions, isLoading]);
+  }, [allTransactions, isLoading, hasInitialTransactionBeenHandled]);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
@@ -537,9 +537,12 @@ export function TransactionsClient({}: {}) {
           paymentMethod: data.paymentMethod,
           items: data.items,
           services: data.services,
-          serviceStatus: isServiceRelated ? data.serviceStatus : undefined,
         };
   
+        if (isServiceRelated) {
+          payload.serviceStatus = data.serviceStatus;
+        }
+
         if (transactionType === 'expense') {
           payload.status = 'Pago';
         } else {
@@ -1084,7 +1087,6 @@ export function TransactionsClient({}: {}) {
 
   const renderLoadingSkeleton = () => {
     const skeletonRows = Array.from({ length: 5 });
-    const tableCols = activeTab === 'revenue' ? 6 : 5;
     
     return (
         <div className="space-y-4">
