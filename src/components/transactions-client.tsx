@@ -406,7 +406,7 @@ export function TransactionsClient({ context = 'transactions' }: TransactionsCli
 
   useEffect(() => {
     const transactionId = sessionStorage.getItem('transaction-to-edit');
-    if (transactionId) {
+    if (transactionId && allTransactions.length > 0) {
       sessionStorage.removeItem('transaction-to-edit');
       const transactionToEdit = allTransactions.find(t => t.id === transactionId);
       if (transactionToEdit) {
