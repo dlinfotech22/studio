@@ -289,13 +289,13 @@ export function ScheduleClient() {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0"
-                onCloseAutoFocus={(e) => {
-                    const target = e.target as HTMLElement;
-                    if (target?.closest('[cmdk-input]')) {
+            <PopoverContent
+              className="w-[--radix-popover-trigger-width] p-0"
+              onCloseAutoFocus={(e) => {
+                  if (e.target && (e.target as HTMLElement).closest('[cmdk-input]')) {
                       e.preventDefault();
-                    }
-                }}
+                  }
+              }}
             >
                 <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
                     <CommandInput placeholder="Buscar cliente..." value={customerNameValue} onValueChange={(search) => form.setValue('customerName', search.toUpperCase())} autoComplete="off" />
