@@ -165,18 +165,18 @@ const transactionSchema = z.object({
             path: ['items'],
         });
     }
-    if (data.subtype === 'Serviço + Venda' && (!data.items || data.items.length === 0) && (!data.services || data.services.length === 0)) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Você deve adicionar pelo menos um item ou serviço.',
-            path: ['items'], // can be items or services, but items is fine for UI
-        });
-    }
      if (data.subtype === 'Prestação de Serviço' && (!data.services || data.services.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'Você deve adicionar pelo menos um serviço para este tipo de lançamento.',
             path: ['services'],
+        });
+    }
+    if (data.subtype === 'Serviço + Venda' && (!data.items || data.items.length === 0) && (!data.services || data.services.length === 0)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Você deve adicionar pelo menos um item ou serviço.',
+            path: ['items'], // can be items or services, but items is fine for UI
         });
     }
     if (data.paymentMethod === 'Parcelado' && (!data.installmentsCount || data.installmentsCount <= 1)) {
@@ -550,8 +550,8 @@ export function TransactionsClient({}: {}) {
           payload.serviceStatus = data.serviceStatus;
         }
         
-        if (!isServiceRelated && 'serviceStatus' in payload) {
-            delete payload.serviceStatus;
+        if (!isServiceRelated) {
+            delete (payload as any).serviceStatus;
         }
 
         if (transactionType === 'expense') {
@@ -956,78 +956,78 @@ export function TransactionsClient({}: {}) {
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const customerNameValue = form.watch('customerName');
-
+    const [inputValue, setInputValue] = useState(form.getValues('customerName') || '');
+  
+    useEffect(() => {
+        // Sync local state if form value changes from outside
+        setInputValue(form.getValues('customerName') || '');
+    }, [form.watch('customerName')]);
+  
     return (
-        <Popover open={open} onOpenChange={(isOpen) => {
-            setOpen(isOpen);
-            if (!isOpen) {
-                const currentInput = form.getValues('customerName');
-                if (currentInput && !allCustomers.some(c => c.name.toLowerCase() === currentInput.toLowerCase())) {
-                    form.setValue('customerId', undefined);
-                }
-            }
-        }}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="w-full justify-between"
-                >
-                    {customerNameValue || "Selecione ou digite um cliente"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command
-                  filter={(value, search) => {
-                    if (value.toLowerCase().includes(search.toLowerCase())) return 1
-                    return 0
-                  }}
-                >
-                    <CommandInput 
-                      placeholder="Buscar cliente..."
-                      value={customerNameValue}
-                      onValueChange={(search) => {
-                          form.setValue('customerName', search.toUpperCase());
-                          if (!allCustomers.some(c => c.name === search.toUpperCase())) {
-                              form.setValue('customerId', undefined);
-                          }
-                      }}
-                      autoComplete="off"
+      <Popover open={open} onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          if (!isOpen) { // When popover closes
+              const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
+              if (matchedCustomer) {
+                  form.setValue('customerId', matchedCustomer.id);
+                  form.setValue('customerName', matchedCustomer.name);
+              } else {
+                  form.setValue('customerId', undefined);
+                  form.setValue('customerName', inputValue.toUpperCase());
+              }
+              if(inputValue) {
+                form.clearErrors('customerName');
+              }
+          }
+      }}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn("w-full justify-between", !inputValue && "text-muted-foreground")}
+          >
+            {inputValue || "Selecione ou digite um cliente"}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
+            <CommandInput
+              placeholder="Buscar cliente..."
+              value={inputValue}
+              onValueChange={setInputValue}
+              autoComplete="off"
+            />
+            <CommandList>
+              <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+              <CommandGroup>
+                {allCustomers.map((client) => (
+                  <CommandItem
+                    key={client.id}
+                    value={client.name}
+                    onSelect={(currentValue) => {
+                      const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
+                      if (selectedClient) {
+                          setInputValue(selectedClient.name);
+                          form.setValue('customerId', selectedClient.id);
+                          form.setValue('customerName', selectedClient.name);
+                          form.clearErrors('customerName');
+                      }
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn("mr-2 h-4 w-4", client.name === inputValue ? "opacity-100" : "opacity-0")}
                     />
-                    <CommandList>
-                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                        <CommandGroup>
-                            {allCustomers.map((client) => (
-                                <CommandItem
-                                    key={client.id}
-                                    value={client.name}
-                                    onSelect={(currentValue) => {
-                                        const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
-                                        if(selectedClient) {
-                                            form.setValue('customerId', selectedClient.id);
-                                            form.setValue('customerName', selectedClient.name);
-                                            form.clearErrors('customerName');
-                                        }
-                                        setOpen(false);
-                                    }}
-                                >
-                                    <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            client.id === form.getValues("customerId") ? "opacity-100" : "opacity-0"
-                                        )}
-                                    />
-                                    {client.name}
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
+                    {client.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     );
   };
   
