@@ -291,7 +291,10 @@ export function ScheduleClient() {
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0"
                 onCloseAutoFocus={(e) => {
-                    if ((e.target as HTMLElement)?.closest('[cmdk-item]')) e.preventDefault();
+                    const target = e.target as HTMLElement;
+                    if (target?.closest('[cmdk-input]')) {
+                      e.preventDefault();
+                    }
                 }}
             >
                 <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
