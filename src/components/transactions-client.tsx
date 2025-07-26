@@ -271,7 +271,7 @@ export function TransactionsClient({}: {}) {
             date: (doc.data().date as Timestamp).toDate(),
         } as Transaction));
         setAllTransactions(transactions.filter(t => t.serviceStatus !== 'Agendado'));
-        setIsLoading(false); // Set loading to false after transactions are fetched
+        setIsLoading(false);
     }, (error) => {
         console.error("Error fetching transactions:", error);
         setIsLoading(false);
@@ -440,7 +440,7 @@ export function TransactionsClient({}: {}) {
   };
   
   useEffect(() => {
-    if (!isLoading) {
+    if (allTransactions.length > 0) {
       const transactionId = sessionStorage.getItem('transaction-to-edit');
       if (transactionId) {
         sessionStorage.removeItem('transaction-to-edit');
@@ -450,7 +450,7 @@ export function TransactionsClient({}: {}) {
         }
       }
     }
-  }, [isLoading, allTransactions]);
+  }, [allTransactions]);
 
   const revenue = filteredTransactions.filter((t) => t.type === 'revenue');
   const expenses = filteredTransactions.filter((t) => t.type === 'expense');
