@@ -1080,9 +1080,11 @@ export function TransactionsClient({}: {}) {
     }
   };
 
-  return (
-    <>
-    {isLoading ? (
+  const renderLoadingSkeleton = () => {
+    const skeletonRows = Array.from({ length: 5 });
+    const tableCols = activeTab === 'revenue' ? 6 : 5;
+    
+    return (
         <div className="space-y-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <Skeleton className="h-10 w-full md:max-w-sm" />
@@ -1090,29 +1092,49 @@ export function TransactionsClient({}: {}) {
             <Skeleton className="h-10 w-full md:w-60" />
             <Skeleton className="h-10 w-full md:w-36" />
           </div>
-          <Skeleton className="h-10 w-48" />
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'revenue' | 'expense')}>
+            <div className="flex items-center justify-between">
+              <TabsList>
+                <TabsTrigger value="revenue">Receitas</TabsTrigger>
+                <TabsTrigger value="expense">Despesas</TabsTrigger>
+              </TabsList>
+              <Skeleton className="h-10 w-44" />
+            </div>
+          </Tabs>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
-                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
-                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
-                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
-                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
-                  <TableHead><Skeleton className="h-5 w-10" /></TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  {activeTab === 'revenue' && <TableHead>Status do Serviço</TableHead>}
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="text-right">Data</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <TableRow>
-                  <TableCell colSpan={6}>
-                    <Skeleton className="h-24 w-full" />
-                  </TableCell>
-                </TableRow>
+                {skeletonRows.map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell><Skeleton className="h-5 w-[200px]" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-[100px]" /></TableCell>
+                    {activeTab === 'revenue' && <TableCell><Skeleton className="h-5 w-[120px]" /></TableCell>}
+                    <TableCell className="text-right"><Skeleton className="h-5 w-[80px] ml-auto" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-5 w-[80px] ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8 rounded-full" /></TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
         </div>
+      );
+  }
+
+  return (
+    <>
+    {isLoading ? (
+        renderLoadingSkeleton()
       ) : (
         <>
           <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center">
@@ -1498,5 +1520,6 @@ export function TransactionsClient({}: {}) {
     </>
   );
 }
+
 
 
