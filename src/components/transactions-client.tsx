@@ -221,6 +221,7 @@ const serviceStatusOptions: ServiceStatus[] = [
 
 export function TransactionsClient({}: {}) {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<
     Transaction[]
@@ -252,9 +253,11 @@ export function TransactionsClient({}: {}) {
   useEffect(() => {
     const id = sessionStorage.getItem('current-user-company-id');
     setCompanyId(id);
-    if (!id) return;
+    if (!id) {
+        setIsLoading(false);
+        return;
+    }
 
-    // --- Data Fetching with Real-time Listeners ---
     const transactionsQuery = query(collection(db, 'transactions'), where('companyId', '==', id));
     const productsQuery = query(collection(db, 'products'), where('companyId', '==', id));
     const servicesQuery = query(collection(db, 'services'), where('companyId', '==', id));
@@ -268,7 +271,11 @@ export function TransactionsClient({}: {}) {
             date: (doc.data().date as Timestamp).toDate(),
         } as Transaction));
         setAllTransactions(transactions.filter(t => t.serviceStatus !== 'Agendado'));
-    }, (error) => console.error("Error fetching transactions:", error));
+        setIsLoading(false); // Set loading to false after transactions are fetched
+    }, (error) => {
+        console.error("Error fetching transactions:", error);
+        setIsLoading(false);
+    });
 
     const unsubProducts = onSnapshot(productsQuery, (snapshot) => {
         setAllProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
@@ -289,14 +296,14 @@ export function TransactionsClient({}: {}) {
     }, (error) => console.error("Error fetching company info:", error));
 
 
-    return () => { // Cleanup function to unsubscribe from listeners
+    return () => { 
         unsubTransactions();
         unsubProducts();
         unsubServices();
         unsubCustomers();
         unsubCompany();
     };
-}, []);
+  }, []);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
@@ -433,7 +440,7 @@ export function TransactionsClient({}: {}) {
   };
   
   useEffect(() => {
-    if (allTransactions.length > 0) {
+    if (!isLoading) {
       const transactionId = sessionStorage.getItem('transaction-to-edit');
       if (transactionId) {
         sessionStorage.removeItem('transaction-to-edit');
@@ -443,7 +450,7 @@ export function TransactionsClient({}: {}) {
         }
       }
     }
-  }, [allTransactions]);
+  }, [isLoading, allTransactions]);
 
   const revenue = filteredTransactions.filter((t) => t.type === 'revenue');
   const expenses = filteredTransactions.filter((t) => t.type === 'expense');
