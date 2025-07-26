@@ -509,7 +509,7 @@ export function ScheduleClient() {
                     initialFocus
                     locale={ptBR}
                     modifiers={{ scheduled: scheduledServices.map(s => s.scheduledDate).filter((d): d is Date => !!d) }}
-                    modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full' }}
+                    modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full font-bold' }}
                     className="rounded-md border"
                 />
             </PopoverContent>
