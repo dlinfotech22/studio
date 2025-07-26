@@ -110,6 +110,8 @@ const transactionItemSchema = z.object({
     productName: z.string(),
     quantity: z.coerce.number().min(1, "A quantidade deve ser pelo menos 1."),
     price: z.coerce.number(),
+    basePrice: z.coerce.number(), // Original price without interest
+    financeInterestRate: z.coerce.number().optional(),
 });
 
 const transactionServiceItemSchema = z.object({
@@ -365,7 +367,7 @@ export function TransactionsClient({ context = 'transactions' }: TransactionsCli
     },
   });
 
-  const { fields: items, append: appendProduct, remove: removeProduct } = useFieldArray({
+  const { fields: items, append: appendProduct, remove: removeProduct, update: updateProduct } = useFieldArray({
     control: form.control,
     name: "items",
   });
@@ -383,6 +385,24 @@ export function TransactionsClient({ context = 'transactions' }: TransactionsCli
       });
     }
   }, [companyInfo, form]);
+  
+  const paymentMethod = form.watch('paymentMethod');
+
+  useEffect(() => {
+    const currentItems = form.getValues('items') || [];
+    const isFinanced = paymentMethod === 'A Prazo' || paymentMethod === 'Parcelado';
+
+    currentItems.forEach((item, index) => {
+        let newPrice = item.basePrice;
+        if (isFinanced && item.financeInterestRate) {
+            newPrice = item.basePrice * (1 + item.financeInterestRate / 100);
+        }
+        if (item.price !== newPrice) {
+            updateProduct(index, { ...item, price: newPrice });
+        }
+    });
+
+  }, [paymentMethod, form, updateProduct]);
 
   useEffect(() => {
     const transactionId = sessionStorage.getItem('transaction-to-edit');
@@ -814,6 +834,8 @@ export function TransactionsClient({ context = 'transactions' }: TransactionsCli
                 productName: currentProduct.name,
                 quantity: qty,
                 price: currentProduct.price,
+                basePrice: currentProduct.price,
+                financeInterestRate: currentProduct.financeInterestRate,
             });
             setCurrentProduct(null);
             setCurrentQuantity(1);

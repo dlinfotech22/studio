@@ -84,6 +84,7 @@ const productSchema = z.object({
   price: z.coerce.number().positive('O preço deve ser um valor positivo.'),
   quantity: z.coerce.number().min(0, 'A quantidade inicial não pode ser negativa.').default(0),
   minimumStock: z.coerce.number().min(0, 'O estoque mínimo não pode ser negativo.').default(0),
+  financeInterestRate: z.coerce.number().min(0, 'O acréscimo não pode ser negativo.').default(0),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -144,6 +145,7 @@ export function ProductsClient() {
       quantity: 0,
       price: 0,
       minimumStock: 0,
+      financeInterestRate: 0,
     },
   });
 
@@ -185,7 +187,10 @@ export function ProductsClient() {
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
-    form.reset(product);
+    form.reset({
+      ...product,
+      financeInterestRate: product.financeInterestRate || 0,
+    });
     setIsDialogOpen(true);
   };
 
@@ -218,7 +223,7 @@ export function ProductsClient() {
 
   const openNewProductDialog = () => {
     setEditingProduct(null);
-    form.reset({ name: '', barcode: '', quantity: 0, price: 0, minimumStock: 0 });
+    form.reset({ name: '', barcode: '', quantity: 0, price: 0, minimumStock: 0, financeInterestRate: 0 });
     setIsDialogOpen(true);
   };
 
@@ -429,6 +434,29 @@ export function ProductsClient() {
                         onChange={(e) => field.onChange(e.target.valueAsNumber)}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="financeInterestRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Acréscimo Financeiro (%)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        autoComplete="off"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                        Percentual a ser adicionado para pagamentos a prazo ou parcelado.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
