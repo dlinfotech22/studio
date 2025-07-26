@@ -182,7 +182,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-32 w-32 text-primary"
+                className="h-40 w-40 text-primary"
               >
                 <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
                 <path d="M2 17l10 5 10-5"></path>
