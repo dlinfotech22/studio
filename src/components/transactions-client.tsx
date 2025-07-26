@@ -219,11 +219,7 @@ const serviceStatusOptions: ServiceStatus[] = [
     'Cancelada',
 ];
 
-interface TransactionsClientProps {
-  context?: 'transactions' | 'schedule';
-}
-
-export function TransactionsClient({ context = 'transactions' }: TransactionsClientProps) {
+export function TransactionsClient({}: {}) {
   const { toast } = useToast();
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<
@@ -404,13 +400,47 @@ export function TransactionsClient({ context = 'transactions' }: TransactionsCli
 
   }, [paymentMethod, form, updateProduct]);
 
+  const handleEdit = (transaction: Transaction) => {
+    let firstDueDate: Date | undefined;
+    if (transaction.installments && transaction.installments.length > 0) {
+        const firstInstallmentDueDate = transaction.installments[0].dueDate;
+        firstDueDate = (firstInstallmentDueDate as Timestamp).toDate();
+    }
+    
+    let scheduledDate: Date | undefined;
+    if (transaction.scheduledDate) {
+        scheduledDate = (transaction.scheduledDate as Timestamp).toDate();
+    }
+
+    const isServiceRelated = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
+
+    setEditingTransaction(transaction);
+    form.reset({
+      ...transaction,
+      date: new Date(transaction.date as Date),
+      amount: Math.abs(transaction.amount),
+      customerId: transaction.customerId || undefined,
+      customerName: transaction.customerName || undefined,
+      paymentMethod: transaction.paymentMethod || 'À Vista',
+      installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
+      firstDueDate: firstDueDate,
+      items: transaction.items || [],
+      services: transaction.services || [],
+      serviceStatus: isServiceRelated ? (transaction.serviceStatus || 'Aberta') : undefined,
+    });
+    setActiveTab(transaction.type);
+    setIsDialogOpen(true);
+  };
+  
   useEffect(() => {
-    const transactionId = sessionStorage.getItem('transaction-to-edit');
-    if (transactionId && allTransactions.length > 0) {
-      sessionStorage.removeItem('transaction-to-edit');
-      const transactionToEdit = allTransactions.find(t => t.id === transactionId);
-      if (transactionToEdit) {
-        handleEdit(transactionToEdit);
+    if (allTransactions.length > 0) {
+      const transactionId = sessionStorage.getItem('transaction-to-edit');
+      if (transactionId) {
+        sessionStorage.removeItem('transaction-to-edit');
+        const transactionToEdit = allTransactions.find(t => t.id === transactionId);
+        if (transactionToEdit) {
+          handleEdit(transactionToEdit);
+        }
       }
     }
   }, [allTransactions]);
@@ -584,38 +614,6 @@ export function TransactionsClient({ context = 'transactions' }: TransactionsCli
     }
   };
 
-
-  const handleEdit = (transaction: Transaction) => {
-    let firstDueDate: Date | undefined;
-    if (transaction.installments && transaction.installments.length > 0) {
-        const firstInstallmentDueDate = transaction.installments[0].dueDate;
-        firstDueDate = (firstInstallmentDueDate as Timestamp).toDate();
-    }
-    
-    let scheduledDate: Date | undefined;
-    if (transaction.scheduledDate) {
-        scheduledDate = (transaction.scheduledDate as Timestamp).toDate();
-    }
-
-    const isServiceRelated = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
-
-    setEditingTransaction(transaction);
-    form.reset({
-      ...transaction,
-      date: new Date(transaction.date as Date),
-      amount: Math.abs(transaction.amount),
-      customerId: transaction.customerId || undefined,
-      customerName: transaction.customerName || undefined,
-      paymentMethod: transaction.paymentMethod || 'À Vista',
-      installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
-      firstDueDate: firstDueDate,
-      items: transaction.items || [],
-      services: transaction.services || [],
-      serviceStatus: isServiceRelated ? (transaction.serviceStatus || 'Aberta') : undefined,
-    });
-    setActiveTab(transaction.type);
-    setIsDialogOpen(true);
-  };
 
   const handleDelete = async (transactionToDelete: Transaction) => {
      if (!companyId) return;
