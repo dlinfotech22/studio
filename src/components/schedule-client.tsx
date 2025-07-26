@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray } from 'hookform';
 import { z } from 'zod';
 import {
   collection,
@@ -13,6 +13,7 @@ import {
   doc,
   Timestamp,
   runTransaction,
+  deleteDoc,
 } from 'firebase/firestore';
 import { format, isSameDay, startOfDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -33,6 +34,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useRouter } from 'next/navigation';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
+
 
 const scheduleServiceItemSchema = z.object({
     serviceId: z.string().min(1),
@@ -80,6 +83,9 @@ export function ScheduleClient() {
   const [currentService, setCurrentService] = useState<Service | null>(null);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const router = useRouter();
+
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [serviceToDelete, setServiceToDelete] = useState<Transaction | null>(null);
   
   const form = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -178,6 +184,25 @@ export function ScheduleClient() {
             price: currentService.price,
         });
         setCurrentService(null);
+    }
+  };
+
+  const handleOpenDeleteDialog = (service: Transaction) => {
+    setServiceToDelete(service);
+    setIsDeleteAlertOpen(true);
+  };
+  
+  const handleConfirmDelete = async () => {
+    if (!serviceToDelete) return;
+    try {
+        await deleteDoc(doc(db, 'transactions', serviceToDelete.id));
+        toast({ title: 'Sucesso!', description: 'Agendamento removido.' });
+    } catch (error) {
+        console.error('Failed to delete schedule:', error);
+        toast({ title: 'Erro!', description: 'Não foi possível remover o agendamento.', variant: 'destructive' });
+    } finally {
+        setIsDeleteAlertOpen(false);
+        setServiceToDelete(null);
     }
   };
 
@@ -434,15 +459,20 @@ export function ScheduleClient() {
                     </div>
                   </div>
               </CardContent>
-              <CardFooter className="flex-col items-stretch gap-4 !pt-4">
+              <CardFooter className="flex-col items-stretch gap-2 !pt-4">
                  <div className="flex justify-between items-center pt-2 border-t">
                     <span className="font-bold">Valor Total:</span>
                     <span className="font-bold text-lg">{formatCurrency(service.amount)}</span>
                  </div>
-                 <Button size="sm" className="w-full" onClick={() => handleStartService(service.id)}>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Confirmar e Iniciar
-                 </Button>
+                 <div className="flex items-center gap-2">
+                    <Button size="sm" className="w-full" onClick={() => handleStartService(service.id)}>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Confirmar e Iniciar
+                    </Button>
+                    <Button size="sm" variant="destructive" className="w-auto px-3" onClick={() => handleOpenDeleteDialog(service)}>
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                 </div>
               </CardFooter>
             </Card>
           ))}
@@ -634,7 +664,27 @@ export function ScheduleClient() {
             </Form>
         </DialogContent>
       </Dialog>
+      <AlertDialog
+        open={isDeleteAlertOpen}
+        onOpenChange={setIsDeleteAlertOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. Isso removerá permanentemente o agendamento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setServiceToDelete(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>
+              Continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
-
