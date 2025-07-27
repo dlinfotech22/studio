@@ -511,19 +511,8 @@ export function ScheduleClient() {
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4">
-          <div className="flex w-full items-center gap-4">
-            <div className="flex flex-wrap items-center gap-2">
-                {uniqueScheduledDays.map(day => (
-                    <Button 
-                        key={day.getTime()} 
-                        variant={selectedDate && isSameDay(day, selectedDate) ? "default" : "outline"}
-                        onClick={() => setSelectedDate(day)}
-                    >
-                    {format(day, 'dd/MM/yyyy')}
-                    </Button>
-                ))}
-            </div>
+      <div className="flex flex-col gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="relative w-full sm:w-auto sm:max-w-xs">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -535,22 +524,32 @@ export function ScheduleClient() {
                     autoComplete="off"
                 />
             </div>
-          </div>
-        
-        <div className="flex w-full sm:w-auto sm:justify-end">
-            <Button onClick={() => {
-              form.reset({
-                scheduledDate: selectedDate || new Date(),
-                scheduledTime: '',
-                customerName: '',
-                customerId: '',
-                services: [],
-              });
-              setIsFormOpen(true);
-            }}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Agendar Serviço
-            </Button>
+            <div className="flex w-full sm:w-auto sm:justify-end">
+                <Button onClick={() => {
+                form.reset({
+                    scheduledDate: selectedDate || new Date(),
+                    scheduledTime: '',
+                    customerName: '',
+                    customerId: '',
+                    services: [],
+                });
+                setIsFormOpen(true);
+                }}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Agendar Serviço
+                </Button>
+            </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+            {uniqueScheduledDays.map(day => (
+                <Button 
+                    key={day.getTime()} 
+                    variant={selectedDate && isSameDay(day, selectedDate) ? "default" : "outline"}
+                    onClick={() => setSelectedDate(day)}
+                >
+                {format(day, 'dd/MM/yyyy')}
+                </Button>
+            ))}
         </div>
       </div>
           
