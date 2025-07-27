@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { format, isSameDay, startOfDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon, Wrench, CheckCircle, PlusCircle, Trash2, ChevronsUpDown, Check } from 'lucide-react';
+import { Calendar as CalendarIcon, Wrench, CheckCircle, PlusCircle, Trash2, ChevronsUpDown, Check, Search } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { type Transaction, type CompanyInfo, type Service, type Customer } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -86,6 +86,7 @@ export function ScheduleClient() {
 
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<Transaction | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
   const form = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -180,6 +181,13 @@ export function ScheduleClient() {
       setSelectedDayServices([]);
     }
   }, [selectedDate, scheduledServices]);
+
+  const filteredDayServices = selectedDayServices.filter(service => {
+    const term = searchTerm.toLowerCase();
+    const customerMatch = service.customerName?.toLowerCase().includes(term);
+    const serviceMatch = service.services?.some(s => s.serviceName.toLowerCase().includes(term));
+    return customerMatch || serviceMatch;
+  });
 
   const uniqueScheduledDays = [...new Set(
     scheduledServices
@@ -324,28 +332,24 @@ export function ScheduleClient() {
     const [inputValue, setInputValue] = useState(form.getValues('customerName') || '');
   
     useEffect(() => {
-        // Sync local state if form value changes from outside
         setInputValue(form.getValues('customerName') || '');
     }, [form.watch('customerName')]);
 
     return (
-      <Popover open={open} onOpenChange={(isOpen) => {
+      <Popover
+        open={open}
+        onOpenChange={(isOpen) => {
           setOpen(isOpen);
-          // On close, if the input value doesn't match a customer, treat it as a new customer
-          if (!isOpen) {
-              const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
-              if (matchedCustomer) {
-                  form.setValue('customerId', matchedCustomer.id);
-                  form.setValue('customerName', matchedCustomer.name);
-              } else {
-                  form.setValue('customerId', undefined);
-                  form.setValue('customerName', inputValue.toUpperCase());
-              }
-              if(inputValue) {
+          if (!isOpen && inputValue) {
+            const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
+            if (!matchedCustomer) {
+                form.setValue('customerName', inputValue.toUpperCase());
+                form.setValue('customerId', undefined);
                 form.clearErrors('customerName');
-              }
+            }
           }
-      }}>
+        }}
+      >
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -372,19 +376,16 @@ export function ScheduleClient() {
                   <CommandItem
                     key={client.id}
                     value={client.name}
-                    onSelect={(currentValue) => {
-                      const selectedClient = allCustomers.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
-                      if (selectedClient) {
-                          setInputValue(selectedClient.name);
-                          form.setValue('customerId', selectedClient.id);
-                          form.setValue('customerName', selectedClient.name);
-                          form.clearErrors('customerName');
-                      }
+                    onSelect={() => {
+                      form.setValue('customerId', client.id);
+                      form.setValue('customerName', client.name);
+                      setInputValue(client.name);
+                      form.clearErrors('customerName');
                       setOpen(false);
                     }}
                   >
                     <Check
-                      className={cn("mr-2 h-4 w-4", client.name === inputValue ? "opacity-100" : "opacity-0")}
+                      className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")}
                     />
                     {client.name}
                   </CommandItem>
@@ -500,7 +501,7 @@ export function ScheduleClient() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-          <Skeleton className="h-10 w-40 ml-auto" />
+          <Skeleton className="h-10 w-full md:w-auto md:max-w-xs" />
           <div className="flex justify-center">
             <Skeleton className="h-[360px] w-full max-w-sm" />
           </div>
@@ -522,24 +523,37 @@ export function ScheduleClient() {
                  </Button>
             ))}
           </div>
-
-        <Button onClick={() => {
-          form.reset({
-            scheduledDate: selectedDate || new Date(),
-            scheduledTime: '',
-            customerName: '',
-            customerId: '',
-            services: [],
-          });
-          setIsFormOpen(true);
-        }}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Agendar Serviço
-        </Button>
+        
+        <div className="flex w-full sm:w-auto sm:justify-end items-center gap-4">
+            <div className="relative w-full sm:w-auto sm:max-w-xs">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Buscar agendamento..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                    autoComplete="off"
+                />
+            </div>
+            <Button onClick={() => {
+              form.reset({
+                scheduledDate: selectedDate || new Date(),
+                scheduledTime: '',
+                customerName: '',
+                customerId: '',
+                services: [],
+              });
+              setIsFormOpen(true);
+            }}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Agendar Serviço
+            </Button>
+        </div>
       </div>
           
       {renderServiceCards(
-          selectedDayServices, 
+          filteredDayServices, 
           'Nenhum agendamento para este dia.',
           'Selecione outro dia para visualizar os agendamentos.',
           <CalendarIcon className="w-16 h-16 text-muted-foreground" />
@@ -610,7 +624,7 @@ export function ScheduleClient() {
                                   }}
                                   disabled={(date) => date < startOfDay(new Date())}
                                   initialFocus
-                                  modifiers={{ scheduled: scheduledServices.map(s => s.scheduledDate).filter((d): d is Date => !!d) }}
+                                  modifiers={{ scheduled: uniqueScheduledDays }}
                                   modifiersClassNames={{ scheduled: 'bg-primary/20 text-primary-foreground rounded-full font-bold' }}
                                 />
                               </PopoverContent>
