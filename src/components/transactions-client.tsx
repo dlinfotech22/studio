@@ -327,6 +327,11 @@ export function TransactionsClient({}: {}) {
     }
 
     const isServiceRelated = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
+    
+    let statusToSet = transaction.serviceStatus;
+    if (isServiceRelated && statusToSet === 'Agendado') {
+        statusToSet = 'Aberta';
+    }
 
     setEditingTransaction(transaction);
     form.reset({
@@ -340,7 +345,7 @@ export function TransactionsClient({}: {}) {
       firstDueDate: firstDueDate,
       items: transaction.items || [],
       services: transaction.services || [],
-      serviceStatus: isServiceRelated ? (transaction.serviceStatus || 'Aberta') : undefined,
+      serviceStatus: isServiceRelated ? (statusToSet || 'Aberta') : undefined,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -956,38 +961,51 @@ export function TransactionsClient({}: {}) {
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const [inputValue, setInputValue] = useState("");
+    const [inputValue, setInputValue] = useState(form.getValues('customerName') || '');
   
     useEffect(() => {
-        setInputValue(form.getValues('customerName') || '');
+      setInputValue(form.getValues('customerName') || '');
     }, [form.watch('customerName')]);
-
+  
     return (
-      <Popover open={open} onOpenChange={(isOpen) => {
-        setOpen(isOpen);
-        if (!isOpen) {
-            const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
-            if (!matchedCustomer && inputValue) {
+      <Popover
+        open={open}
+        onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          if (!isOpen && inputValue) {
+            const matchedCustomer = allCustomers.find(
+              (c) => c.name.toLowerCase() === inputValue.toLowerCase()
+            );
+            if (!matchedCustomer) {
               form.setValue('customerName', inputValue.toUpperCase());
               form.setValue('customerId', undefined);
               form.clearErrors('customerName');
             }
-        }
-      }}>
+          }
+        }}
+      >
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className={cn("w-full justify-between", !inputValue && "text-muted-foreground")}
+            className={cn(
+              'w-full justify-between',
+              !inputValue && 'text-muted-foreground'
+            )}
           >
-            {inputValue || "Selecione ou digite um cliente"}
+            {inputValue || 'Selecione ou digite um cliente'}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
-          <Command 
-            filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}
+        <PopoverContent
+          className="w-[--radix-popover-trigger-width] p-0"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <Command
+            filter={(value, search) =>
+              value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
+            }
           >
             <CommandInput
               placeholder="Buscar cliente..."
@@ -1005,14 +1023,17 @@ export function TransactionsClient({}: {}) {
                     onSelect={() => {
                       form.setValue('customerId', client.id);
                       form.setValue('customerName', client.name);
+                      setInputValue(client.name);
                       form.clearErrors('customerName');
                       setOpen(false);
                     }}
                   >
                     <Check
                       className={cn(
-                        "mr-2 h-4 w-4",
-                        form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0"
+                        'mr-2 h-4 w-4',
+                        form.getValues('customerId') === client.id
+                          ? 'opacity-100'
+                          : 'opacity-0'
                       )}
                     />
                     {client.name}
