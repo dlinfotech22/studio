@@ -139,7 +139,7 @@ const transactionSchema = z.object({
   description: z.string().optional(),
   amount: z.coerce.number().optional(),
   date: z.date(),
-  subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa']),
+  subtype: z.enum(['Prestação de Serviço', 'Venda', 'Serviço + Venda', 'Despesa', 'Receita Avulsa']),
   customerId: z.string().optional(),
   customerName: z.string().optional(),
   paymentMethod: z.enum(['À Vista', 'Parcelado', 'A Prazo']).optional(),
@@ -149,11 +149,11 @@ const transactionSchema = z.object({
   services: z.array(transactionServiceItemSchema).optional(),
   serviceStatus: serviceStatusEnum.optional(),
 }).superRefine((data, ctx) => {
-    if (data.subtype === 'Despesa') {
+    if (data.subtype === 'Despesa' || data.subtype === 'Receita Avulsa') {
       if (data.amount === undefined || data.amount <= 0) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'O valor é obrigatório para despesas.',
+            message: 'O valor é obrigatório para este tipo de lançamento.',
             path: ['amount'],
         });
       }
@@ -193,11 +193,11 @@ const transactionSchema = z.object({
             path: ['firstDueDate'],
         });
     }
-    if (data.subtype !== 'Despesa') {
+    if (data.subtype !== 'Despesa' && data.subtype !== 'Receita Avulsa') {
         if (!data.customerName || data.customerName.trim().length === 0) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: 'O campo cliente é obrigatório para receitas.',
+                message: 'O campo cliente é obrigatório para este tipo de lançamento.',
                 path: ['customerName'],
             });
         }
@@ -212,6 +212,7 @@ const subtypeToTypeMap: Record<TransactionSubtype, TransactionType> = {
   'Venda': 'revenue',
   'Serviço + Venda': 'revenue',
   'Despesa': 'expense',
+  'Receita Avulsa': 'revenue',
 };
 
 const serviceStatusOptions: ServiceStatus[] = [
@@ -523,9 +524,9 @@ export function TransactionsClient({}: {}) {
         const servicesTotal = data.services?.reduce((sum, service) => sum + (service.price ?? 0), 0) || 0;
         
         let totalAmount: number;
-        if (transactionType === 'expense') {
+        if (transactionType === 'expense' || data.subtype === 'Receita Avulsa') {
           if (data.amount === undefined || data.amount <= 0) {
-            throw new Error("O valor da despesa deve ser um número positivo.");
+            throw new Error("O valor do lançamento deve ser um número positivo.");
           }
           totalAmount = data.amount;
         } else {
@@ -553,14 +554,14 @@ export function TransactionsClient({}: {}) {
   
         if (isServiceRelated) {
           payload.serviceStatus = data.serviceStatus;
-        }
-        
-        if (!isServiceRelated) {
+        } else {
             delete (payload as any).serviceStatus;
         }
+        
 
-        if (transactionType === 'expense') {
+        if (transactionType === 'expense' || data.subtype === 'Receita Avulsa') {
           payload.status = 'Pago';
+          delete payload.paymentMethod;
         } else {
           payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
         }
@@ -633,7 +634,7 @@ export function TransactionsClient({}: {}) {
         firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberta'
       });
 
-      if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa') {
+      if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa' && finalTransaction.subtype !== 'Receita Avulsa') {
         handlePrint(finalTransaction);
       }
   
@@ -772,7 +773,7 @@ export function TransactionsClient({}: {}) {
                           <DropdownMenuItem onClick={() => handleEdit(item)}>
                             <Edit className="mr-2 h-4 w-4" /> Editar
                           </DropdownMenuItem>
-                          {item.type === 'revenue' && (
+                          {item.type === 'revenue' && item.subtype !== 'Receita Avulsa' && (
                             <DropdownMenuItem onClick={() => handlePrint(item)}>
                                 <Printer className="mr-2 h-4 w-4" /> Reimprimir
                             </DropdownMenuItem>
@@ -1302,7 +1303,7 @@ export function TransactionsClient({}: {}) {
                       </FormItem>
                     )}
                   />
-                  {selectedSubtype !== 'Despesa' && (
+                  {selectedSubtype !== 'Despesa' && selectedSubtype !== 'Receita Avulsa' && (
                     <FormField
                       control={form.control}
                       name="customerName"
@@ -1408,7 +1409,7 @@ export function TransactionsClient({}: {}) {
                 )}
               />
 
-              {selectedSubtype === 'Despesa' && (
+              {(selectedSubtype === 'Despesa' || selectedSubtype === 'Receita Avulsa') && (
                 <FormField
                   control={form.control}
                   name="amount"
@@ -1432,7 +1433,7 @@ export function TransactionsClient({}: {}) {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                   <DatePicker fieldName="date" />
 
-                  {selectedSubtype !== 'Despesa' && (
+                  {selectedSubtype !== 'Despesa' && selectedSubtype !== 'Receita Avulsa' && (
                     <>
                       <FormField
                         control={form.control}

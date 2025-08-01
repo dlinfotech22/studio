@@ -100,6 +100,7 @@ const availableSubtypes: TransactionSubtype[] = [
   'Prestação de Serviço',
   'Venda',
   'Serviço + Venda',
+  'Receita Avulsa',
   'Despesa',
 ];
 

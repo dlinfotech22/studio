@@ -6,7 +6,8 @@ export type TransactionSubtype =
   | 'Prestação de Serviço'
   | 'Venda'
   | 'Serviço + Venda'
-  | 'Despesa';
+  | 'Despesa'
+  | 'Receita Avulsa';
 
 export type PaymentMethod = 'À Vista' | 'Parcelado' | 'A Prazo';
 export type TransactionStatus = 'Pago' | 'Pendente' | 'Parcialmente Pago';
