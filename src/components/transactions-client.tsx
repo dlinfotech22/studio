@@ -551,7 +551,10 @@ export function TransactionsClient({}: {}) {
           items: data.items,
           services: data.services,
         };
-  
+
+        if (!payload.customerId) delete payload.customerId;
+        if (!payload.customerName) delete payload.customerName;
+
         if (isServiceRelated) {
           payload.serviceStatus = data.serviceStatus;
         } else {
@@ -965,26 +968,11 @@ export function TransactionsClient({}: {}) {
     const [inputValue, setInputValue] = useState(form.getValues('customerName') || '');
   
     useEffect(() => {
-      setInputValue(form.getValues('customerName') || '');
-    }, [form.watch('customerName')]);
+        form.setValue('customerName', inputValue);
+    }, [inputValue]);
   
     return (
-      <Popover
-        open={open}
-        onOpenChange={(isOpen) => {
-          setOpen(isOpen);
-          if (!isOpen && inputValue) {
-            const matchedCustomer = allCustomers.find(
-              (c) => c.name.toLowerCase() === inputValue.toLowerCase()
-            );
-            if (!matchedCustomer) {
-              form.setValue('customerName', inputValue.toUpperCase());
-              form.setValue('customerId', undefined);
-              form.clearErrors('customerName');
-            }
-          }
-        }}
-      >
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -992,16 +980,16 @@ export function TransactionsClient({}: {}) {
             aria-expanded={open}
             className={cn(
               'w-full justify-between',
-              !inputValue && 'text-muted-foreground'
+              !form.getValues('customerName') && 'text-muted-foreground'
             )}
           >
-            {inputValue || 'Selecione ou digite um cliente'}
+            {form.getValues('customerName') || 'Selecione ou digite um cliente'}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent
           className="w-[--radix-popover-trigger-width] p-0"
-          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
         >
           <Command
             filter={(value, search) =>
@@ -1021,11 +1009,10 @@ export function TransactionsClient({}: {}) {
                   <CommandItem
                     key={client.id}
                     value={client.name}
-                    onSelect={() => {
+                    onSelect={(currentValue) => {
+                      setInputValue(client.name);
                       form.setValue('customerId', client.id);
                       form.setValue('customerName', client.name);
-                      setInputValue(client.name);
-                      form.clearErrors('customerName');
                       setOpen(false);
                     }}
                   >
