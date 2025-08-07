@@ -61,15 +61,15 @@ export function CompanyDashboard() {
         
         const financiallyRelevantTransactions = allTransactions.filter(t => {
             if (t.type === 'expense') {
-                return true; // Include all expenses
+                return true;
             }
-            if (t.subtype === 'Venda') {
-                return true; // Include all sales
+            if (t.type === 'revenue') {
+                if (t.subtype === 'Prestação de Serviço' || t.subtype === 'Serviço + Venda') {
+                    return t.serviceStatus === 'Finalizado' || t.serviceStatus === 'Encerrada / Concluída';
+                }
+                return true; // Includes 'Venda' and 'Receita Avulsa'
             }
-            if (t.subtype === 'Prestação de Serviço' || t.subtype === 'Serviço + Venda') {
-                return t.serviceStatus === 'Finalizado' || t.serviceStatus === 'Encerrada / Concluída';
-            }
-            return false; // Exclude other cases by default
+            return false;
         });
 
         if (allTransactions.length > 0) {
