@@ -14,6 +14,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import {
   PlusCircle,
@@ -21,6 +22,7 @@ import {
   Trash2,
   MoreHorizontal,
   Search,
+  Wand2,
 } from 'lucide-react';
 import { type Product } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -98,31 +100,37 @@ export function ProductsClient() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [isMigrateAlertOpen, setIsMigrateAlertOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
-  useEffect(() => {
-    const fetchData = async (id: string) => {
-      try {
-        const productsRef = collection(db, 'products');
-        const q = query(productsRef, where('companyId', '==', id));
-        const snapshot = await getDocs(q);
-        const fetchedProducts = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Product)
-        );
-        setProducts(fetchedProducts);
-      } catch (error) {
-        console.error('Failed to load products from Firestore', error);
-      }
-    };
+  const fetchProducts = async (id: string) => {
+    try {
+      const productsRef = collection(db, 'products');
+      const q = query(productsRef, where('companyId', '==', id));
+      const snapshot = await getDocs(q);
+      const fetchedProducts = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Product)
+      );
+      setProducts(fetchedProducts);
+    } catch (error) {
+      console.error('Failed to load products from Firestore', error);
+      toast({
+        title: 'Erro ao carregar',
+        description: 'Não foi possível buscar os produtos.',
+        variant: 'destructive'
+      });
+    }
+  };
 
+  useEffect(() => {
     const id = sessionStorage.getItem('current-user-company-id');
     setCompanyId(id);
     if (id) {
-      fetchData(id);
+      fetchProducts(id);
     }
   }, []);
 
@@ -222,6 +230,48 @@ export function ProductsClient() {
     setIsDeleteAlertOpen(false);
     setProductToDelete(null);
   };
+  
+  const handlePriceMigration = async () => {
+    if (!companyId) return;
+    
+    const batch = writeBatch(db);
+    let updatedCount = 0;
+
+    products.forEach(product => {
+        // Only migrate if costPrice is not set or is zero
+        if (!product.costPrice || product.costPrice === 0) {
+            const productRef = doc(db, 'products', product.id);
+            batch.update(productRef, { costPrice: product.price });
+            updatedCount++;
+        }
+    });
+
+    if (updatedCount === 0) {
+        toast({
+            title: 'Nenhuma alteração necessária',
+            description: 'Todos os produtos já parecem ter um preço de custo definido.'
+        });
+        return;
+    }
+
+    try {
+        await batch.commit();
+        await fetchProducts(companyId); // Re-fetch products to update the UI
+        toast({
+            title: 'Migração Concluída!',
+            description: `${updatedCount} produto(s) foram atualizados com sucesso.`
+        });
+    } catch(error) {
+        console.error('Failed to migrate prices', error);
+        toast({
+            title: 'Erro na Migração',
+            description: 'Não foi possível atualizar os preços de custo.',
+            variant: 'destructive'
+        });
+    } finally {
+        setIsMigrateAlertOpen(false);
+    }
+  };
 
   const openNewProductDialog = () => {
     setEditingProduct(null);
@@ -258,6 +308,10 @@ export function ProductsClient() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 ml-auto">
+          <Button variant="outline" onClick={() => setIsMigrateAlertOpen(true)}>
+            <Wand2 className="mr-2 h-4 w-4" />
+            Migrar Preço de Venda para Custo
+          </Button>
           <Button onClick={openNewProductDialog}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Produto
@@ -568,8 +622,21 @@ export function ProductsClient() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={isMigrateAlertOpen} onOpenChange={setIsMigrateAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Migrar Preços de Venda para Custo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá copiar o "Preço de Venda" para o campo "Preço de Custo" em todos os produtos que ainda não têm um preço de custo definido. Essa operação é útil para corrigir dados antigos. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePriceMigration}>Sim, Migrar Agora</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
-
-    
