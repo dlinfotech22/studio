@@ -81,6 +81,7 @@ import { FormDescription } from './ui/form';
 const productSchema = z.object({
   name: z.string().min(1, 'O nome do produto é obrigatório.'),
   barcode: z.string().optional(),
+  costPrice: z.coerce.number().min(0, 'O preço de custo não pode ser negativo.').optional(),
   price: z.coerce.number().positive('O preço deve ser um valor positivo.'),
   quantity: z.coerce.number().min(0, 'A quantidade inicial não pode ser negativa.').default(0),
   minimumStock: z.coerce.number().min(0, 'O estoque mínimo não pode ser negativo.').default(0),
@@ -143,6 +144,7 @@ export function ProductsClient() {
       name: '',
       barcode: '',
       quantity: 0,
+      costPrice: 0,
       price: 0,
       minimumStock: 0,
       financeInterestRate: 0,
@@ -223,7 +225,7 @@ export function ProductsClient() {
 
   const openNewProductDialog = () => {
     setEditingProduct(null);
-    form.reset({ name: '', barcode: '', quantity: 0, price: 0, minimumStock: 0, financeInterestRate: 0 });
+    form.reset({ name: '', barcode: '', quantity: 0, costPrice: 0, price: 0, minimumStock: 0, financeInterestRate: 0 });
     setIsDialogOpen(true);
   };
 
@@ -271,7 +273,7 @@ export function ProductsClient() {
                 <TableHead>Nome do Produto</TableHead>
                 <TableHead>Código de Barras</TableHead>
                 <TableHead className="text-right">Qtde. em Estoque</TableHead>
-                <TableHead className="text-right">Preço de Venda</TableHead>
+                <TableHead className="text-right">Preço de Venda (UN)</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
@@ -413,6 +415,26 @@ export function ProductsClient() {
                     <FormLabel>Código de Barras (Opcional)</FormLabel>
                     <FormControl>
                       <Input placeholder="Ex: 7891234567890" {...field} autoComplete="off" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="costPrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preço de Custo (R$)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        autoComplete="off"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

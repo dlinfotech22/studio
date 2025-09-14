@@ -111,6 +111,7 @@ const transactionItemSchema = z.object({
     productName: z.string(),
     quantity: z.coerce.number().min(1, "A quantidade deve ser pelo menos 1."),
     price: z.coerce.number(),
+    costPrice: z.coerce.number().optional(),
     basePrice: z.coerce.number(), // Original price without interest
     financeInterestRate: z.coerce.number().optional(),
 });
@@ -869,6 +870,7 @@ export function TransactionsClient({}: {}) {
                 productName: currentProduct.name,
                 quantity: qty,
                 price: currentProduct.price,
+                costPrice: currentProduct.costPrice,
                 basePrice: currentProduct.price,
                 financeInterestRate: currentProduct.financeInterestRate,
             });
@@ -966,74 +968,75 @@ export function TransactionsClient({}: {}) {
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
     const [inputValue, setInputValue] = useState(form.getValues('customerName') || '');
-  
+
     useEffect(() => {
-        form.setValue('customerName', inputValue);
-    }, [inputValue]);
-  
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className={cn(
-              'w-full justify-between',
-              !form.getValues('customerName') && 'text-muted-foreground'
-            )}
-          >
-            {form.getValues('customerName') || 'Selecione ou digite um cliente'}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-[--radix-popover-trigger-width] p-0"
-          onCloseAutoFocus={(e) => e.preventDefault()}
-        >
-          <Command
-            filter={(value, search) =>
-              value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
+        const subscription = form.watch((value, { name }) => {
+            if (name === 'customerName') {
+                setInputValue(value.customerName || '');
             }
-          >
-            <CommandInput
-              placeholder="Buscar cliente..."
-              value={inputValue}
-              onValueChange={setInputValue}
-              autoComplete="off"
-            />
-            <CommandList>
-              <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-              <CommandGroup>
-                {allCustomers.map((client) => (
-                  <CommandItem
-                    key={client.id}
-                    value={client.name}
-                    onSelect={(currentValue) => {
-                      setInputValue(client.name);
-                      form.setValue('customerId', client.id);
-                      form.setValue('customerName', client.name);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-4 w-4',
-                        form.getValues('customerId') === client.id
-                          ? 'opacity-100'
-                          : 'opacity-0'
-                      )}
+        });
+        return () => subscription.unsubscribe();
+    }, [form.watch]);
+
+
+    return (
+        <Popover
+            open={open}
+            onOpenChange={(isOpen) => {
+                setOpen(isOpen);
+                if (!isOpen && inputValue) {
+                    const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
+                    if (!matchedCustomer) {
+                        form.setValue('customerName', inputValue.toUpperCase());
+                        form.setValue('customerId', undefined);
+                    }
+                }
+            }}
+        >
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className={cn("w-full justify-between", !form.getValues('customerName') && "text-muted-foreground")}
+                >
+                    {form.getValues('customerName') || "Selecione ou digite um cliente"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
+                    <CommandInput
+                        placeholder="Buscar cliente..."
+                        value={inputValue}
+                        onValueChange={setInputValue}
+                        autoComplete="off"
                     />
-                    {client.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                    <CommandList>
+                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                        <CommandGroup>
+                            {allCustomers.map((client) => (
+                                <CommandItem
+                                    key={client.id}
+                                    value={client.name}
+                                    onSelect={() => {
+                                        form.setValue('customerId', client.id);
+                                        form.setValue('customerName', client.name);
+                                        setInputValue(client.name);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
+                                    {client.name}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
     );
-  };
+};
   
   const DatePicker = ({fieldName}: {fieldName: "date" | "firstDueDate"}) => {
     const getLabel = () => {
@@ -1076,6 +1079,7 @@ export function TransactionsClient({}: {}) {
                     fieldName === 'date' ? (date > new Date() || date < new Date('1900-01-01')) : false
                   }
                   initialFocus
+                  fixedWeeks
                 />
               </PopoverContent>
             </Popover>
@@ -1214,6 +1218,7 @@ export function TransactionsClient({}: {}) {
                     }
                   }}
                   numberOfMonths={2}
+                  fixedWeeks
                 />
               </PopoverContent>
             </Popover>

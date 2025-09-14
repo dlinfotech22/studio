@@ -37,6 +37,7 @@ export type TransactionItem = {
   productName: string; // Denormalized for easier display
   quantity: number;
   price: number; // Price at the time of transaction, can include interest
+  costPrice?: number; // Cost price at the time of transaction
   basePrice: number; // Original price of the product
   financeInterestRate?: number; // Interest rate percentage
 };
@@ -95,6 +96,7 @@ export type Product = {
   barcode?: string;
   quantity: number;
   price: number;
+  costPrice?: number;
   companyId: string;
   minimumStock?: number;
   financeInterestRate?: number; // Percentage for financing
