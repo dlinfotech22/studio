@@ -158,6 +158,14 @@ export function ProductsClient() {
     },
   });
 
+  const costPrice = form.watch('costPrice');
+  const price = form.watch('price');
+
+  const markupPercentage =
+    costPrice && price && costPrice > 0
+      ? ((price - costPrice) / costPrice) * 100
+      : 0;
+
   const onSubmit = async (data: ProductFormValues) => {
     if (!companyId) return;
 
@@ -198,6 +206,7 @@ export function ProductsClient() {
     setEditingProduct(product);
     form.reset({
       ...product,
+      costPrice: product.costPrice || 0,
       financeInterestRate: product.financeInterestRate || 0,
     });
     setIsDialogOpen(true);
@@ -467,6 +476,11 @@ export function ProductsClient() {
                         onChange={(e) => field.onChange(e.target.valueAsNumber)}
                       />
                     </FormControl>
+                    {markupPercentage > 0 && (
+                      <FormDescription>
+                        Margem de lucro: {markupPercentage.toFixed(2)}%
+                      </FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
