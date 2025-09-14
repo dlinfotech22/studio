@@ -273,7 +273,7 @@ export function ProductsClient() {
                 <TableHead>Nome do Produto</TableHead>
                 <TableHead>Código de Barras</TableHead>
                 <TableHead className="text-right">Qtde. em Estoque</TableHead>
-                <TableHead className="text-right">Preço de Venda (UN)</TableHead>
+                <TableHead className="text-right">Preço de Custo</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
@@ -285,7 +285,7 @@ export function ProductsClient() {
                     <TableCell>{item.barcode || '-'}</TableCell>
                     <TableCell className="text-right">{item.quantity}</TableCell>
                     <TableCell className="text-right font-mono">
-                      {formatCurrency(item.price)}
+                      {formatCurrency(item.costPrice || 0)}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
