@@ -274,6 +274,7 @@ export function ProductsClient() {
                 <TableHead>Código de Barras</TableHead>
                 <TableHead className="text-right">Qtde. em Estoque</TableHead>
                 <TableHead className="text-right">Preço de Custo</TableHead>
+                <TableHead className="text-right">Preço de Venda</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
@@ -286,6 +287,9 @@ export function ProductsClient() {
                     <TableCell className="text-right">{item.quantity}</TableCell>
                     <TableCell className="text-right font-mono">
                       {formatCurrency(item.costPrice || 0)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {formatCurrency(item.price)}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -315,7 +319,7 @@ export function ProductsClient() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     Nenhum produto encontrado.
                   </TableCell>
                 </TableRow>
@@ -567,3 +571,5 @@ export function ProductsClient() {
     </>
   );
 }
+
+    

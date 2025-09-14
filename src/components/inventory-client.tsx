@@ -217,12 +217,13 @@ export function InventoryClient() {
       startY += 10;
 
       const tableHead = [
-        ['Produto', 'Cód. Barras', 'Qtde.', 'Preço Venda (UN)'],
+        ['Produto', 'Cód. Barras', 'Qtde.', 'Preço Custo (UN)', 'Preço Venda (UN)'],
       ];
       const tableBody = productsToExport.map((p) => [
         p.name,
         p.barcode || '-',
         p.quantity,
+        formatCurrency(p.costPrice || 0),
         formatCurrency(p.price),
       ]);
 
@@ -234,6 +235,7 @@ export function InventoryClient() {
         columnStyles: {
           2: { halign: 'right' },
           3: { halign: 'right' },
+          4: { halign: 'right' },
         },
       });
 
@@ -254,27 +256,30 @@ export function InventoryClient() {
       'Produto': p.name,
       'Código de Barras': p.barcode || '',
       'Quantidade': p.quantity,
+      'Preço de Custo': p.costPrice || 0,
       'Preço de Venda': p.price,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     XLSX.utils.sheet_add_aoa(
       worksheet,
-      [['', '', 'Valor Total do Estoque:', totalValue]],
+      [['', '', '', 'Valor Total do Estoque:', totalValue]],
       { origin: -1 }
     );
 
-    worksheet['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 15 }, { wch: 15 }];
+    worksheet['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
     const priceRange = XLSX.utils.decode_range(worksheet['!ref']!);
     for (let R = priceRange.s.r + 1; R <= priceRange.e.r; ++R) {
-      const cell_address = { c: 3, r: R };
-      const cell_ref = XLSX.utils.encode_cell(cell_address);
-      if (worksheet[cell_ref]) {
-        worksheet[cell_ref].t = 'n';
-        worksheet[cell_ref].z = '"R$"#,##0.00';
-      }
+        for(let C of [3, 4]) {
+            const cell_address = { c: C, r: R };
+            const cell_ref = XLSX.utils.encode_cell(cell_address);
+            if (worksheet[cell_ref]) {
+                worksheet[cell_ref].t = 'n';
+                worksheet[cell_ref].z = '"R$"#,##0.00';
+            }
+        }
     }
-    const totalCellRef = XLSX.utils.encode_cell({ c: 3, r: priceRange.e.r + 1 });
+    const totalCellRef = XLSX.utils.encode_cell({ c: 4, r: priceRange.e.r + 1 });
     if (worksheet[totalCellRef]) {
       worksheet[totalCellRef].t = 'n';
       worksheet[totalCellRef].z = '"R$"#,##0.00';
@@ -348,6 +353,7 @@ export function InventoryClient() {
                   <TableHead className="text-right">
                     Quantidade em Estoque
                   </TableHead>
+                  <TableHead className="text-right">Preço de Custo</TableHead>
                   <TableHead className="text-right">Preço de Venda</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
@@ -366,6 +372,9 @@ export function InventoryClient() {
                         )}
                       >
                         {item.quantity}
+                      </TableCell>
+                       <TableCell className="text-right font-mono">
+                        {formatCurrency(item.costPrice || 0)}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {formatCurrency(item.price)}
@@ -395,7 +404,7 @@ export function InventoryClient() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       Nenhum produto encontrado.
                     </TableCell>
                   </TableRow>
@@ -601,3 +610,5 @@ export function InventoryClient() {
     </div>
   );
 }
+
+    
