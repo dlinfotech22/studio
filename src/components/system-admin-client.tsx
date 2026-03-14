@@ -100,7 +100,7 @@ import { cn, formatCurrency, formatDocument, maskDocument } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
-import { format, addMonths } from 'date-fns';
+import { format, addMonths, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Textarea } from './ui/textarea';
 
@@ -813,7 +813,12 @@ export function SystemAdminClient() {
                           {company.monthlyFee && ` | Mensalidade: ${formatCurrency(company.monthlyFee)}`}
                         </p>
                         {company.expiryDate && (
-                            <p className="text-xs text-muted-foreground font-normal mt-1">
+                            <p className={cn(
+                                "text-xs font-normal mt-1",
+                                (company.expiryDate as Timestamp).toDate() < startOfDay(new Date()) 
+                                    ? "font-semibold text-red-500" 
+                                    : "text-muted-foreground"
+                            )}>
                                 Vence em: {format((company.expiryDate as Timestamp).toDate(), 'dd/MM/yyyy')}
                             </p>
                         )}
