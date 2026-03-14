@@ -20,6 +20,9 @@ import {
   startOfMonth,
   endOfMonth,
   format as formatDate,
+  startOfYear,
+  endOfYear,
+  subYears,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DashboardChart } from './dashboard-chart';
@@ -94,6 +97,21 @@ export function AdminDashboard() {
           (t) => new Date(t.date) >= prevMonthStart && new Date(t.date) <= prevMonthEnd
         );
         const prevMonthMetrics = calculateMetrics(prevMonthTransactions);
+
+        const currentYearStart = startOfYear(now);
+        const currentYearEnd = endOfYear(now);
+        const annualTransactions = allTransactions.filter(
+          (t) => new Date(t.date) >= currentYearStart && new Date(t.date) <= currentYearEnd
+        );
+        const annualMetrics = calculateMetrics(annualTransactions);
+
+        const prevYear = subYears(now, 1);
+        const prevYearStart = startOfYear(prevYear);
+        const prevYearEnd = endOfYear(prevYear);
+        const prevAnnualTransactions = allTransactions.filter(
+            (t) => new Date(t.date) >= prevYearStart && new Date(t.date) <= prevYearEnd
+        );
+        const prevAnnualMetrics = calculateMetrics(prevAnnualTransactions);
         
         const newKpis = [
           {
@@ -104,11 +122,11 @@ export function AdminDashboard() {
             iconColor: 'text-emerald-500',
           },
           {
-            title: 'Lucro do Mês',
-            value: currentMonthMetrics.profit,
-            previousValue: prevMonthMetrics.profit,
-            icon: DollarSign,
-            iconColor: 'text-primary',
+            title: 'Faturamento Anual',
+            value: annualMetrics.revenue,
+            previousValue: prevAnnualMetrics.revenue,
+            icon: TrendingUp,
+            iconColor: 'text-emerald-500',
           },
         ];
         setKpis(newKpis);
@@ -218,7 +236,7 @@ export function AdminDashboard() {
                       >
                         {isPositive && kpi.value > kpi.previousValue && !kpi.invertComparison ? '+' : ''}
                         {isFinite(percentageChange) ? percentageChange.toFixed(2) : '0.00'}%
-                      </span> em relação ao mês anterior
+                      </span> em relação ao {kpi.title.includes('Anual') ? 'ano anterior' : 'mês anterior'}
                     </>
                   </p>
                 )}
