@@ -91,6 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     sessionStorage.removeItem('current-user-name');
     sessionStorage.removeItem('current-user-role');
     sessionStorage.removeItem('current-user-company-id');
+    sessionStorage.removeItem('expiryWarningDismissed');
     setCompanyInfo(null);
     router.push('/login');
   }, [router]);

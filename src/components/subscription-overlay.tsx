@@ -1,10 +1,11 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { AlertCircle, Ban, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { differenceInDays, format } from 'date-fns';
 
 type SubscriptionOverlayProps = {
@@ -22,22 +23,63 @@ export function SubscriptionOverlay({
   onLogout,
   isCompanyAdmin,
 }: SubscriptionOverlayProps) {
+  const [isWarningOpen, setIsWarningOpen] = useState(false);
+
+  useEffect(() => {
+    if (status === 'expiring_soon' && isCompanyAdmin) {
+      const warningDismissed = sessionStorage.getItem('expiryWarningDismissed');
+      if (!warningDismissed) {
+        setIsWarningOpen(true);
+      }
+    }
+  }, [status, isCompanyAdmin]);
+
   if (status === 'active') {
     return null;
   }
 
+  const handleDismissWarning = () => {
+    sessionStorage.setItem('expiryWarningDismissed', 'true');
+    setIsWarningOpen(false);
+  };
+
   const daysRemaining = differenceInDays(expiryDate, new Date());
+
+  // Regex to find a URL in the notification message
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const paymentUrl = notificationMessage?.match(urlRegex)?.[0];
 
   if (status === 'expiring_soon' && isCompanyAdmin) {
     return (
-      <Alert variant="destructive" className="fixed bottom-4 right-4 z-50 w-auto max-w-md">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Aviso de Vencimento</AlertTitle>
-        <AlertDescription>
-          <p>Sua assinatura vence em {daysRemaining + 1} dia(s). </p>
-          {notificationMessage && <p className="mt-2">{notificationMessage}</p>}
-        </AlertDescription>
-      </Alert>
+      <AlertDialog open={isWarningOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader className="items-center text-center">
+            <AlertCircle className="h-12 w-12 text-destructive" />
+            <AlertDialogTitle className="text-2xl !mt-4">Aviso de Vencimento</AlertDialogTitle>
+            <AlertDialogDescription className="!mt-4">
+              Sua assinatura expira em <strong>{daysRemaining + 1} dia(s)</strong>, em {format(expiryDate, 'dd/MM/yyyy')}.
+              <br />
+              Para evitar a interrupção do serviço, por favor, regularize sua situação.
+              {notificationMessage && (
+                <div className="mt-4 p-3 bg-muted rounded-md text-sm text-foreground text-left">
+                  <p className="font-semibold">Instruções de pagamento:</p>
+                  <p>{notificationMessage.replace(urlRegex, '')}</p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center pt-4">
+            <AlertDialogCancel onClick={handleDismissWarning}>Lembrar Depois</AlertDialogCancel>
+            {paymentUrl && (
+              <AlertDialogAction asChild>
+                <a href={paymentUrl} target="_blank" rel="noopener noreferrer" onClick={handleDismissWarning}>
+                  Realizar Pagamento
+                </a>
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     );
   }
 
