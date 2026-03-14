@@ -26,8 +26,9 @@ import {
   Users,
   Search,
   CalendarIcon,
+  RefreshCw,
 } from 'lucide-react';
-import { type User, type CompanyInfo, type TransactionSubtype } from '@/lib/types';
+import { type User, type CompanyInfo, type TransactionSubtype, type Transaction } from '@/lib/types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Table,
@@ -99,7 +100,7 @@ import { cn, formatCurrency, formatDocument, maskDocument } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
-import { format } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Textarea } from './ui/textarea';
 
@@ -142,9 +143,15 @@ const userSchema = z.object({
   hasDashboardAccess: z.boolean().default(false).optional(),
 });
 
+const renewalSchema = z.object({
+  months: z.coerce.number().int().min(1, 'Deve ser pelo menos 1 mês.'),
+  amount: z.coerce.number().positive('O valor deve ser positivo.'),
+});
+
 type NewCompanyFormValues = z.infer<typeof newCompanySchema>;
 type EditCompanyFormValues = z.infer<typeof editCompanySchema>;
 type UserFormValues = z.infer<typeof userSchema>;
+type RenewalFormValues = z.infer<typeof renewalSchema>;
 
 // Sub-component to manage user list within each accordion
 function CompanyUserList({
@@ -292,6 +299,9 @@ export function SystemAdminClient() {
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('companies');
 
+  const [isRenewalDialogOpen, setIsRenewalDialogOpen] = useState(false);
+  const [companyToRenew, setCompanyToRenew] = useState<CompanyInfo | null>(null);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -325,6 +335,16 @@ export function SystemAdminClient() {
     resolver: zodResolver(editingCompany ? editCompanySchema : newCompanySchema),
   });
 
+  const userForm = useForm<UserFormValues>({
+    resolver: zodResolver(userSchema),
+    defaultValues: { name: '', username: '', password: '', role: 'user', hasDashboardAccess: false },
+  });
+
+  const renewalForm = useForm<RenewalFormValues>({
+    resolver: zodResolver(renewalSchema),
+    defaultValues: { months: 1, amount: 0 },
+  });
+
   useEffect(() => {
     if (isCompanyDialogOpen) {
         const resolver = zodResolver(editingCompany ? editCompanySchema : newCompanySchema);
@@ -353,13 +373,14 @@ export function SystemAdminClient() {
             resolver,
         });
     }
-}, [isCompanyDialogOpen, editingCompany, companyForm]);
+  }, [isCompanyDialogOpen, editingCompany, companyForm]);
 
+  useEffect(() => {
+    if (companyToRenew) {
+      renewalForm.reset({ months: 1, amount: companyToRenew.monthlyFee || 0 });
+    }
+  }, [companyToRenew, renewalForm]);
 
-  const userForm = useForm<UserFormValues>({
-    resolver: zodResolver(userSchema),
-    defaultValues: { name: '', username: '', password: '', role: 'user', hasDashboardAccess: false },
-  });
 
   const handleCompanySubmit = async (data: NewCompanyFormValues | EditCompanyFormValues) => {
     try {
@@ -559,10 +580,55 @@ export function SystemAdminClient() {
     }
   };
 
+  const handleRenewalSubmit = async (data: RenewalFormValues) => {
+    if (!companyToRenew || !currentUser?.companyId) return;
+
+    try {
+        const batch = writeBatch(db);
+
+        // 1. Update company expiry date
+        const companyRef = doc(db, 'companies', companyToRenew.id);
+        const currentExpiry = companyToRenew.expiryDate ? (companyToRenew.expiryDate as Timestamp).toDate() : new Date();
+        const newExpiryDate = addMonths(currentExpiry > new Date() ? currentExpiry : new Date(), data.months);
+        batch.update(companyRef, { expiryDate: Timestamp.fromDate(newExpiryDate) });
+        
+        // 2. Create revenue transaction for system admin's company
+        const sysAdminCompanyId = currentUser.companyId; // Assuming admin is linked to a company
+        const transactionsRef = collection(db, 'transactions');
+        const revenuePayload: Omit<Transaction, 'id'> = {
+            amount: data.amount,
+            companyId: sysAdminCompanyId,
+            date: Timestamp.now(),
+            description: `RENOVAÇÃO DE ASSINATURA - ${companyToRenew.name}`,
+            status: 'Pago',
+            subtype: 'Receita Avulsa',
+            type: 'revenue',
+        };
+        const newTransactionRef = doc(transactionsRef);
+        batch.set(newTransactionRef, revenuePayload);
+
+        await batch.commit();
+
+        setCompanies(companies.map(c => c.id === companyToRenew.id ? { ...c, expiryDate: newExpiryDate } : c));
+        toast({ title: 'Sucesso!', description: `Assinatura de ${companyToRenew.name} renovada por ${data.months} mes(es).`});
+    } catch(e: any) {
+        console.error("Failed to renew subscription", e);
+        toast({title: 'Erro!', description: 'Não foi possível renovar a assinatura.', variant: 'destructive'});
+    } finally {
+        setIsRenewalDialogOpen(false);
+        setCompanyToRenew(null);
+    }
+  };
+  
   const openCompanyDialog = (company: CompanyInfo | null) => {
     setEditingCompany(company);
     setIsCompanyDialogOpen(true);
   };
+  
+  const openRenewalDialog = (company: CompanyInfo) => {
+    setCompanyToRenew(company);
+    setIsRenewalDialogOpen(true);
+  }
   
   const openNewSysAdminDialog = () => {
     setActiveCompanyId(null);
@@ -772,6 +838,9 @@ export function SystemAdminClient() {
                           onClick={() => openCompanyDialog(company)}
                         >
                           <Edit className="mr-2 h-4 w-4" /> Editar Empresa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openRenewalDialog(company)}>
+                            <RefreshCw className="mr-2 h-4 w-4" /> Renovar Assinatura
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
@@ -1172,6 +1241,46 @@ export function SystemAdminClient() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isRenewalDialogOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) setCompanyToRenew(null);
+        setIsRenewalDialogOpen(isOpen);
+      }}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Renovar Assinatura</DialogTitle>
+                <DialogDescription>
+                    Confirme o pagamento para renovar a assinatura da empresa <span className='font-bold'>{companyToRenew?.name}</span>.
+                </DialogDescription>
+            </DialogHeader>
+            <Form {...renewalForm}>
+                <form onSubmit={renewalForm.handleSubmit(handleRenewalSubmit)} className="space-y-4">
+                    <FormField control={renewalForm.control} name="months" render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Meses Pagos</FormLabel>
+                            <FormControl>
+                                <Input type="number" min="1" {...field} autoComplete="off" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={renewalForm.control} name="amount" render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Valor Recebido (R$)</FormLabel>
+                            <FormControl>
+                                <Input type="number" {...field} autoComplete="off" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="ghost">Cancelar</Button></DialogClose>
+                        <Button type="submit">Confirmar Renovação</Button>
+                    </DialogFooter>
+                </form>
+            </Form>
         </DialogContent>
       </Dialog>
 
