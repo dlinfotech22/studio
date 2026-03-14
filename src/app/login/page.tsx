@@ -48,6 +48,7 @@ export default function LoginPage({}: {}) {
             username: SYSTEM_ADMIN_USERNAME,
             password: '162534',
             role: 'system_admin',
+            companyId: 'GESTOR-DL-ADMIN-COMPANY', // Special ID for admin's finances
           };
           // Use a predictable ID for the system admin for simplicity
           await setDoc(doc(db, 'users', 'system_admin_user'), systemAdmin);
