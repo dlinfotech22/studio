@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -56,16 +55,18 @@ export function SubscriptionOverlay({
           <AlertDialogHeader className="items-center text-center">
             <AlertCircle className="h-12 w-12 text-destructive" />
             <AlertDialogTitle className="text-2xl !mt-4">Aviso de Vencimento</AlertDialogTitle>
-            <AlertDialogDescription className="!mt-4">
-              Sua assinatura expira em <strong>{daysRemaining + 1} dia(s)</strong>, em {format(expiryDate, 'dd/MM/yyyy')}.
-              <br />
-              Para evitar a interrupção do serviço, por favor, regularize sua situação.
-              {notificationMessage && (
-                <div className="mt-4 p-3 bg-muted rounded-md text-sm text-foreground text-left">
-                  <p className="font-semibold">Instruções de pagamento:</p>
-                  <p>{notificationMessage.replace(urlRegex, '')}</p>
-                </div>
-              )}
+            <AlertDialogDescription asChild className="!mt-4">
+              <div>
+                Sua assinatura expira em <strong>{daysRemaining + 1} dia(s)</strong>, em {format(expiryDate, 'dd/MM/yyyy')}.
+                <br />
+                Para evitar a interrupção do serviço, por favor, regularize sua situação.
+                {notificationMessage && (
+                  <div className="mt-4 p-3 bg-muted rounded-md text-sm text-foreground text-left">
+                    <p className="font-semibold">Instruções de pagamento:</p>
+                    <p>{notificationMessage.replace(urlRegex, '')}</p>
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-center pt-4">
