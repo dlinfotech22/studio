@@ -90,6 +90,7 @@ export type CompanyInfo = {
   transactionCounter?: number;
   expiryDate?: Date | Timestamp;
   paymentNotification?: string;
+  monthlyFee?: number;
 };
 
 export type Product = {

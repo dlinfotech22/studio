@@ -95,7 +95,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { cn, formatDocument, maskDocument } from '@/lib/utils';
+import { cn, formatCurrency, formatDocument, maskDocument } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -118,6 +118,7 @@ const companySchema = z.object({
   }),
   expiryDate: z.date().nullable().optional(),
   paymentNotification: z.string().optional(),
+  monthlyFee: z.coerce.number().min(0, 'O valor não pode ser negativo.').optional(),
 });
 
 const editCompanySchema = companySchema;
@@ -333,7 +334,8 @@ export function SystemAdminClient() {
                 document: formatDocument(editingCompany.document),
                 allowedSubtypes: editingCompany.allowedSubtypes || [],
                 expiryDate: editingCompany.expiryDate ? (editingCompany.expiryDate as Timestamp).toDate() : undefined,
-                paymentNotification: editingCompany.paymentNotification || ''
+                paymentNotification: editingCompany.paymentNotification || '',
+                monthlyFee: editingCompany.monthlyFee || undefined,
               }
             : {
                 name: '',
@@ -343,7 +345,8 @@ export function SystemAdminClient() {
                 adminPassword: '',
                 allowedSubtypes: [],
                 expiryDate: undefined,
-                paymentNotification: ''
+                paymentNotification: '',
+                monthlyFee: undefined,
               };
         companyForm.reset(defaultValues, {
             // @ts-ignore
@@ -368,6 +371,7 @@ export function SystemAdminClient() {
           allowedSubtypes: validatedData.allowedSubtypes,
           expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : undefined,
           paymentNotification: validatedData.paymentNotification,
+          monthlyFee: validatedData.monthlyFee,
         };
         await updateDoc(companyRef, payload);
         setCompanies(
@@ -413,6 +417,7 @@ export function SystemAdminClient() {
           transactionCounter: 0,
           expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : undefined,
           paymentNotification: validatedData.paymentNotification,
+          monthlyFee: validatedData.monthlyFee,
         };
         const companyDocRef = await addDoc(companiesRef, newCompany);
 
@@ -739,6 +744,7 @@ export function SystemAdminClient() {
                         <p className="font-semibold">{company.name}</p>
                         <p className="text-sm text-muted-foreground font-normal">
                           {maskDocument(company.document)}
+                          {company.monthlyFee && ` | Mensalidade: ${formatCurrency(company.monthlyFee)}`}
                         </p>
                         {company.expiryDate && (
                             <p className="text-xs text-muted-foreground font-normal mt-1">
@@ -970,6 +976,26 @@ export function SystemAdminClient() {
                         disabled={!!editingCompany}
                         onChange={(e) => field.onChange(formatDocument(e.target.value))}
                         autoComplete="off"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={companyForm.control}
+                name="monthlyFee"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor da Mensalidade (R$)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="100.00"
+                        autoComplete="off"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
                       />
                     </FormControl>
                     <FormMessage />
