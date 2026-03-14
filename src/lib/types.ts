@@ -88,6 +88,8 @@ export type CompanyInfo = {
   logo?: string; // public URL from Firebase Storage
   allowedSubtypes?: TransactionSubtype[];
   transactionCounter?: number;
+  expiryDate?: Date | Timestamp;
+  paymentNotification?: string;
 };
 
 export type Product = {
@@ -95,8 +97,8 @@ export type Product = {
   name: string;
   barcode?: string;
   quantity: number;
-  price: number;
   costPrice?: number;
+  price: number;
   companyId: string;
   minimumStock?: number;
   financeInterestRate?: number; // Percentage for financing

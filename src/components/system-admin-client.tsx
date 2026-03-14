@@ -15,6 +15,7 @@ import {
   updateDoc,
   deleteDoc,
   writeBatch,
+  Timestamp,
 } from 'firebase/firestore';
 import {
   PlusCircle,
@@ -24,6 +25,7 @@ import {
   Building,
   Users,
   Search,
+  CalendarIcon,
 } from 'lucide-react';
 import { type User, type CompanyInfo, type TransactionSubtype } from '@/lib/types';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -95,6 +97,11 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn, formatDocument, maskDocument } from '@/lib/utils';
 import { db } from '@/lib/firebase';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Calendar } from './ui/calendar';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Textarea } from './ui/textarea';
 
 const availableSubtypes: TransactionSubtype[] = [
   'Prestação de Serviço',
@@ -109,6 +116,8 @@ const companySchema = z.object({
   allowedSubtypes: z.array(z.string()).refine(value => value.some(item => item), {
     message: 'Você deve selecionar pelo menos um tipo de lançamento.',
   }),
+  expiryDate: z.date().nullable().optional(),
+  paymentNotification: z.string().optional(),
 });
 
 const editCompanySchema = companySchema;
@@ -323,6 +332,8 @@ export function SystemAdminClient() {
                 name: editingCompany.name,
                 document: formatDocument(editingCompany.document),
                 allowedSubtypes: editingCompany.allowedSubtypes || [],
+                expiryDate: editingCompany.expiryDate ? (editingCompany.expiryDate as Timestamp).toDate() : undefined,
+                paymentNotification: editingCompany.paymentNotification || ''
               }
             : {
                 name: '',
@@ -331,6 +342,8 @@ export function SystemAdminClient() {
                 adminUsername: '',
                 adminPassword: '',
                 allowedSubtypes: [],
+                expiryDate: undefined,
+                paymentNotification: ''
               };
         companyForm.reset(defaultValues, {
             // @ts-ignore
@@ -350,15 +363,17 @@ export function SystemAdminClient() {
       if (editingCompany) {
          const validatedData = editCompanySchema.parse(data);
         const companyRef = doc(db, 'companies', editingCompany.id);
-        const payload = {
+        const payload: Partial<CompanyInfo> = {
           name: validatedData.name,
           allowedSubtypes: validatedData.allowedSubtypes,
+          expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : undefined,
+          paymentNotification: validatedData.paymentNotification,
         };
         await updateDoc(companyRef, payload);
         setCompanies(
           companies.map((c) =>
             c.id === editingCompany.id
-              ? { ...c, ...payload }
+              ? ({ ...c, ...payload, expiryDate: payload.expiryDate } as CompanyInfo)
               : c
           )
         );
@@ -396,6 +411,8 @@ export function SystemAdminClient() {
           logo: '',
           allowedSubtypes: validatedData.allowedSubtypes,
           transactionCounter: 0,
+          expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : undefined,
+          paymentNotification: validatedData.paymentNotification,
         };
         const companyDocRef = await addDoc(companiesRef, newCompany);
 
@@ -716,13 +733,18 @@ export function SystemAdminClient() {
               <AccordionItem value={company.document} key={company.document}>
                 <AccordionTrigger>
                   <div className="flex justify-between items-center w-full">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 text-left">
                       <Building className="h-5 w-5 text-muted-foreground" />
                       <div>
                         <p className="font-semibold">{company.name}</p>
                         <p className="text-sm text-muted-foreground font-normal">
                           {maskDocument(company.document)}
                         </p>
+                        {company.expiryDate && (
+                            <p className="text-xs text-muted-foreground font-normal mt-1">
+                                Vence em: {format((company.expiryDate as Timestamp).toDate(), 'dd/MM/yyyy')}
+                            </p>
+                        )}
                       </div>
                     </div>
                     <DropdownMenu>
@@ -906,7 +928,7 @@ export function SystemAdminClient() {
           if (!isOpen) setEditingCompany(null);
           setIsCompanyDialogOpen(isOpen);
       }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingCompany ? 'Editar' : 'Adicionar'} Empresa
@@ -997,6 +1019,64 @@ export function SystemAdminClient() {
                         />
                       ))}
                     </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={companyForm.control}
+                name="expiryDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Data de Vencimento</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={'outline'}
+                            className={cn(
+                              'w-full pl-3 text-left font-normal',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, 'PPP', { locale: ptBR })
+                            ) : (
+                              <span>Selecione uma data</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-[51]" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value || undefined}
+                          onSelect={(date) => field.onChange(date || null)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={companyForm.control}
+                name="paymentNotification"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mensagem de Pagamento/Bloqueio</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Ex: Sua assinatura venceu. Para renovar, acesse: link.pagamento.com"
+                        {...field}
+                        autoComplete="off"
+                        value={field.value || ''}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

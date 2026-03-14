@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -9,6 +9,7 @@ import {
   query,
   where,
   getDocs,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { type CompanyInfo } from '@/lib/types';
@@ -52,6 +53,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { SubscriptionOverlay } from './subscription-overlay';
+import { differenceInDays, startOfDay } from 'date-fns';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -62,6 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [hasCompany, setHasCompany] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [companyStatus, setCompanyStatus] = useState<'active' | 'expiring_soon' | 'expired' | 'loading'>('loading');
 
   useEffect(() => {
     const handleFullScreenChange = () => {
@@ -80,6 +84,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       }
     }
   };
+  
+  const handleLogout = useCallback(() => {
+    sessionStorage.removeItem('auth-token');
+    sessionStorage.removeItem('current-user');
+    sessionStorage.removeItem('current-user-name');
+    sessionStorage.removeItem('current-user-role');
+    sessionStorage.removeItem('current-user-company-id');
+    setCompanyInfo(null);
+    router.push('/login');
+  }, [router]);
 
   useEffect(() => {
     const token = sessionStorage.getItem('auth-token');
@@ -90,6 +104,29 @@ export function AppShell({ children }: { children: ReactNode }) {
     setCurrentUserRole(role);
     setHasCompany(!!companyId);
 
+    const processCompanyStatus = (company: CompanyInfo | null) => {
+        if (role === 'system_admin' || !company || !company.expiryDate) {
+            setCompanyStatus('active');
+            return;
+        }
+
+        const expiry = (company.expiryDate as Timestamp).toDate();
+        const today = startOfDay(new Date());
+        const diff = differenceInDays(expiry, today);
+
+        if (diff < 0) {
+            if (role !== 'company_admin') {
+                handleLogout(); // Force logout for non-admins
+            } else {
+                setCompanyStatus('expired');
+            }
+        } else if (diff <= 5) {
+            setCompanyStatus('expiring_soon');
+        } else {
+            setCompanyStatus('active');
+        }
+    };
+
     const fetchCompanyInfo = async (id: string) => {
         try {
             const companiesRef = collection(db, 'companies');
@@ -98,14 +135,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
             if (!querySnapshot.empty) {
                 const companyDoc = querySnapshot.docs[0];
-                setCompanyInfo({ id: companyDoc.id, ...companyDoc.data() } as CompanyInfo);
+                const info = { id: companyDoc.id, ...companyDoc.data() } as CompanyInfo;
+                setCompanyInfo(info);
+                processCompanyStatus(info);
+            } else {
+                setCompanyStatus('active');
             }
         } catch (error) {
             console.error('Failed to fetch company info:', error);
+            setCompanyStatus('active');
         }
     }
-
-    if(companyId) {
+    
+    if (role === 'system_admin' || !companyId) {
+        setCompanyStatus('active');
+    } else {
         fetchCompanyInfo(companyId);
     }
 
@@ -116,17 +160,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     } else {
       setIsAuthenticating(false);
     }
-  }, [pathname, router]);
-
-  const handleLogout = () => {
-    sessionStorage.removeItem('auth-token');
-    sessionStorage.removeItem('current-user');
-    sessionStorage.removeItem('current-user-name');
-    sessionStorage.removeItem('current-user-role');
-    sessionStorage.removeItem('current-user-company-id');
-    setCompanyInfo(null);
-    router.push('/login');
-  };
+  }, [pathname, router, handleLogout]);
 
   const showProductsMenu = companyInfo?.allowedSubtypes?.some(
     (st) => st === 'Venda' || st === 'Serviço + Venda'
@@ -396,6 +430,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </SidebarInset>
+      <SubscriptionOverlay
+        status={(currentUserRole === 'system_admin' || companyStatus === 'loading') ? 'active' : companyStatus}
+        expiryDate={companyInfo?.expiryDate ? (companyInfo.expiryDate as Timestamp).toDate() : new Date()}
+        notificationMessage={companyInfo?.paymentNotification}
+        onLogout={handleLogout}
+        isCompanyAdmin={currentUserRole === 'company_admin'}
+      />
     </SidebarProvider>
   );
 }
