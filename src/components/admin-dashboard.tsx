@@ -31,7 +31,7 @@ export function AdminDashboard() {
 
       const now = new Date();
       const activeCompanies = allCompanies.filter(
-        c => c.expiryDate && (c.expiryDate as Timestamp).toDate() >= now
+        c => !c.expiryDate || (c.expiryDate as Timestamp).toDate() >= now
       );
 
       const mrr = activeCompanies.reduce(
