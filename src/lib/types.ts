@@ -88,7 +88,7 @@ export type CompanyInfo = {
   logo?: string; // public URL from Firebase Storage
   allowedSubtypes?: TransactionSubtype[];
   transactionCounter?: number;
-  expiryDate?: Date | Timestamp;
+  expiryDate?: Date | Timestamp | null;
   paymentNotification?: string;
   monthlyFee?: number;
 };

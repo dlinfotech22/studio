@@ -27,6 +27,7 @@ import {
   Search,
   CalendarIcon,
   RefreshCw,
+  X,
 } from 'lucide-react';
 import { type User, type CompanyInfo, type TransactionSubtype, type Transaction } from '@/lib/types';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -94,7 +95,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from './ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn, formatCurrency, formatDocument, maskDocument } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -353,7 +354,7 @@ export function SystemAdminClient() {
                 name: editingCompany.name,
                 document: formatDocument(editingCompany.document),
                 allowedSubtypes: editingCompany.allowedSubtypes || [],
-                expiryDate: editingCompany.expiryDate ? (editingCompany.expiryDate as Timestamp).toDate() : undefined,
+                expiryDate: editingCompany.expiryDate ? (editingCompany.expiryDate as Timestamp).toDate() : null,
                 paymentNotification: editingCompany.paymentNotification || '',
                 monthlyFee: editingCompany.monthlyFee || undefined,
               }
@@ -364,7 +365,7 @@ export function SystemAdminClient() {
                 adminUsername: '',
                 adminPassword: '',
                 allowedSubtypes: [],
-                expiryDate: undefined,
+                expiryDate: null,
                 paymentNotification: '',
                 monthlyFee: undefined,
               };
@@ -390,11 +391,11 @@ export function SystemAdminClient() {
         const payload: Partial<CompanyInfo> = {
           name: validatedData.name,
           allowedSubtypes: validatedData.allowedSubtypes,
-          expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : undefined,
+          expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : null,
           paymentNotification: validatedData.paymentNotification,
           monthlyFee: validatedData.monthlyFee,
         };
-        await updateDoc(companyRef, payload);
+        await updateDoc(companyRef, payload as any);
         setCompanies(
           companies.map((c) =>
             c.id === editingCompany.id
@@ -436,11 +437,11 @@ export function SystemAdminClient() {
           logo: '',
           allowedSubtypes: validatedData.allowedSubtypes,
           transactionCounter: 0,
-          expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : undefined,
+          expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : null,
           paymentNotification: validatedData.paymentNotification,
           monthlyFee: validatedData.monthlyFee,
         };
-        const companyDocRef = await addDoc(companiesRef, newCompany);
+        const companyDocRef = await addDoc(companiesRef, newCompany as any);
 
         const newAdmin: Omit<User, 'id'> = {
           name: validatedData.adminName,
@@ -452,7 +453,7 @@ export function SystemAdminClient() {
         };
         const userDocRef = await addDoc(usersRef, newAdmin);
 
-        setCompanies([...companies, { id: companyDocRef.id, ...newCompany }]);
+        setCompanies([...companies, { id: companyDocRef.id, ...newCompany } as CompanyInfo]);
         setUsers([...users, { id: userDocRef.id, ...newAdmin }]);
         toast({
           title: 'Sucesso!',
@@ -609,7 +610,7 @@ export function SystemAdminClient() {
 
         await batch.commit();
 
-        setCompanies(companies.map(c => c.id === companyToRenew.id ? { ...c, expiryDate: newExpiryDate } : c));
+        setCompanies(companies.map(c => c.id === companyToRenew.id ? { ...c, expiryDate: newExpiryDate } as CompanyInfo : c));
         toast({ title: 'Sucesso!', description: `Assinatura de ${companyToRenew.name} renovada por ${data.months} mes(es).`});
     } catch(e: any) {
         console.error("Failed to renew subscription", e);
@@ -1130,34 +1131,47 @@ export function SystemAdminClient() {
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Data de Vencimento</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={'outline'}
-                            className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, 'PPP', { locale: ptBR })
-                            ) : (
-                              <span>Selecione uma data</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 z-[51]" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value || undefined}
-                          onSelect={(date) => field.onChange(date || null)}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <div className="flex items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={'outline'}
+                              className={cn(
+                                'w-full pl-3 text-left font-normal',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, 'PPP', { locale: ptBR })
+                              ) : (
+                                <span>Sem vencimento</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 z-[51]" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value || undefined}
+                            onSelect={(date) => field.onChange(date || null)}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {field.value && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={() => field.onChange(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
