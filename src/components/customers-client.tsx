@@ -115,7 +115,7 @@ export function CustomersClient() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -373,7 +373,7 @@ export function CustomersClient() {
                     <SelectValue placeholder={itemsPerPage} />
                     </SelectTrigger>
                     <SelectContent side="top">
-                    {[10, 30, 50].map((pageSize) => (
+                    {[20, 50, 100].map((pageSize) => (
                         <SelectItem key={pageSize} value={`${pageSize}`}>
                         {pageSize}
                         </SelectItem>

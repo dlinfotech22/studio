@@ -305,7 +305,7 @@ export function SystemAdminClient() {
   const [companyToRenew, setCompanyToRenew] = useState<CompanyInfo | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -901,7 +901,7 @@ export function SystemAdminClient() {
                     <SelectValue placeholder={itemsPerPage} />
                   </SelectTrigger>
                   <SelectContent side="top">
-                    {[10, 30, 50].map((pageSize) => (
+                    {[20, 50, 100].map((pageSize) => (
                       <SelectItem key={pageSize} value={`${pageSize}`}>
                         {pageSize}
                       </SelectItem>

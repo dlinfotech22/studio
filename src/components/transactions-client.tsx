@@ -101,7 +101,7 @@ import {
 } from '@/components/ui/command';
 import { PrintableDocument } from './printable-document';
 import { Separator } from './ui/separator';
-import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from './ui/card';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
@@ -259,7 +259,7 @@ export function TransactionsClient({}: {}) {
   const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
   const [isFilterDatePickerOpen, setIsFilterDatePickerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
 
 
@@ -734,88 +734,90 @@ export function TransactionsClient({}: {}) {
         : data;
 
     return (
-      <div className="space-y-4">
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Tipo</TableHead>
-                {type === 'revenue' && <TableHead>Status do Serviço</TableHead>}
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="text-right">Data</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedData.length > 0 ? (
-                paginatedData.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">
-                      {item.description}
-                    </TableCell>
-                    <TableCell>{item.customerName || '-'}</TableCell>
-                    <TableCell>{item.subtype}</TableCell>
-                     {type === 'revenue' && (
-                        <TableCell>
-                            {(item.subtype === 'Prestação de Serviço' || item.subtype === 'Serviço + Venda') && item.serviceStatus ? (
-                                <Badge variant="secondary">{item.serviceStatus}</Badge>
-                            ) : (
-                                '-'
-                            )}
-                        </TableCell>
-                    )}
-                    <TableCell
-                      className={cn(
-                        'text-right font-mono',
-                        type === 'revenue' ? 'text-emerald-600' : 'text-red-600'
+      <Card>
+        <CardContent className="p-0">
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  {type === 'revenue' && <TableHead>Status do Serviço</TableHead>}
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="text-right">Data</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedData.length > 0 ? (
+                  paginatedData.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">
+                        {item.description}
+                      </TableCell>
+                      <TableCell>{item.customerName || '-'}</TableCell>
+                      <TableCell>{item.subtype}</TableCell>
+                       {type === 'revenue' && (
+                          <TableCell>
+                              {(item.subtype === 'Prestação de Serviço' || item.subtype === 'Serviço + Venda') && item.serviceStatus ? (
+                                  <Badge variant="secondary">{item.serviceStatus}</Badge>
+                              ) : (
+                                  '-'
+                              )}
+                          </TableCell>
                       )}
-                    >
-                      {formatCurrency(item.amount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {format(new Date(item.date as Date), 'dd/MM/yyyy')}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(item)}>
-                            <Edit className="mr-2 h-4 w-4" /> Editar
-                          </DropdownMenuItem>
-                          {item.type === 'revenue' && item.subtype !== 'Receita Avulsa' && (
-                            <DropdownMenuItem onClick={() => handlePrint(item)}>
-                                <Printer className="mr-2 h-4 w-4" /> Reimprimir
+                      <TableCell
+                        className={cn(
+                          'text-right font-mono',
+                          type === 'revenue' ? 'text-emerald-600' : 'text-red-600'
+                        )}
+                      >
+                        {formatCurrency(item.amount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {format(new Date(item.date as Date), 'dd/MM/yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(item)}>
+                              <Edit className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(item)}
-                            className="text-red-500"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Deletar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            {item.type === 'revenue' && item.subtype !== 'Receita Avulsa' && (
+                              <DropdownMenuItem onClick={() => handlePrint(item)}>
+                                  <Printer className="mr-2 h-4 w-4" /> Reimprimir
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(item)}
+                              className="text-red-500"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Deletar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={type === 'revenue' ? 7 : 6} className="h-24 text-center">
+                      Nenhum lançamento encontrado.
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={type === 'revenue' ? 7 : 6} className="h-24 text-center">
-                    Nenhum lançamento encontrado.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
         {itemsPerPage > 0 && totalPages > 1 && (
-          <div className="flex items-center justify-between">
+          <CardFooter className="flex items-center justify-between pt-4">
             <div className="text-sm text-muted-foreground">
               Total de {totalItems} lançamento(s).
             </div>
@@ -832,7 +834,7 @@ export function TransactionsClient({}: {}) {
                   <SelectValue placeholder={itemsPerPage} />
                 </SelectTrigger>
                 <SelectContent side="top">
-                  {[10, 30, 50].map((pageSize) => (
+                  {[20, 50, 100].map((pageSize) => (
                     <SelectItem key={pageSize} value={`${pageSize}`}>
                       {pageSize}
                     </SelectItem>
@@ -862,9 +864,9 @@ export function TransactionsClient({}: {}) {
                 Próximo
               </Button>
             </div>
-          </div>
+          </CardFooter>
         )}
-      </div>
+      </Card>
     );
   };
   
@@ -951,7 +953,7 @@ export function TransactionsClient({}: {}) {
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
           <Command>
-              <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+              <CommandInput placeholder="Digite para filtrar..." autoComplete="off"/>
               <CommandList>
               <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
               <CommandGroup>

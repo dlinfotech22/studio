@@ -99,7 +99,7 @@ export function AccessManagementClient() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   useEffect(() => {
     const fetchUsers = async (currentCompanyId: string) => {
@@ -414,7 +414,7 @@ export function AccessManagementClient() {
                   <SelectValue placeholder={itemsPerPage} />
                 </SelectTrigger>
                 <SelectContent side="top">
-                  {[10, 30, 50].map((pageSize) => (
+                  {[20, 50, 100].map((pageSize) => (
                     <SelectItem key={pageSize} value={`${pageSize}`}>
                       {pageSize}
                     </SelectItem>

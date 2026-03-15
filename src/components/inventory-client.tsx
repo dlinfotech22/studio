@@ -82,7 +82,7 @@ export function InventoryClient() {
   const [restockQuantity, setRestockQuantity] = useState<number | ''>('');
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   useEffect(() => {
     const fetchData = async (id: string) => {
@@ -431,7 +431,7 @@ export function InventoryClient() {
                   <SelectValue placeholder={itemsPerPage} />
                 </SelectTrigger>
                 <SelectContent side="top">
-                  {[10, 20, 30, 50].map((pageSize) => (
+                  {[20, 50, 100].map((pageSize) => (
                     <SelectItem key={pageSize} value={`${pageSize}`}>
                       {pageSize}
                     </SelectItem>
@@ -610,5 +610,3 @@ export function InventoryClient() {
     </div>
   );
 }
-
-    

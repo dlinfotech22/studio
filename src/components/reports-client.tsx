@@ -228,7 +228,7 @@ export function ReportsClient() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   useEffect(() => {
     const id = sessionStorage.getItem('current-user-company-id');
@@ -848,7 +848,7 @@ export function ReportsClient() {
                   <SelectValue placeholder={itemsPerPage} />
                 </SelectTrigger>
                 <SelectContent side="top">
-                  {[10, 30, 50].map((pageSize) => (
+                  {[20, 50, 100].map((pageSize) => (
                     <SelectItem key={pageSize} value={`${pageSize}`}>
                       {pageSize}
                     </SelectItem>
@@ -933,5 +933,3 @@ export function ReportsClient() {
     </div>
   );
 }
-
-    

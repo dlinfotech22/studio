@@ -79,6 +79,7 @@ import {
   SelectValue,
 } from './ui/select';
 import { FormDescription } from './ui/form';
+import { Card, CardContent, CardFooter } from './ui/card';
 
 const productSchema = z.object({
   name: z.string().min(1, 'O nome do produto é obrigatório.'),
@@ -104,7 +105,7 @@ export function ProductsClient() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   
   const fetchProducts = async (id: string) => {
     try {
@@ -281,70 +282,72 @@ export function ProductsClient() {
         </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome do Produto</TableHead>
-                <TableHead>Código de Barras</TableHead>
-                <TableHead className="text-right">Qtde. em Estoque</TableHead>
-                <TableHead className="text-right">Preço de Custo</TableHead>
-                <TableHead className="text-right">Preço de Venda</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedData.length > 0 ? (
-                paginatedData.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.barcode || '-'}</TableCell>
-                    <TableCell className="text-right">{item.quantity}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatCurrency(item.costPrice || 0)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatCurrency(item.price)}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(item)}>
-                            <Edit className="mr-2 h-4 w-4" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(item)}
-                            className="text-red-500"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Deletar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+      <Card>
+        <CardContent className="p-0">
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome do Produto</TableHead>
+                  <TableHead>Código de Barras</TableHead>
+                  <TableHead className="text-right">Qtde. em Estoque</TableHead>
+                  <TableHead className="text-right">Preço de Custo</TableHead>
+                  <TableHead className="text-right">Preço de Venda</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedData.length > 0 ? (
+                  paginatedData.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>{item.barcode || '-'}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(item.costPrice || 0)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(item.price)}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(item)}>
+                              <Edit className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(item)}
+                              className="text-red-500"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Deletar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      Nenhum produto encontrado.
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    Nenhum produto encontrado.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
         {itemsPerPage > 0 && totalPages > 1 && (
-          <div className="flex items-center justify-between">
+          <CardFooter className="flex items-center justify-between pt-4">
             <div className="text-sm text-muted-foreground">
               Total de {totalItems} produto(s).
             </div>
@@ -361,7 +364,7 @@ export function ProductsClient() {
                   <SelectValue placeholder={itemsPerPage} />
                 </SelectTrigger>
                 <SelectContent side="top">
-                  {[10, 30, 50].map((pageSize) => (
+                  {[20, 50, 100].map((pageSize) => (
                     <SelectItem key={pageSize} value={`${pageSize}`}>
                       {pageSize}
                     </SelectItem>
@@ -391,9 +394,9 @@ export function ProductsClient() {
                 Próximo
               </Button>
             </div>
-          </div>
+          </CardFooter>
         )}
-      </div>
+      </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
