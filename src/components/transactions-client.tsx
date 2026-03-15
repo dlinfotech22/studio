@@ -732,7 +732,7 @@ export function TransactionsClient({}: {}) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Descrição</TableHead>
-                  <TableHead>Cliente</TableHead>
+                  {type === 'revenue' && <TableHead>Cliente</TableHead>}
                   <TableHead>Tipo</TableHead>
                   {type === 'revenue' && <TableHead>Status do Serviço</TableHead>}
                   <TableHead className="text-right">Valor</TableHead>
@@ -747,7 +747,7 @@ export function TransactionsClient({}: {}) {
                       <TableCell className="font-medium">
                         {item.description}
                       </TableCell>
-                      <TableCell>{item.customerName || '-'}</TableCell>
+                      {type === 'revenue' && <TableCell>{item.customerName || '-'}</TableCell>}
                       <TableCell>{item.subtype}</TableCell>
                        {type === 'revenue' && (
                           <TableCell>
@@ -798,7 +798,7 @@ export function TransactionsClient({}: {}) {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={type === 'revenue' ? 7 : 6} className="h-24 text-center">
+                    <TableCell colSpan={type === 'revenue' ? 7 : 5} className="h-24 text-center">
                       Nenhum lançamento encontrado.
                     </TableCell>
                   </TableRow>
