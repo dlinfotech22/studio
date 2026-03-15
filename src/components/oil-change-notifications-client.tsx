@@ -43,24 +43,28 @@ export function OilChangeNotificationsClient() {
     if (cId) {
       setIsLoading(true);
       const servicesRef = collection(db, 'transactions');
+      // Query for all service-related transactions for the company
       const qServices = query(
         servicesRef,
         where('companyId', '==', cId),
-        where('kmAtual', '>', 0) // Filter for transactions that have mileage recorded
+        where('subtype', 'in', ['Prestação de Serviço', 'Serviço + Venda'])
       );
 
       const unsubscribe = onSnapshot(
         qServices,
         (snapshot) => {
-          const fetchedServices = snapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              ...data,
-              date: (data.date as Timestamp).toDate(),
-            } as Transaction;
-          });
-          
+          // Filter for services with mileage on the client-side to avoid complex indexes
+          const fetchedServices = snapshot.docs
+            .map((doc) => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                ...data,
+                date: (data.date as Timestamp).toDate(),
+              } as Transaction;
+            })
+            .filter((service) => service.kmAtual && service.kmAtual > 0);
+
           setOilChangeServices(
             fetchedServices.sort(
               (a, b) => (b.date as Date).getTime() - (a.date as Date).getTime()
@@ -72,7 +76,8 @@ export function OilChangeNotificationsClient() {
           console.error('Failed to fetch oil change services:', error);
           toast({
             title: 'Erro ao buscar dados',
-            description: 'Não foi possível carregar os serviços. Tente novamente.',
+            description:
+              'Não foi possível carregar os serviços. Tente novamente.',
             variant: 'destructive',
           });
           setIsLoading(false);
