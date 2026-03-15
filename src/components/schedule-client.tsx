@@ -362,7 +362,7 @@ export function ScheduleClient() {
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
           <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
             <CommandInput
               placeholder="Buscar cliente..."
@@ -384,6 +384,7 @@ export function ScheduleClient() {
                       form.clearErrors('customerName');
                       setOpen(false);
                     }}
+                    onMouseDown={(e) => e.preventDefault()}
                   >
                     <Check
                       className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")}
@@ -409,7 +410,7 @@ export function ScheduleClient() {
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
           <Command>
               <CommandInput placeholder="Digite para filtrar..." autoComplete="off"/>
               <CommandList>
@@ -423,6 +424,7 @@ export function ScheduleClient() {
                           setCurrentService(serv);
                           setOpen(false);
                       }}
+                      onMouseDown={(e) => e.preventDefault()}
                   >
                       <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
                       {serv.name}
