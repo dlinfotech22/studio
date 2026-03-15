@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -485,9 +486,9 @@ export function TransactionsClient({}: {}) {
     let finalTransaction: Transaction | null = null;
     
     try {
-      await runTransaction(db, async (transaction) => {
+      await runTransaction(db, async (dbTx) => {
         const companyRef = doc(db, 'companies', companyInfo.id);
-        const companyDocPromise = transaction.get(companyRef);
+        const companyDocPromise = dbTx.get(companyRef);
   
         const oldItems = editingTransaction?.items || [];
         const newItems = data.items || [];
@@ -501,7 +502,7 @@ export function TransactionsClient({}: {}) {
         });
   
         const productRefs = Object.keys(itemChanges).map(productId => doc(db, 'products', productId));
-        const productDocsPromise = productRefs.length > 0 ? Promise.all(productRefs.map(ref => transaction.get(ref))) : Promise.resolve([]);
+        const productDocsPromise = productRefs.length > 0 ? Promise.all(productRefs.map(ref => dbTx.get(ref))) : Promise.resolve([]);
   
         // Perform all reads first
         const [companyDoc, productDocs] = await Promise.all([companyDocPromise, productDocsPromise]);
@@ -562,15 +563,9 @@ export function TransactionsClient({}: {}) {
           kmProximaTroca: data.kmProximaTroca,
         };
 
-        if (!payload.customerId) delete payload.customerId;
-        if (!payload.customerName) delete payload.customerName;
-
         if (isServiceRelated) {
           payload.serviceStatus = data.serviceStatus;
-        } else {
-            delete (payload as any).serviceStatus;
         }
-        
 
         if (transactionType === 'expense' || data.subtype === 'Receita Avulsa') {
           payload.status = 'Pago';
@@ -602,37 +597,33 @@ export function TransactionsClient({}: {}) {
           }
           payload.installmentsCount = data.installmentsCount;
         }
+
+        // Clean up undefined fields before writing to Firestore
+        const finalPayload: { [key: string]: any } = {};
+        for (const [key, value] of Object.entries(payload)) {
+            if (value !== undefined) {
+                finalPayload[key] = value;
+            }
+        }
   
         for (let i = 0; i < productDocs.length; i++) {
           const productId = productRefs[i].id;
           const quantityChange = itemChanges[productId];
           if (quantityChange !== 0) {
             const currentQuantity = productDocs[i].data().quantity;
-            transaction.update(productRefs[i], { quantity: currentQuantity + quantityChange });
+            dbTx.update(productRefs[i], { quantity: currentQuantity + quantityChange });
           }
         }
   
         if (editingTransaction) {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
-          const updatePayload: { [key: string]: any } = { ...payload };
-          
-          if (!isServiceRelated && updatePayload.serviceStatus !== undefined) {
-            delete updatePayload.serviceStatus;
-          }
-          
-          Object.keys(updatePayload).forEach(key => {
-            const typedKey = key as keyof typeof updatePayload;
-            if (updatePayload[typedKey] === undefined) {
-              delete updatePayload[typedKey];
-            }
-          });
-          transaction.update(transactionRef, updatePayload);
-          finalTransaction = { ...editingTransaction, ...updatePayload, date: data.date } as Transaction;
+          dbTx.update(transactionRef, finalPayload);
+          finalTransaction = { ...editingTransaction, ...finalPayload, date: data.date } as Transaction;
         } else {
           const newTransactionRef = doc(collection(db, 'transactions'));
-          transaction.set(newTransactionRef, payload as any);
-          transaction.update(companyRef, { transactionCounter: nextSequentialId });
-          finalTransaction = { id: newTransactionRef.id, ...payload, date: data.date } as Transaction;
+          dbTx.set(newTransactionRef, finalPayload);
+          dbTx.update(companyRef, { transactionCounter: nextSequentialId });
+          finalTransaction = { id: newTransactionRef.id, ...finalPayload, date: data.date } as Transaction;
         }
       });
   
