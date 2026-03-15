@@ -52,9 +52,7 @@ export default function OilChangeNotificationsPage({}: {}) {
     );
   }
 
-  const canSellProducts = companyInfo?.allowedSubtypes?.some(st => st === 'Venda' || st === 'Serviço + Venda');
-  const canProvideServices = companyInfo?.allowedSubtypes?.some(st => st === 'Prestação de Serviço' || st === 'Serviço + Venda');
-  const canViewPage = userRole !== 'system_admin' && canSellProducts && canProvideServices;
+  const canViewPage = userRole !== 'system_admin' && companyInfo?.isAutomotive;
 
   return (
     <div className="flex flex-col gap-6">
@@ -80,9 +78,9 @@ export default function OilChangeNotificationsPage({}: {}) {
         <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm p-8 text-center h-[400px]">
           <div className="flex flex-col items-center gap-2">
             <Droplets className="w-16 h-16 text-muted-foreground" />
-            <h2 className="text-2xl font-semibold">Função exclusiva para Oficinas/Lojas</h2>
+            <h2 className="text-2xl font-semibold">Função exclusiva para o Ramo Automotivo</h2>
             <p className="max-w-md mt-2 text-sm text-muted-foreground">
-              Esta tela é para empresas que vendem produtos e prestam serviços. Para ativá-la, habilite 'Serviço + Venda' ou ambos 'Venda' e 'Prestação de Serviço' nas configurações da empresa.
+              Esta tela é designada para empresas do ramo de manutenção veicular. Para ativá-la, contate o administrador do sistema.
             </p>
           </div>
         </div>

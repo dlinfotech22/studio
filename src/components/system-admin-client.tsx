@@ -121,6 +121,7 @@ const companySchema = z.object({
   expiryDate: z.date().nullable().optional(),
   paymentNotification: z.string().optional(),
   monthlyFee: z.coerce.number().min(0, 'O valor não pode ser negativo.').optional(),
+  isAutomotive: z.boolean().default(false).optional(),
 });
 
 const editCompanySchema = companySchema;
@@ -357,6 +358,7 @@ export function SystemAdminClient() {
                 expiryDate: editingCompany.expiryDate ? (editingCompany.expiryDate as Timestamp).toDate() : null,
                 paymentNotification: editingCompany.paymentNotification || '',
                 monthlyFee: editingCompany.monthlyFee || undefined,
+                isAutomotive: editingCompany.isAutomotive || false,
               }
             : {
                 name: '',
@@ -368,6 +370,7 @@ export function SystemAdminClient() {
                 expiryDate: null,
                 paymentNotification: '',
                 monthlyFee: undefined,
+                isAutomotive: false,
               };
         companyForm.reset(defaultValues, {
             // @ts-ignore
@@ -394,6 +397,7 @@ export function SystemAdminClient() {
           expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : null,
           paymentNotification: validatedData.paymentNotification,
           monthlyFee: validatedData.monthlyFee,
+          isAutomotive: validatedData.isAutomotive,
         };
         await updateDoc(companyRef, payload as any);
         setCompanies(
@@ -440,6 +444,7 @@ export function SystemAdminClient() {
           expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : null,
           paymentNotification: validatedData.paymentNotification,
           monthlyFee: validatedData.monthlyFee,
+          isAutomotive: validatedData.isAutomotive,
         };
         const companyDocRef = await addDoc(companiesRef, newCompany as any);
 
@@ -1121,6 +1126,26 @@ export function SystemAdminClient() {
                       ))}
                     </div>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={companyForm.control}
+                name="isAutomotive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        Ramo de Manutenção Veicular
+                      </FormLabel>
+                    </div>
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}
               />

@@ -172,7 +172,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     (st) => st === 'Prestação de Serviço' || st === 'Serviço + Venda'
   );
 
-  const showOilChangeMenu = showProductsMenu && showServicesMenu;
+  const showOilChangeMenu = companyInfo?.isAutomotive;
 
   if (isAuthenticating) {
     return (

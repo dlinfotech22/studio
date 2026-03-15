@@ -93,6 +93,7 @@ export type CompanyInfo = {
   expiryDate?: Date | Timestamp | null;
   paymentNotification?: string;
   monthlyFee?: number;
+  isAutomotive?: boolean;
 };
 
 export type Product = {
