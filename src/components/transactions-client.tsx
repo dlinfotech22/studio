@@ -731,6 +731,7 @@ export function TransactionsClient({}: {}) {
             <TableHeader>
               <TableRow>
                 <TableHead>Descrição</TableHead>
+                <TableHead>Cliente</TableHead>
                 <TableHead>Tipo</TableHead>
                 {type === 'revenue' && <TableHead>Status do Serviço</TableHead>}
                 <TableHead className="text-right">Valor</TableHead>
@@ -745,6 +746,7 @@ export function TransactionsClient({}: {}) {
                     <TableCell className="font-medium">
                       {item.description}
                     </TableCell>
+                    <TableCell>{item.customerName || '-'}</TableCell>
                     <TableCell>{item.subtype}</TableCell>
                      {type === 'revenue' && (
                         <TableCell>
@@ -795,7 +797,7 @@ export function TransactionsClient({}: {}) {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={type === 'revenue' ? 6 : 5} className="h-24 text-center">
+                  <TableCell colSpan={type === 'revenue' ? 7 : 6} className="h-24 text-center">
                     Nenhum lançamento encontrado.
                   </TableCell>
                 </TableRow>
@@ -1127,7 +1129,8 @@ export function TransactionsClient({}: {}) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-full">Descrição</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Cliente</TableHead>
                   <TableHead>Tipo</TableHead>
                   {activeTab === 'revenue' && <TableHead>Status do Serviço</TableHead>}
                   <TableHead className="text-right">Valor</TableHead>
@@ -1138,6 +1141,7 @@ export function TransactionsClient({}: {}) {
               <TableBody>
                 {skeletonRows.map((_, index) => (
                   <TableRow key={index}>
+                    <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                     {activeTab === 'revenue' && <TableCell><Skeleton className="h-5 w-full" /></TableCell>}
