@@ -261,6 +261,7 @@ export function TransactionsClient({}: {}) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
+  const [canShowKmFields, setCanShowKmFields] = useState(false);
 
 
   useEffect(() => {
@@ -304,7 +305,11 @@ export function TransactionsClient({}: {}) {
     
     const unsubCompany = onSnapshot(companyQuery, (snapshot) => {
         if(!snapshot.empty) {
-            setCompanyInfo({id: snapshot.docs[0].id, ...snapshot.docs[0].data()} as CompanyInfo);
+            const info = {id: snapshot.docs[0].id, ...snapshot.docs[0].data()} as CompanyInfo;
+            setCompanyInfo(info);
+            const canSell = info?.allowedSubtypes?.some(st => st === 'Venda' || st === 'Serviço + Venda');
+            const canServe = info?.allowedSubtypes?.some(st => st === 'Prestação de Serviço' || st === 'Serviço + Venda');
+            setCanShowKmFields(!!(canSell && canServe));
         }
     }, (error) => console.error("Error fetching company info:", error));
 
@@ -1518,7 +1523,7 @@ export function TransactionsClient({}: {}) {
                     />
                   )}
               </div>
-              {isServiceRelated && (
+              {isServiceRelated && canShowKmFields && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                     <FormField
                         control={form.control}

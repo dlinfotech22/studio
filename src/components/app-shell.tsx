@@ -172,6 +172,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     (st) => st === 'Prestação de Serviço' || st === 'Serviço + Venda'
   );
 
+  const showOilChangeMenu = showProductsMenu && showServicesMenu;
+
   if (isAuthenticating) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -326,6 +328,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
+                    </>
+                 )}
+                 {showOilChangeMenu && (
                     <SidebarMenuItem>
                         <Link href="/oil-change-notifications">
                             <SidebarMenuButton
@@ -337,7 +342,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
-                    </>
                  )}
                 {showProductsMenu && (
                     <SidebarMenuItem>

@@ -52,9 +52,9 @@ export default function OilChangeNotificationsPage({}: {}) {
     );
   }
 
-  const canViewPage = userRole === 'system_admin' ? false : companyInfo?.allowedSubtypes?.some(
-    (st) => st === 'Prestação de Serviço' || st === 'Serviço + Venda'
-  );
+  const canSellProducts = companyInfo?.allowedSubtypes?.some(st => st === 'Venda' || st === 'Serviço + Venda');
+  const canProvideServices = companyInfo?.allowedSubtypes?.some(st => st === 'Prestação de Serviço' || st === 'Serviço + Venda');
+  const canViewPage = userRole !== 'system_admin' && canSellProducts && canProvideServices;
 
   return (
     <div className="flex flex-col gap-6">
@@ -80,9 +80,9 @@ export default function OilChangeNotificationsPage({}: {}) {
         <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed shadow-sm p-8 text-center h-[400px]">
           <div className="flex flex-col items-center gap-2">
             <Droplets className="w-16 h-16 text-muted-foreground" />
-            <h2 className="text-2xl font-semibold">Função exclusiva para prestadores de serviço</h2>
+            <h2 className="text-2xl font-semibold">Função exclusiva para Oficinas/Lojas</h2>
             <p className="max-w-md mt-2 text-sm text-muted-foreground">
-              Esta tela é designada para empresas que oferecem serviços. Para ativá-la, habilite 'Prestação de Serviço' ou 'Serviço + Venda' nas configurações da empresa.
+              Esta tela é para empresas que vendem produtos e prestam serviços. Para ativá-la, habilite 'Serviço + Venda' ou ambos 'Venda' e 'Prestação de Serviço' nas configurações da empresa.
             </p>
           </div>
         </div>
