@@ -69,6 +69,8 @@ export type Transaction = {
   items?: TransactionItem[];
   services?: TransactionServiceItem[];
   serviceAmount?: number; // Kept for backward compatibility or simple services
+  kmAtual?: number;
+  kmProximaTroca?: number;
 };
 
 export type User = {

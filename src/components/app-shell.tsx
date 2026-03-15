@@ -30,6 +30,7 @@ import {
   Workflow,
   Maximize,
   Minimize,
+  Droplets,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -322,6 +323,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                             >
                                 <Workflow />
                                 <span>Ordens de Serviço</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <Link href="/oil-change-notifications">
+                            <SidebarMenuButton
+                                tooltip="Troca de Óleo"
+                                isActive={pathname === '/oil-change-notifications'}
+                            >
+                                <Droplets />
+                                <span>Troca de Óleo</span>
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>

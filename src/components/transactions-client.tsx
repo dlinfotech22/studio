@@ -149,6 +149,8 @@ const transactionSchema = z.object({
   items: z.array(transactionItemSchema).optional(),
   services: z.array(transactionServiceItemSchema).optional(),
   serviceStatus: serviceStatusEnum.optional(),
+  kmAtual: z.coerce.number().optional(),
+  kmProximaTroca: z.coerce.number().optional(),
 }).superRefine((data, ctx) => {
     if (data.subtype === 'Despesa' || data.subtype === 'Receita Avulsa') {
       if (data.amount === undefined || data.amount <= 0) {
@@ -348,6 +350,8 @@ export function TransactionsClient({}: {}) {
       items: transaction.items || [],
       services: transaction.services || [],
       serviceStatus: isServiceRelated ? (statusToSet || 'Aberta') : undefined,
+      kmAtual: transaction.kmAtual,
+      kmProximaTroca: transaction.kmProximaTroca,
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
@@ -429,6 +433,8 @@ export function TransactionsClient({}: {}) {
       items: [],
       services: [],
       serviceStatus: 'Aberta',
+      kmAtual: undefined,
+      kmProximaTroca: undefined,
     },
   });
 
@@ -551,6 +557,8 @@ export function TransactionsClient({}: {}) {
           paymentMethod: data.paymentMethod,
           items: data.items,
           services: data.services,
+          kmAtual: data.kmAtual,
+          kmProximaTroca: data.kmProximaTroca,
         };
 
         if (!payload.customerId) delete payload.customerId;
@@ -635,7 +643,7 @@ export function TransactionsClient({}: {}) {
       form.reset({
         description: '', amount: undefined, date: new Date(), subtype: data.subtype,
         customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
-        firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberta'
+        firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberta', kmAtual: undefined, kmProximaTroca: undefined,
       });
 
       if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa' && finalTransaction.subtype !== 'Receita Avulsa') {
@@ -697,7 +705,7 @@ export function TransactionsClient({}: {}) {
     form.reset({
       description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
       customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
-      firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberta'
+      firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberta', kmAtual: undefined, kmProximaTroca: undefined,
     });
     setIsDialogOpen(true);
   };
@@ -1510,6 +1518,48 @@ export function TransactionsClient({}: {}) {
                     />
                   )}
               </div>
+              {isServiceRelated && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <FormField
+                        control={form.control}
+                        name="kmAtual"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>KM Atual (Opcional)</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="number"
+                                        placeholder="100000"
+                                        value={field.value ?? ''}
+                                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                                        autoComplete="off"
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="kmProximaTroca"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>KM Próxima Troca (Opcional)</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="number"
+                                        placeholder="110000"
+                                        value={field.value ?? ''}
+                                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                                        autoComplete="off"
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+              )}
               
               <DialogFooter>
                 <DialogClose asChild>
