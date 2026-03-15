@@ -638,8 +638,14 @@ export function TransactionsClient({}: {}) {
         firstDueDate: undefined, items: [], services: [], serviceStatus: 'Aberta', kmAtual: undefined, kmProximaTroca: undefined,
       });
 
-      if (finalTransaction && finalTransaction.type === 'revenue' && finalTransaction.subtype !== 'Despesa' && finalTransaction.subtype !== 'Receita Avulsa') {
-        handlePrint(finalTransaction);
+      if (finalTransaction) {
+        const isService = finalTransaction.subtype === 'Prestação de Serviço' || finalTransaction.subtype === 'Serviço + Venda';
+        const isSale = finalTransaction.subtype === 'Venda';
+        const isServiceFinished = isService && (finalTransaction.serviceStatus === 'Finalizada' || finalTransaction.serviceStatus === 'Encerrada / Concluída');
+
+        if (isSale || isServiceFinished) {
+          handlePrint(finalTransaction);
+        }
       }
   
     } catch (error: any) {
@@ -761,7 +767,7 @@ export function TransactionsClient({}: {}) {
                       <TableCell
                         className={cn(
                           'text-right font-mono',
-                          type === 'revenue' ? 'text-emerald-600' : 'text-red-600'
+                          item.type === 'revenue' ? 'text-emerald-600' : 'text-red-600'
                         )}
                       >
                         {formatCurrency(item.amount)}
