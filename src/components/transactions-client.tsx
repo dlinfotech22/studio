@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -579,6 +580,8 @@ export function TransactionsClient({}: {}) {
           paymentMethod: data.paymentMethod,
           items: data.items,
           services: data.services,
+          kmAtual: data.kmAtual,
+          kmProximaTroca: data.kmProximaTroca
         };
         
         if (data.kmAtual) payload.kmAtual = data.kmAtual;
@@ -664,10 +667,9 @@ export function TransactionsClient({}: {}) {
       if (finalTransaction) {
         const isService = finalTransaction.subtype === 'Prestação de Serviço' || finalTransaction.subtype === 'Serviço + Venda';
         const isSale = finalTransaction.subtype === 'Venda';
-        const isServiceFinished = isService && (finalTransaction.serviceStatus === 'Aguardando Pagamento' || finalTransaction.serviceStatus === 'Finalizado');
-        const isNewQuote = isService && finalTransaction.serviceStatus === 'Orçamento' && !editingTransaction;
+        const isServiceFinished = isService && (finalTransaction.serviceStatus === 'Finalizado');
 
-        if (isNewQuote || isSale || isServiceFinished) {
+        if (isSale || isServiceFinished) {
           handlePrint(finalTransaction);
         }
       }
@@ -748,8 +750,8 @@ export function TransactionsClient({}: {}) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Descrição</TableHead>
                   {type === 'revenue' && <TableHead>Cliente</TableHead>}
+                  <TableHead>Descrição</TableHead>
                   <TableHead>Tipo</TableHead>
                   {type === 'revenue' && <TableHead>Status do Serviço</TableHead>}
                   <TableHead className="text-right">Valor</TableHead>
@@ -761,10 +763,10 @@ export function TransactionsClient({}: {}) {
                 {paginatedData.length > 0 ? (
                   paginatedData.map((item) => (
                     <TableRow key={item.id}>
+                      {type === 'revenue' && <TableCell>{item.customerName || '-'}</TableCell>}
                       <TableCell className="font-medium">
                         {item.description}
                       </TableCell>
-                      {type === 'revenue' && <TableCell>{item.customerName || '-'}</TableCell>}
                       <TableCell>{item.subtype}</TableCell>
                        {type === 'revenue' && (
                           <TableCell>
@@ -917,7 +919,7 @@ export function TransactionsClient({}: {}) {
     return (
        <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")}>
+          <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")} onMouseDown={(e) => e.preventDefault()}>
               {currentProduct ? currentProduct.name : "Selecione um produto"}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -955,7 +957,7 @@ export function TransactionsClient({}: {}) {
     return (
        <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentService && "text-muted-foreground")}>
+          <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentService && "text-muted-foreground")} onMouseDown={(e) => e.preventDefault()}>
               {currentService ? currentService.name : "Selecione um serviço"}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -1022,6 +1024,7 @@ export function TransactionsClient({}: {}) {
                     role="combobox"
                     aria-expanded={open}
                     className={cn("w-full justify-between", !form.getValues('customerName') && "text-muted-foreground")}
+                    onMouseDown={(e) => e.preventDefault()}
                 >
                     {form.getValues('customerName') || "Selecione ou digite um cliente"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
