@@ -27,16 +27,13 @@ import { Button } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 
 const serviceStatusOptions: ServiceStatus[] = [
-    'Aberta',
-    'Aguardando Aprovação',
-    'Aprovada',
-    'Aguardando Peça / Material',
-    'Em Execução',
-    'Pausada',
-    'Finalizada',
+    'Aprovado',
+    'Em Andamento',
+    'Aguardando Peças',
+    'Pausado',
     'Aguardando Pagamento',
-    'Encerrada / Concluída',
-    'Cancelada',
+    'Finalizado',
+    'Cancelado',
 ];
 
 export function WorkOrdersClient() {
@@ -67,7 +64,7 @@ export function WorkOrdersClient() {
                 })
                 .filter(service => 
                     service.serviceStatus && 
-                    !['Agendado', 'Orçamento', 'Encerrada / Concluída', 'Cancelada'].includes(service.serviceStatus)
+                    !['Agendado', 'Orçamento', 'Finalizado', 'Cancelado'].includes(service.serviceStatus)
                 );
             
             setActiveServices(fetchedServices.sort((a,b) => (a.date as Date).getTime() - (b.date as Date).getTime()));

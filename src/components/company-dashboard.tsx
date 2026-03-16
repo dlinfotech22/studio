@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -65,7 +64,7 @@ export function CompanyDashboard() {
             }
             if (t.type === 'revenue') {
                 if (t.subtype === 'Prestação de Serviço' || t.subtype === 'Serviço + Venda') {
-                    return t.serviceStatus === 'Finalizado' || t.serviceStatus === 'Encerrada / Concluída';
+                    return t.serviceStatus === 'Aguardando Pagamento' || t.serviceStatus === 'Finalizado';
                 }
                 return true; // Includes 'Venda' and 'Receita Avulsa'
             }

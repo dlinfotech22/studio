@@ -81,7 +81,7 @@ export function QuotesClient() {
       // Here, you could also deduct stock if the business logic requires it upon approval.
       // For now, we just change the status. Stock will be handled at completion.
       await updateDoc(quoteRef, { 
-          serviceStatus: 'Aprovada'
+          serviceStatus: 'Aprovado'
       });
       toast({ title: 'Orçamento Aprovado!', description: 'O orçamento foi convertido em uma Ordem de Serviço.' });
     } catch (error) {

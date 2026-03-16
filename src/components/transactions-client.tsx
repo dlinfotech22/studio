@@ -123,18 +123,15 @@ const transactionServiceItemSchema = z.object({
 });
 
 const serviceStatusEnum = z.enum([
-    'Agendado',
     'Orçamento',
-    'Aberta',
-    'Aguardando Aprovação',
-    'Aprovada',
-    'Aguardando Peça / Material',
-    'Em Execução',
-    'Pausada',
-    'Finalizada',
+    'Agendado',
+    'Aprovado',
+    'Em Andamento',
+    'Aguardando Peças',
+    'Pausado',
     'Aguardando Pagamento',
-    'Encerrada / Concluída',
-    'Cancelada',
+    'Finalizado',
+    'Cancelado',
 ]);
 
 const transactionSchema = z.object({
@@ -221,16 +218,14 @@ const subtypeToTypeMap: Record<TransactionSubtype, TransactionType> = {
 
 const serviceStatusOptions: ServiceStatus[] = [
     'Orçamento',
-    'Aberta',
-    'Aguardando Aprovação',
-    'Aprovada',
-    'Aguardando Peça / Material',
-    'Em Execução',
-    'Pausada',
-    'Finalizada',
+    'Agendado',
+    'Aprovado',
+    'Em Andamento',
+    'Aguardando Peças',
+    'Pausado',
     'Aguardando Pagamento',
-    'Encerrada / Concluída',
-    'Cancelada',
+    'Finalizado',
+    'Cancelado',
 ];
 
 export function TransactionsClient({}: {}) {
@@ -272,7 +267,7 @@ export function TransactionsClient({}: {}) {
         ? 'Prestação de Serviço' 
         : companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || (type === 'revenue' ? 'Prestação de Serviço' : 'Despesa');
     
-    const defaultServiceStatus = isQuoteMode ? 'Orçamento' : 'Aberta';
+    const defaultServiceStatus = isQuoteMode ? 'Orçamento' : 'Aprovado';
 
     form.reset({
       description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
@@ -305,7 +300,7 @@ export function TransactionsClient({}: {}) {
     
     let statusToSet = transaction.serviceStatus;
     if (isServiceRelated && statusToSet === 'Agendado') {
-        statusToSet = 'Aberta';
+        statusToSet = 'Em Andamento';
     }
 
     setEditingTransaction(transaction);
@@ -320,7 +315,7 @@ export function TransactionsClient({}: {}) {
       firstDueDate: firstDueDate,
       items: transaction.items || [],
       services: transaction.services || [],
-      serviceStatus: isServiceRelated ? (statusToSet || 'Aberta') : undefined,
+      serviceStatus: isServiceRelated ? (statusToSet || 'Aprovado') : undefined,
       kmAtual: transaction.kmAtual,
       kmProximaTroca: transaction.kmProximaTroca,
     });
@@ -669,7 +664,7 @@ export function TransactionsClient({}: {}) {
       if (finalTransaction) {
         const isService = finalTransaction.subtype === 'Prestação de Serviço' || finalTransaction.subtype === 'Serviço + Venda';
         const isSale = finalTransaction.subtype === 'Venda';
-        const isServiceFinished = isService && (finalTransaction.serviceStatus === 'Finalizada' || finalTransaction.serviceStatus === 'Encerrada / Concluída');
+        const isServiceFinished = isService && (finalTransaction.serviceStatus === 'Aguardando Pagamento' || finalTransaction.serviceStatus === 'Finalizado');
         const isNewQuote = isService && finalTransaction.serviceStatus === 'Orçamento' && !editingTransaction;
 
         if (isNewQuote || isSale || isServiceFinished) {
