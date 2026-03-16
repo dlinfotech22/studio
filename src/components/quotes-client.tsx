@@ -26,6 +26,7 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 export function QuotesClient() {
   const [quotes, setQuotes] = useState<Transaction[]>([]);
@@ -37,6 +38,9 @@ export function QuotesClient() {
 
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [quoteToDelete, setQuoteToDelete] = useState<Transaction | null>(null);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   useEffect(() => {
     const cId = sessionStorage.getItem('current-user-company-id');
@@ -74,6 +78,10 @@ export function QuotesClient() {
       setIsLoading(false);
     }
   }, [toast]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, itemsPerPage]);
 
   const handleApprove = async (quoteId: string) => {
     try {
@@ -131,6 +139,16 @@ export function QuotesClient() {
     return customerNameMatch || sequentialIdMatch;
   });
 
+  const totalQuotes = filteredQuotes.length;
+  const totalPages = itemsPerPage > 0 ? Math.ceil(totalQuotes / itemsPerPage) : 1;
+  const paginatedQuotes =
+    itemsPerPage > 0
+      ? filteredQuotes.slice(
+          (currentPage - 1) * itemsPerPage,
+          currentPage * itemsPerPage
+        )
+      : filteredQuotes;
+
   if (isLoading) {
     return (
         <div className="space-y-6">
@@ -178,83 +196,135 @@ export function QuotesClient() {
             </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredQuotes.map((quote) => {
-            const isExpired = quote.quoteExpiryDate ? isBefore(new Date(quote.quoteExpiryDate), startOfDay(new Date())) : false;
-            return (
-                <Card key={quote.id} className={cn("flex flex-col", isExpired && "bg-muted/50 border-dashed")}>
-                <CardHeader>
-                    <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle className="text-lg">{quote.customerName}</CardTitle>
-                        <CardDescription>
-                        <span className="font-semibold capitalize text-base">{`Orçamento: ${String(quote.sequentialId).padStart(8, '0')}`}</span>
-                        </CardDescription>
-                    </div>
-                    <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleEdit(quote.id)}>
-                                    <Edit className="mr-2 h-4 w-4" /> Editar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleReprint(quote.id)}>
-                                    <Printer className="mr-2 h-4 w-4" /> Reimprimir
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDelete(quote)} className="text-red-500">
-                                    <Trash2 className="mr-2 h-4 w-4" /> Excluir
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </CardHeader>
-                <CardContent className="flex-grow space-y-4">
-                    <Badge variant={isExpired ? "destructive" : "secondary"}>
-                        {isExpired ? (
-                            <><CircleAlert className="mr-1 h-3 w-3" /> Expirado</>
-                        ) : (
-                            <><Check className="mr-1 h-3 w-3" /> Ativo</>
-                        )}
-                    </Badge>
-                    {quote.quoteExpiryDate && <p className="text-xs text-muted-foreground">Válido até: {format(new Date(quote.quoteExpiryDate), 'dd/MM/yyyy')}</p>}
-
-                    <div className="space-y-2">
-                        <h4 className="font-semibold text-sm flex items-center gap-2"><Wrench className="h-4 w-4"/>Serviços e Produtos</h4>
-                        <div className="pl-4">
-                            {quote.services?.map(s => (
-                                <div key={s.serviceId} className="flex justify-between text-sm">
-                                    <p className="truncate pr-2">{s.serviceName}</p>
-                                    <p className="font-mono">{formatCurrency(s.price)}</p>
-                                </div>
-                            ))}
-                            {quote.items?.map(i => (
-                                <div key={i.productId} className="flex justify-between text-sm">
-                                    <p className="truncate pr-2">{i.quantity}x {i.productName}</p>
-                                    <p className="font-mono">{formatCurrency(i.price * i.quantity)}</p>
-                                </div>
-                            ))}
+        <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedQuotes.map((quote) => {
+                const isExpired = quote.quoteExpiryDate ? isBefore(new Date(quote.quoteExpiryDate), startOfDay(new Date())) : false;
+                return (
+                    <Card key={quote.id} className={cn("flex flex-col", isExpired && "bg-muted/50 border-dashed")}>
+                    <CardHeader>
+                        <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle className="text-lg">{quote.customerName}</CardTitle>
+                            <CardDescription>
+                            <span className="font-semibold capitalize text-base">{`Orçamento: ${String(quote.sequentialId).padStart(8, '0')}`}</span>
+                            </CardDescription>
                         </div>
-                    </div>
-                </CardContent>
-                <CardFooter className="flex-col items-stretch gap-4 !pt-4">
-                    <div className="flex justify-between items-center pt-2 border-t">
-                        <span className="font-bold">Valor Total:</span>
-                        <span className="font-bold text-lg">{formatCurrency(quote.amount)}</span>
-                    </div>
-                    {!isExpired && (
-                        <Button size="sm" className="w-full" onClick={() => handleApprove(quote.id)}>
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Aprovar Orçamento
-                        </Button>
-                    )}
-                </CardFooter>
-                </Card>
-            )
-          })}
-        </div>
+                        <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleEdit(quote.id)}>
+                                        <Edit className="mr-2 h-4 w-4" /> Editar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleReprint(quote.id)}>
+                                        <Printer className="mr-2 h-4 w-4" /> Reimprimir
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDelete(quote)} className="text-red-500">
+                                        <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="flex-grow space-y-4">
+                        <Badge variant={isExpired ? "destructive" : "secondary"}>
+                            {isExpired ? (
+                                <><CircleAlert className="mr-1 h-3 w-3" /> Expirado</>
+                            ) : (
+                                <><Check className="mr-1 h-3 w-3" /> Ativo</>
+                            )}
+                        </Badge>
+                        {quote.quoteExpiryDate && <p className="text-xs text-muted-foreground">Válido até: {format(new Date(quote.quoteExpiryDate), 'dd/MM/yyyy')}</p>}
+
+                        <div className="space-y-2">
+                            <h4 className="font-semibold text-sm flex items-center gap-2"><Wrench className="h-4 w-4"/>Serviços e Produtos</h4>
+                            <div className="pl-4">
+                                {quote.services?.map(s => (
+                                    <div key={s.serviceId} className="flex justify-between text-sm">
+                                        <p className="truncate pr-2">{s.serviceName}</p>
+                                        <p className="font-mono">{formatCurrency(s.price)}</p>
+                                    </div>
+                                ))}
+                                {quote.items?.map(i => (
+                                    <div key={i.productId} className="flex justify-between text-sm">
+                                        <p className="truncate pr-2">{i.quantity}x {i.productName}</p>
+                                        <p className="font-mono">{formatCurrency(i.price * i.quantity)}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </CardContent>
+                    <CardFooter className="flex-col items-stretch gap-4 !pt-4">
+                        <div className="flex justify-between items-center pt-2 border-t">
+                            <span className="font-bold">Valor Total:</span>
+                            <span className="font-bold text-lg">{formatCurrency(quote.amount)}</span>
+                        </div>
+                        {!isExpired && (
+                            <Button size="sm" className="w-full" onClick={() => handleApprove(quote.id)}>
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Aprovar Orçamento
+                            </Button>
+                        )}
+                    </CardFooter>
+                    </Card>
+                )
+            })}
+            </div>
+            {itemsPerPage > 0 && totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 mt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                Total de {totalQuotes} orçamento(s).
+                </div>
+                <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium">Itens por página</p>
+                <Select
+                    value={`${itemsPerPage}`}
+                    onValueChange={(value) => {
+                    setItemsPerPage(Number(value));
+                    setCurrentPage(1);
+                    }}
+                >
+                    <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue placeholder={`${itemsPerPage}`} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                    {[20, 50, 100].map((pageSize) => (
+                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                        {pageSize}
+                        </SelectItem>
+                    ))}
+                    <SelectItem value="0">Todos</SelectItem>
+                    </SelectContent>
+                </Select>
+                </div>
+                <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground">
+                    Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                >
+                    Anterior
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                >
+                    Próximo
+                </Button>
+                </div>
+            </div>
+            )}
+        </>
       )}
     </div>
     <AlertDialog
