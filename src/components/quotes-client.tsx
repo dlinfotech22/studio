@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Wrench, CheckCircle, Search, MoreHorizontal, Edit, Trash2, FileClock, Check, CircleAlert } from 'lucide-react';
+import { Wrench, CheckCircle, Search, MoreHorizontal, Edit, Trash2, FileClock, Check, CircleAlert, PlusCircle, Printer } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { type Transaction } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -95,6 +95,16 @@ export function QuotesClient() {
     router.push('/transactions');
   };
 
+  const handleNewQuote = () => {
+    sessionStorage.setItem('new-transaction-mode', 'quote');
+    router.push('/transactions');
+  };
+
+  const handleReprint = (quoteId: string) => {
+      sessionStorage.setItem('transaction-to-reprint', quoteId);
+      router.push('/transactions');
+  }
+
   const handleDelete = (quote: Transaction) => {
     setQuoteToDelete(quote);
     setIsDeleteAlertOpen(true);
@@ -137,16 +147,22 @@ export function QuotesClient() {
   return (
     <>
     <div className="space-y-6">
-        <div className="relative w-full max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-                type="search"
-                placeholder="Buscar por cliente ou nº do orçamento..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-                autoComplete="off"
-            />
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="relative w-full max-w-sm">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Buscar por cliente ou nº do orçamento..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                    autoComplete="off"
+                />
+            </div>
+            <Button onClick={handleNewQuote}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Novo Orçamento
+            </Button>
         </div>
         
       {filteredQuotes.length === 0 ? (
@@ -184,6 +200,9 @@ export function QuotesClient() {
                             <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => handleEdit(quote.id)}>
                                     <Edit className="mr-2 h-4 w-4" /> Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleReprint(quote.id)}>
+                                    <Printer className="mr-2 h-4 w-4" /> Reimprimir
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDelete(quote)} className="text-red-500">
                                     <Trash2 className="mr-2 h-4 w-4" /> Excluir

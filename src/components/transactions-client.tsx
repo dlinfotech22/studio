@@ -264,6 +264,69 @@ export function TransactionsClient({}: {}) {
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
 
+  const openNewTransactionDialog = (type: 'revenue' | 'expense', mode?: string) => {
+    setEditingTransaction(null);
+    const isQuoteMode = mode === 'quote';
+
+    const defaultSubtype = isQuoteMode 
+        ? 'Prestação de Serviço' 
+        : companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || (type === 'revenue' ? 'Prestação de Serviço' : 'Despesa');
+    
+    const defaultServiceStatus = isQuoteMode ? 'Orçamento' : 'Aberta';
+
+    form.reset({
+      description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
+      customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
+      firstDueDate: undefined, items: [], services: [], 
+      serviceStatus: defaultServiceStatus,
+      kmAtual: undefined, kmProximaTroca: undefined,
+    });
+    setIsDialogOpen(true);
+  };
+  
+  const handlePrint = (transactionToPrint: Transaction) => {
+    setTransactionToPrint(transactionToPrint);
+    setIsPrintDialogOpen(true);
+  }
+
+  const handleEdit = (transaction: Transaction) => {
+    let firstDueDate: Date | undefined;
+    if (transaction.installments && transaction.installments.length > 0) {
+        const firstInstallmentDueDate = transaction.installments[0].dueDate;
+        firstDueDate = (firstInstallmentDueDate as Timestamp).toDate();
+    }
+    
+    let scheduledDate: Date | undefined;
+    if (transaction.scheduledDate) {
+        scheduledDate = (transaction.scheduledDate as Timestamp).toDate();
+    }
+
+    const isServiceRelated = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
+    
+    let statusToSet = transaction.serviceStatus;
+    if (isServiceRelated && statusToSet === 'Agendado') {
+        statusToSet = 'Aberta';
+    }
+
+    setEditingTransaction(transaction);
+    form.reset({
+      ...transaction,
+      date: new Date(transaction.date as Date),
+      amount: Math.abs(transaction.amount),
+      customerId: transaction.customerId || undefined,
+      customerName: transaction.customerName || undefined,
+      paymentMethod: transaction.paymentMethod || 'À Vista',
+      installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
+      firstDueDate: firstDueDate,
+      items: transaction.items || [],
+      services: transaction.services || [],
+      serviceStatus: isServiceRelated ? (statusToSet || 'Aberta') : undefined,
+      kmAtual: transaction.kmAtual,
+      kmProximaTroca: transaction.kmProximaTroca,
+    });
+    setActiveTab(transaction.type);
+    setIsDialogOpen(true);
+  };
 
   useEffect(() => {
     const id = sessionStorage.getItem('current-user-company-id');
@@ -320,59 +383,44 @@ export function TransactionsClient({}: {}) {
         unsubCompany();
     };
   }, []);
-
-  const handleEdit = (transaction: Transaction) => {
-    let firstDueDate: Date | undefined;
-    if (transaction.installments && transaction.installments.length > 0) {
-        const firstInstallmentDueDate = transaction.installments[0].dueDate;
-        firstDueDate = (firstInstallmentDueDate as Timestamp).toDate();
-    }
-    
-    let scheduledDate: Date | undefined;
-    if (transaction.scheduledDate) {
-        scheduledDate = (transaction.scheduledDate as Timestamp).toDate();
-    }
-
-    const isServiceRelated = transaction.subtype === 'Prestação de Serviço' || transaction.subtype === 'Serviço + Venda';
-    
-    let statusToSet = transaction.serviceStatus;
-    if (isServiceRelated && statusToSet === 'Agendado') {
-        statusToSet = 'Aberta';
-    }
-
-    setEditingTransaction(transaction);
-    form.reset({
-      ...transaction,
-      date: new Date(transaction.date as Date),
-      amount: Math.abs(transaction.amount),
-      customerId: transaction.customerId || undefined,
-      customerName: transaction.customerName || undefined,
-      paymentMethod: transaction.paymentMethod || 'À Vista',
-      installmentsCount: transaction.installmentsCount || transaction.installments?.length || undefined,
-      firstDueDate: firstDueDate,
-      items: transaction.items || [],
-      services: transaction.services || [],
-      serviceStatus: isServiceRelated ? (statusToSet || 'Aberta') : undefined,
-      kmAtual: transaction.kmAtual,
-      kmProximaTroca: transaction.kmProximaTroca,
-    });
-    setActiveTab(transaction.type);
-    setIsDialogOpen(true);
-  };
   
   useEffect(() => {
-    if (!isLoading && allTransactions.length > 0 && !hasInitialTransactionBeenHandled) {
-      const transactionId = sessionStorage.getItem('transaction-to-edit');
-      if (transactionId) {
-        const transactionToEdit = allTransactions.find(t => t.id === transactionId);
-        if (transactionToEdit) {
-          handleEdit(transactionToEdit);
-          sessionStorage.removeItem('transaction-to-edit');
-        }
-      }
-      setHasInitialTransactionBeenHandled(true);
+    if (isLoading || hasInitialTransactionBeenHandled) {
+        return;
     }
-  }, [allTransactions, isLoading, hasInitialTransactionBeenHandled]);
+
+    if (allTransactions.length > 0 || !isLoading) { // Check !isLoading to handle case with 0 transactions
+        const transactionIdToEdit = sessionStorage.getItem('transaction-to-edit');
+        if (transactionIdToEdit) {
+            const tx = allTransactions.find(t => t.id === transactionIdToEdit);
+            if (tx) handleEdit(tx);
+            sessionStorage.removeItem('transaction-to-edit');
+            setHasInitialTransactionBeenHandled(true);
+            return; 
+        }
+
+        const txToReprintId = sessionStorage.getItem('transaction-to-reprint');
+        if (txToReprintId) {
+            const tx = allTransactions.find(t => t.id === txToReprintId);
+            if (tx) handlePrint(tx);
+            sessionStorage.removeItem('transaction-to-reprint');
+            setHasInitialTransactionBeenHandled(true);
+            return;
+        }
+
+        const mode = sessionStorage.getItem('new-transaction-mode');
+        if (mode === 'quote') {
+            openNewTransactionDialog('revenue', 'quote');
+            sessionStorage.removeItem('new-transaction-mode');
+            setHasInitialTransactionBeenHandled(true);
+            return;
+        }
+    }
+    
+    if (!isLoading) {
+        setHasInitialTransactionBeenHandled(true);
+    }
+  }, [isLoading, allTransactions, hasInitialTransactionBeenHandled]);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
@@ -622,8 +670,9 @@ export function TransactionsClient({}: {}) {
         const isService = finalTransaction.subtype === 'Prestação de Serviço' || finalTransaction.subtype === 'Serviço + Venda';
         const isSale = finalTransaction.subtype === 'Venda';
         const isServiceFinished = isService && (finalTransaction.serviceStatus === 'Finalizada' || finalTransaction.serviceStatus === 'Encerrada / Concluída');
+        const isNewQuote = isService && finalTransaction.serviceStatus === 'Orçamento' && !editingTransaction;
 
-        if (finalTransaction.serviceStatus !== 'Orçamento' && (isSale || isServiceFinished)) {
+        if (isNewQuote || isSale || isServiceFinished) {
           handlePrint(finalTransaction);
         }
       }
@@ -673,22 +722,6 @@ export function TransactionsClient({}: {}) {
         variant: 'destructive',
       });
     }
-  };
-
-  const handlePrint = (transactionToPrint: Transaction) => {
-    setTransactionToPrint(transactionToPrint);
-    setIsPrintDialogOpen(true);
-  }
-
-  const openNewTransactionDialog = (type: 'revenue' | 'expense') => {
-    setEditingTransaction(null);
-    const defaultSubtype = companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || (type === 'revenue' ? 'Prestação de Serviço' : 'Despesa');
-    form.reset({
-      description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
-      customerId: undefined, customerName: undefined, paymentMethod: 'À Vista', installmentsCount: undefined,
-      firstDueDate: undefined, items: [], services: [], serviceStatus: 'Orçamento', kmAtual: undefined, kmProximaTroca: undefined,
-    });
-    setIsDialogOpen(true);
   };
 
   const clearFilters = () => {
