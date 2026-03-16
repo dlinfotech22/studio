@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type TransactionType = 'revenue' | 'expense';
@@ -13,6 +12,7 @@ export type PaymentMethod = 'À Vista' | 'Parcelado' | 'A Prazo';
 export type TransactionStatus = 'Pago' | 'Pendente' | 'Parcialmente Pago';
 export type ServiceStatus =
   | 'Agendado'
+  | 'Orçamento'
   | 'Aberta'
   | 'Aguardando Aprovação'
   | 'Aprovada'
@@ -63,6 +63,7 @@ export type Transaction = {
   paymentMethod?: PaymentMethod;
   status?: TransactionStatus;
   serviceStatus?: ServiceStatus;
+  quoteExpiryDate?: Date | Timestamp;
   installments?: Installment[];
   installmentsCount?: number;
   // Fields for multi-item transactions

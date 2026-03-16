@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -68,7 +67,7 @@ export function WorkOrdersClient() {
                 })
                 .filter(service => 
                     service.serviceStatus && 
-                    !['Agendado', 'Encerrada / Concluída', 'Cancelada'].includes(service.serviceStatus)
+                    !['Agendado', 'Orçamento', 'Encerrada / Concluída', 'Cancelada'].includes(service.serviceStatus)
                 );
             
             setActiveServices(fetchedServices.sort((a,b) => (a.date as Date).getTime() - (b.date as Date).getTime()));
@@ -143,7 +142,7 @@ export function WorkOrdersClient() {
                     {activeServices.length > 0 ? 'Nenhum serviço encontrado' : 'Nenhum serviço em andamento.'}
                 </h2>
                 <p className="max-w-md mt-2 text-sm text-muted-foreground">
-                    {activeServices.length > 0 ? 'Tente um termo de busca diferente.' : 'Confirme um agendamento para que ele apareça aqui.'}
+                    {activeServices.length > 0 ? 'Tente um termo de busca diferente.' : 'Confirme um agendamento ou aprove um orçamento para que ele apareça aqui.'}
                 </p>
             </div>
         </div>

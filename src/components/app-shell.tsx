@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, type ReactNode, useCallback } from 'react';
@@ -31,6 +30,7 @@ import {
   Maximize,
   Minimize,
   Droplets,
+  FileClock,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -305,6 +305,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                           <span>Catálogo de Serviços</span>
                         </SidebarMenuButton>
                       </Link>
+                    </SidebarMenuItem>
+                     <SidebarMenuItem>
+                        <Link href="/quotes">
+                            <SidebarMenuButton
+                                tooltip="Orçamentos"
+                                isActive={pathname === '/quotes'}
+                            >
+                                <FileClock />
+                                <span>Orçamentos</span>
+                            </SidebarMenuButton>
+                        </Link>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
                         <Link href="/schedule">
