@@ -266,8 +266,15 @@ export function TransactionsClient({}: {}) {
     const isQuote = mode === 'quote';
     setIsQuoteMode(isQuote);
 
+    const defaultSubtypeForQuote = companyInfo?.allowedSubtypes?.find(
+        (st) =>
+          st === 'Prestação de Serviço' ||
+          st === 'Venda' ||
+          st === 'Serviço + Venda'
+      ) || 'Prestação de Serviço';
+
     const defaultSubtype = isQuote 
-        ? 'Prestação de Serviço' 
+        ? defaultSubtypeForQuote
         : companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || (type === 'revenue' ? 'Prestação de Serviço' : 'Despesa');
     
     const defaultServiceStatus = isQuote ? 'Orçamento' : 'Aprovado';
@@ -586,11 +593,15 @@ export function TransactionsClient({}: {}) {
           items: data.items,
           services: data.services,
           kmAtual: data.kmAtual,
-          kmProximaTroca: data.kmProximaTroca
+          kmProximaTroca: data.kmProximaTroca,
         };
         
+        // Clean up undefined/null values before sending to Firestore
         if (data.kmAtual) payload.kmAtual = data.kmAtual;
+        else delete payload.kmAtual;
+        
         if (data.kmProximaTroca) payload.kmProximaTroca = data.kmProximaTroca;
+        else delete payload.kmProximaTroca;
 
         if (isServiceRelated) {
           payload.serviceStatus = data.serviceStatus;
@@ -675,10 +686,12 @@ export function TransactionsClient({}: {}) {
       if (finalTransaction) {
         const isService = finalTransaction.subtype === 'Prestação de Serviço' || finalTransaction.subtype === 'Serviço + Venda';
         const isSale = finalTransaction.subtype === 'Venda';
-        const isServiceFinished = isService && (finalTransaction.serviceStatus === 'Finalizado');
+        const isServiceFinished = isService && finalTransaction.serviceStatus === 'Finalizado';
 
-        if (isSale || isServiceFinished) {
+        if ((isSale || isService) && !isQuoteMode && isServiceFinished) {
           handlePrint(finalTransaction);
+        } else if (isSale && !isService) {
+           handlePrint(finalTransaction);
         }
       }
   
@@ -1308,32 +1321,42 @@ export function TransactionsClient({}: {}) {
                   <FormField
                     control={form.control}
                     name="subtype"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de Lançamento</FormLabel>
-                        <Select
-                          onValueChange={(value: TransactionSubtype) => {
-                            field.onChange(value);
-                            form.setValue('items', []);
-                            form.setValue('services', []);
-                            form.setValue('amount', undefined);
-                          }}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o tipo" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {companyInfo?.allowedSubtypes?.map(subtype => (
-                                <SelectItem key={subtype} value={subtype}>{subtype}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                        const subtypesForDropdown = isQuoteMode
+                            ? companyInfo?.allowedSubtypes?.filter(
+                                (st) =>
+                                  st === 'Prestação de Serviço' ||
+                                  st === 'Venda' ||
+                                  st === 'Serviço + Venda'
+                              )
+                            : companyInfo?.allowedSubtypes;
+                        return (
+                          <FormItem>
+                            <FormLabel>Tipo de Lançamento</FormLabel>
+                            <Select
+                              onValueChange={(value: TransactionSubtype) => {
+                                field.onChange(value);
+                                form.setValue('items', []);
+                                form.setValue('services', []);
+                                form.setValue('amount', undefined);
+                              }}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o tipo" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {subtypesForDropdown?.map(subtype => (
+                                    <SelectItem key={subtype} value={subtype}>{subtype}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )
+                    }}
                   />
                   {selectedSubtype !== 'Despesa' && selectedSubtype !== 'Receita Avulsa' && (
                     <FormField
@@ -1626,5 +1649,3 @@ export function TransactionsClient({}: {}) {
     </>
   );
 }
-
-    
