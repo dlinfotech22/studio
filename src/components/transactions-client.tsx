@@ -606,7 +606,7 @@ export function TransactionsClient({}: {}) {
           if (data.serviceStatus === 'Orçamento') {
               const validityDays = companyInfo?.quoteValidityDays || 30;
               payload.quoteExpiryDate = Timestamp.fromDate(addDays(new Date(), validityDays));
-          } else {
+          } else if (editingTransaction) {
               payload.quoteExpiryDate = deleteField();
           }
         }
@@ -1141,6 +1141,9 @@ export function TransactionsClient({}: {}) {
 
   const getPrintDialogTitle = () => {
     if (!transactionToPrint) return 'Gerar Documento';
+    if (transactionToPrint.serviceStatus === 'Orçamento') {
+      return 'Gerar Orçamento';
+    }
     switch (transactionToPrint.subtype) {
       case 'Prestação de Serviço':
       case 'Serviço + Venda':
