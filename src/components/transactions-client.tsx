@@ -34,6 +34,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
+import { useRouter } from 'next/navigation';
 
 import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer, type TransactionItem, type Service, type TransactionServiceItem, type ServiceStatus } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -97,7 +98,6 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandInput,
-  CommandItem,
   CommandList,
 } from '@/components/ui/command';
 import { PrintableDocument } from './printable-document';
@@ -231,6 +231,7 @@ const serviceStatusOptions: ServiceStatus[] = [
 
 export function TransactionsClient({}: {}) {
   const { toast } = useToast();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<
@@ -260,6 +261,7 @@ export function TransactionsClient({}: {}) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
+  const [onPrintDialogClose, setOnPrintDialogClose] = useState<(() => void) | null>(null);
 
   const openNewTransactionDialog = (type: 'revenue' | 'expense', mode?: string) => {
     setEditingTransaction(null);
@@ -289,10 +291,11 @@ export function TransactionsClient({}: {}) {
     setIsDialogOpen(true);
   };
   
-  const handlePrint = (transactionToPrint: Transaction) => {
+  const handlePrint = (transactionToPrint: Transaction, onDialogClose?: () => void) => {
     setTransactionToPrint(transactionToPrint);
+    setOnPrintDialogClose(onDialogClose ? () => onDialogClose : null);
     setIsPrintDialogOpen(true);
-  }
+  };
 
   const handleEdit = (transaction: Transaction) => {
     const isQuote = transaction.serviceStatus === 'Orçamento';
@@ -602,7 +605,7 @@ export function TransactionsClient({}: {}) {
               const validityDays = companyInfo?.quoteValidityDays || 30;
               payload.quoteExpiryDate = Timestamp.fromDate(addDays(new Date(), validityDays));
           } else {
-              payload.quoteExpiryDate = null;
+              payload.quoteExpiryDate = deleteField();
           }
         }
         
@@ -668,6 +671,8 @@ export function TransactionsClient({}: {}) {
       
       toast({ title: 'Sucesso!', description: `Lançamento ${editingTransaction ? 'atualizado' : 'adicionado'}.` });
       
+      const isNewQuote = isQuoteMode && !editingTransaction;
+
       setEditingTransaction(null);
       setIsDialogOpen(false);
       form.reset({
@@ -681,7 +686,9 @@ export function TransactionsClient({}: {}) {
         const isSale = finalTransaction.subtype === 'Venda';
         const isServiceFinished = isService && finalTransaction.serviceStatus === 'Finalizado';
 
-        if ((isSale || (isService && isServiceFinished)) && !isQuoteMode ) {
+        if (isNewQuote) {
+          handlePrint(finalTransaction, () => router.push('/quotes'));
+        } else if ((isSale || (isService && isServiceFinished)) && !isQuoteMode ) {
           handlePrint(finalTransaction);
         }
       }
@@ -775,10 +782,18 @@ export function TransactionsClient({}: {}) {
                 {paginatedData.length > 0 ? (
                   paginatedData.map((item) => (
                     <TableRow key={item.id}>
-                      {type === 'revenue' && <TableCell>{item.customerName || '-'}</TableCell>}
-                      <TableCell className="font-medium">
-                        {item.description}
-                      </TableCell>
+                       {type === 'revenue' ? (
+                        <TableCell>{item.customerName || '-'}</TableCell>
+                      ) : (
+                        <TableCell className="font-medium">
+                          {item.description}
+                        </TableCell>
+                      )}
+                      {type === 'revenue' && (
+                        <TableCell className="font-medium">
+                          {item.description}
+                        </TableCell>
+                      )}
                       <TableCell>{item.subtype}</TableCell>
                        {type === 'revenue' && (
                           <TableCell>
@@ -1618,7 +1633,15 @@ export function TransactionsClient({}: {}) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+      <Dialog open={isPrintDialogOpen} onOpenChange={(isOpen) => {
+        setIsPrintDialogOpen(isOpen);
+        if (!isOpen) {
+            if (onPrintDialogClose) {
+                onPrintDialogClose();
+                setOnPrintDialogClose(null);
+            }
+        }
+      }}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{getPrintDialogTitle()}</DialogTitle>
