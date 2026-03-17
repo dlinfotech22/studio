@@ -119,7 +119,9 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
         <div className="space-y-4 text-sm">
           {hasServices && serviceItems.length > 0 && (
             <div>
-              <h4 className="font-semibold text-gray-600 mb-1">Serviços Prestados</h4>
+              <h4 className="font-semibold text-gray-600 mb-1">
+                {transaction.serviceStatus === 'Orçamento' ? 'Serviços' : 'Serviços Prestados'}
+              </h4>
                <table className="w-full text-left">
                 <thead className="border-b">
                   <tr className="bg-gray-100">
@@ -140,7 +142,9 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
           )}
           {hasProducts && productItems.length > 0 && (
             <div>
-              <h4 className="font-semibold text-gray-600 mb-1">Produtos Vendidos</h4>
+              <h4 className="font-semibold text-gray-600 mb-1">
+                {transaction.serviceStatus === 'Orçamento' ? 'Produtos' : 'Produtos Vendidos'}
+              </h4>
               <table className="w-full text-left">
                 <thead className="border-b">
                   <tr className="bg-gray-100">
