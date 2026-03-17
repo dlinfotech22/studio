@@ -97,7 +97,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
         <div className="text-right">
           <h2 className="text-xl font-semibold text-gray-700">{getTitle()}</h2>
           <p className="text-sm text-gray-500">Nº: {transaction.sequentialId ? String(transaction.sequentialId).padStart(8, '0') : transaction.id.substring(0, 8).toUpperCase()}</p>
-          <p className="text-sm text-gray-500">Data de Emissão: {format(new Date(transaction.date as Date), 'dd/MM/yyyy')}</p>
+          <p className="text-sm text-gray-500">Data de Emissão: {format(new Date(transaction.date as Date), 'dd/MM/yyyy HH:mm')}</p>
         </div>
       </header>
 
@@ -108,7 +108,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
             <p><span className="font-semibold">Nome:</span> {customer.name}</p>
             {customer.document && <p><span className="font-semibold">CPF/CNPJ:</span> {formatDocument(customer.document)}</p>}
             {customer.email && <p><span className="font-semibold">Email:</span> {customer.email}</p>}
-            {customer.phone && <p><span className="font-semibold">Telefone:</span> {customer.phone}</p>}
+            {customer.phone && <p><span className="font-semibold">Telefone:</span> {formatPhone(customer.phone)}</p>}
           </div>
         </section>
       )}
@@ -122,6 +122,12 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
         </section>
       )}
 
+      {transaction.description && (
+        <section className="mt-6">
+          <h3 className="text-lg font-semibold border-b border-gray-200 pb-2 mb-2 text-gray-700">Observações</h3>
+          <p className="text-sm">{transaction.description}</p>
+        </section>
+      )}
 
       <section className="mt-6">
         <h3 className="text-lg font-semibold border-b border-gray-200 pb-2 mb-4 text-gray-700">Detalhes da Operação</h3>
@@ -214,6 +220,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
       </section>
 
       <footer className="mt-16 text-center text-xs text-gray-400 border-t pt-4">
+        <p>Esse cupom não é um documento fiscal</p>
         <p>Este é um documento gerado pelo sistema.</p>
         {companyInfo?.name && <p>{companyInfo.name}</p>}
       </footer>
