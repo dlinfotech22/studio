@@ -17,6 +17,10 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
   if (!transaction) return null;
 
   const getTitle = () => {
+    if (transaction.serviceStatus === 'Orçamento') {
+      return 'Orçamento';
+    }
+
     switch(transaction.subtype) {
       case 'Prestação de Serviço': return 'Ordem de Serviço';
       case 'Serviço + Venda': return 'Ordem de Serviço';
