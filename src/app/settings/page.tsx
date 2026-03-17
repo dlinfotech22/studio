@@ -13,11 +13,6 @@ import {
   getDocs,
   doc,
   updateDoc,
-  getDoc,
-  addDoc,
-  deleteDoc,
-  writeBatch,
-  Timestamp,
 } from 'firebase/firestore';
 import {
   ref as storageRef,
@@ -60,7 +55,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { db, storage } from '@/lib/firebase';
-import { maskDocument } from '@/lib/utils';
+import { maskDocument, formatPhone } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -94,6 +89,9 @@ const companyInfoSchema = z.object({
   name: z.string().min(1, 'O nome da empresa é obrigatório.'),
   document: z.string().min(1, 'O CNPJ/CPF é obrigatório.'),
   logo: z.string().optional(),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
   quoteValidityDays: z.coerce.number().int().min(1, 'A validade deve ser de pelo menos 1 dia.').optional(),
 });
 
@@ -104,6 +102,9 @@ const defaultCompanyInfo: CompanyInfo = {
   name: '',
   document: '',
   logo: '',
+  address: '',
+  phone: '',
+  email: '',
 };
 
 function canvasPreview(
@@ -313,6 +314,7 @@ function CompanyProfile() {
     values: {
       ...companyInfo,
       document: maskDocument(companyInfo.document),
+      phone: formatPhone(companyInfo.phone || ''),
       quoteValidityDays: companyInfo.quoteValidityDays || 30,
     },
   });
@@ -321,6 +323,7 @@ function CompanyProfile() {
     form.reset({
         ...companyInfo,
         document: maskDocument(companyInfo.document),
+        phone: formatPhone(companyInfo.phone || ''),
         quoteValidityDays: companyInfo.quoteValidityDays || 30,
     });
   }, [companyInfo, form]);
@@ -329,21 +332,25 @@ function CompanyProfile() {
     if (!companyId || (!isSystemAdmin && !isCompanyAdmin)) return;
 
     try {
-      const updatedInfo = { ...companyInfo, ...values, name: values.name.toUpperCase() };
+      const updatedInfo = { ...companyInfo, ...values, name: values.name.toUpperCase(), phone: values.phone?.replace(/\D/g, '') };
       const companyRef = doc(db, 'companies', updatedInfo.id);
       const payload: Partial<CompanyInfo> = {
         name: updatedInfo.name,
         logo: updatedInfo.logo,
+        address: values.address,
+        phone: updatedInfo.phone,
+        email: values.email,
         quoteValidityDays: values.quoteValidityDays,
       };
       
-      await updateDoc(companyRef, payload);
+      await updateDoc(companyRef, payload as any);
 
       setCompanyInfo(updatedInfo);
       toast({ title: 'Sucesso!', description: 'Informações da empresa salvas.' });
       form.reset({
         ...updatedInfo,
         document: maskDocument(updatedInfo.document),
+        phone: formatPhone(updatedInfo.phone || ''),
         quoteValidityDays: values.quoteValidityDays,
       });
     } catch (error: any) {
@@ -427,16 +434,16 @@ function CompanyProfile() {
     ));
   }
 
+  const canEdit = isSystemAdmin || isCompanyAdmin;
+
   return (
     <>
       <Card>
         <CardHeader>
           <CardTitle>Informações da Empresa</CardTitle>
           <CardDescription>
-            {isSystemAdmin
-              ? 'Como administrador do sistema, você pode alterar o nome e o logo da empresa.'
-              : isCompanyAdmin
-              ? 'Como administrador da empresa, você pode alterar o logo e outras configurações.'
+            {canEdit
+              ? 'Gerencie os dados cadastrais da sua empresa.'
               : 'Somente administradores podem editar estas informações.'}
           </CardDescription>
         </CardHeader>
@@ -454,7 +461,7 @@ function CompanyProfile() {
                   type="button"
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}
+                  disabled={!canEdit || isUploading}
                 >
                   {isUploading ? 'Carregando...' : 'Carregar Logo'}
                 </Button>
@@ -464,7 +471,7 @@ function CompanyProfile() {
                   className="hidden"
                   accept="image/png, image/jpeg"
                   onChange={handleLogoChange}
-                  disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}
+                  disabled={!canEdit || isUploading}
                   autoComplete="off"
                 />
               </div>
@@ -503,6 +510,59 @@ function CompanyProfile() {
                     </FormItem>
                   )}
                 />
+                 <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Endereço</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          disabled={!canEdit}
+                          autoComplete="off"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          disabled={!canEdit}
+                          autoComplete="off"
+                          onChange={(e) => field.onChange(formatPhone(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          {...field}
+                          disabled={!canEdit}
+                          autoComplete="off"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="quoteValidityDays"
@@ -513,7 +573,7 @@ function CompanyProfile() {
                         <Input
                           type="number"
                           {...field}
-                          disabled={!isCompanyAdmin && !isSystemAdmin}
+                          disabled={!canEdit}
                           autoComplete="off"
                           value={field.value ?? ''}
                           onChange={(e) => field.onChange(e.target.valueAsNumber)}
@@ -529,7 +589,7 @@ function CompanyProfile() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}>Salvar Informações</Button>
+              <Button type="submit" disabled={!canEdit || isUploading}>Salvar Informações</Button>
             </CardFooter>
           </form>
         </Form>

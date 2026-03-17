@@ -2,7 +2,7 @@
 'use client';
 
 import { type Transaction, type Customer, type Product, type CompanyInfo } from '@/lib/types';
-import { formatCurrency, maskDocument } from '@/lib/utils';
+import { formatCurrency, maskDocument, formatPhone } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Building } from 'lucide-react';
@@ -73,17 +73,22 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
         `}
       </style>
       <header className="flex justify-between items-start pb-4 border-b border-gray-300">
-        <div className="flex items-center gap-4">
-          {companyInfo?.logo && (
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={companyInfo.logo} />
-              <AvatarFallback><Building /></AvatarFallback>
-            </Avatar>
-          )}
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">{companyInfo?.name || 'Sua Empresa'}</h1>
-            {companyInfo?.document && <p className="text-sm text-gray-500">CNPJ/CPF: {maskDocument(companyInfo.document)}</p>}
-          </div>
+         <div>
+            <div className="flex items-center gap-4">
+                {companyInfo?.logo && (
+                    <Avatar className="h-16 w-16">
+                    <AvatarImage src={companyInfo.logo} />
+                    <AvatarFallback><Building /></AvatarFallback>
+                    </Avatar>
+                )}
+                <h1 className="text-2xl font-bold text-gray-800">{companyInfo?.name || 'Sua Empresa'}</h1>
+            </div>
+            <div className="text-sm text-gray-500 mt-2 space-y-1">
+                {companyInfo?.document && <p>CNPJ/CPF: {maskDocument(companyInfo.document)}</p>}
+                {companyInfo?.address && <p>Endereço: {companyInfo.address}</p>}
+                {companyInfo?.phone && <p>Tel: {formatPhone(companyInfo.phone)}</p>}
+                {companyInfo?.email && <p>Email: {companyInfo.email}</p>}
+            </div>
         </div>
         <div className="text-right">
           <h2 className="text-xl font-semibold text-gray-700">{getTitle()}</h2>

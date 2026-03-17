@@ -97,7 +97,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from './ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { cn, formatCurrency, formatDocument, maskDocument } from '@/lib/utils';
+import { cn, formatCurrency, formatDocument, maskDocument, formatPhone } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -122,6 +122,9 @@ const companySchema = z.object({
   paymentNotification: z.string().optional(),
   monthlyFee: z.coerce.number().min(0, 'O valor não pode ser negativo.').optional(),
   isAutomotive: z.boolean().default(false).optional(),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email('Email inválido.').optional().or(z.literal('')),
 });
 
 const editCompanySchema = companySchema;
@@ -359,6 +362,9 @@ export function SystemAdminClient() {
                 paymentNotification: editingCompany.paymentNotification || '',
                 monthlyFee: editingCompany.monthlyFee || undefined,
                 isAutomotive: editingCompany.isAutomotive || false,
+                address: editingCompany.address || '',
+                phone: formatPhone(editingCompany.phone || ''),
+                email: editingCompany.email || '',
               }
             : {
                 name: '',
@@ -371,6 +377,9 @@ export function SystemAdminClient() {
                 paymentNotification: '',
                 monthlyFee: undefined,
                 isAutomotive: false,
+                address: '',
+                phone: '',
+                email: '',
               };
         companyForm.reset(defaultValues, {
             // @ts-ignore
@@ -398,6 +407,9 @@ export function SystemAdminClient() {
           paymentNotification: validatedData.paymentNotification,
           monthlyFee: validatedData.monthlyFee,
           isAutomotive: validatedData.isAutomotive,
+          address: validatedData.address,
+          phone: validatedData.phone?.replace(/\D/g, ''),
+          email: validatedData.email,
         };
         await updateDoc(companyRef, payload as any);
         setCompanies(
@@ -439,6 +451,9 @@ export function SystemAdminClient() {
           name: validatedData.name,
           document: document,
           logo: '',
+          address: '',
+          phone: '',
+          email: '',
           allowedSubtypes: validatedData.allowedSubtypes,
           transactionCounter: 0,
           expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : null,
@@ -1062,6 +1077,49 @@ export function SystemAdminClient() {
                   </FormItem>
                 )}
               />
+              {editingCompany && (
+                 <>
+                    <FormField
+                        control={companyForm.control}
+                        name="address"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Endereço</FormLabel>
+                            <FormControl>
+                            <Input {...field} value={field.value ?? ''} autoComplete="off" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={companyForm.control}
+                        name="phone"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Telefone</FormLabel>
+                            <FormControl>
+                            <Input {...field} value={field.value ?? ''} onChange={(e) => field.onChange(formatPhone(e.target.value))} autoComplete="off" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={companyForm.control}
+                        name="email"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                            <Input type="email" {...field} value={field.value ?? ''} autoComplete="off" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                 </>
+              )}
                <FormField
                 control={companyForm.control}
                 name="monthlyFee"
