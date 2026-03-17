@@ -107,6 +107,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from './ui/card'
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const transactionItemSchema = z.object({
     productId: z.string().min(1),
@@ -1654,11 +1655,13 @@ export function TransactionsClient({}: {}) {
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <PrintableDocument
-            transaction={transactionToPrint}
-            customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
-            companyInfo={companyInfo}
-          />
+          <ScrollArea className="max-h-[70vh] rounded-md border">
+            <PrintableDocument
+              transaction={transactionToPrint}
+              customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
+              companyInfo={companyInfo}
+            />
+          </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>Fechar</Button>
             <Button onClick={() => window.print()}>Imprimir</Button>
