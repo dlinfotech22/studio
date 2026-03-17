@@ -1,8 +1,7 @@
-
 'use client';
 
 import { type Transaction, type Customer, type CompanyInfo } from '@/lib/types';
-import { formatCurrency, maskDocument, formatPhone } from '@/lib/utils';
+import { formatCurrency, formatDocument, formatPhone } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Building } from 'lucide-react';
@@ -87,7 +86,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
                 <h1 className="text-2xl font-bold text-gray-800">{companyInfo?.name || 'Sua Empresa'}</h1>
             </div>
             <div className="text-sm text-gray-500 mt-2 space-y-1">
-                {companyInfo?.document && <p>CNPJ/CPF: {maskDocument(companyInfo.document)}</p>}
+                {companyInfo?.document && <p>CNPJ/CPF: {formatDocument(companyInfo.document)}</p>}
                 {addressLine1 && <p>{addressLine1}</p>}
                 {addressLine2 && <p>{addressLine2}</p>}
                 {companyInfo?.zipCode && <p>CEP: {companyInfo.zipCode}</p>}
@@ -107,7 +106,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
           <h3 className="text-lg font-semibold border-b border-gray-200 pb-2 mb-2 text-gray-700">Informações do Cliente</h3>
           <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
             <p><span className="font-semibold">Nome:</span> {customer.name}</p>
-            {customer.document && <p><span className="font-semibold">CPF/CNPJ:</span> {maskDocument(customer.document)}</p>}
+            {customer.document && <p><span className="font-semibold">CPF/CNPJ:</span> {formatDocument(customer.document)}</p>}
             {customer.email && <p><span className="font-semibold">Email:</span> {customer.email}</p>}
             {customer.phone && <p><span className="font-semibold">Telefone:</span> {customer.phone}</p>}
           </div>
