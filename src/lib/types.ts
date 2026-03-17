@@ -87,6 +87,11 @@ export type CompanyInfo = {
   document: string; // This is the unique identifier (CNPJ/CPF)
   logo?: string; // public URL from Firebase Storage
   address?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
   phone?: string;
   email?: string;
   allowedSubtypes?: TransactionSubtype[];

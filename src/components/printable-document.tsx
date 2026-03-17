@@ -1,7 +1,7 @@
 
 'use client';
 
-import { type Transaction, type Customer, type Product, type CompanyInfo } from '@/lib/types';
+import { type Transaction, type Customer, type CompanyInfo } from '@/lib/types';
 import { formatCurrency, maskDocument, formatPhone } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -48,6 +48,9 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
   const productTotal = productItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
   const serviceTotal = serviceItems.reduce((sum, item) => sum + item.price, 0);
 
+  const addressLine1 = [companyInfo?.address, companyInfo?.number && `nº ${companyInfo.number}`].filter(Boolean).join(', ');
+  const addressLine2 = [companyInfo?.neighborhood, companyInfo?.city, companyInfo?.state].filter(Boolean).join(' - ');
+
   return (
     <div className="bg-white text-black p-8 font-sans printable-area">
       <style>
@@ -85,7 +88,9 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
             </div>
             <div className="text-sm text-gray-500 mt-2 space-y-1">
                 {companyInfo?.document && <p>CNPJ/CPF: {maskDocument(companyInfo.document)}</p>}
-                {companyInfo?.address && <p>Endereço: {companyInfo.address}</p>}
+                {addressLine1 && <p>{addressLine1}</p>}
+                {addressLine2 && <p>{addressLine2}</p>}
+                {companyInfo?.zipCode && <p>CEP: {companyInfo.zipCode}</p>}
                 {companyInfo?.phone && <p>Tel: {formatPhone(companyInfo.phone)}</p>}
                 {companyInfo?.email && <p>Email: {companyInfo.email}</p>}
             </div>

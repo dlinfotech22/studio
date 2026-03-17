@@ -59,3 +59,10 @@ export function maskDocument(doc: string | undefined | null): string {
     return `${cleaned.substring(0, 2)}.***.***/****-${cleaned.substring(12, 14)}`;
   }
 }
+
+export function formatZipCode(value: string) {
+  if (!value) return '';
+  const cleanedValue = value.replace(/\D/g, '');
+  if (cleanedValue.length <= 5) return cleanedValue;
+  return cleanedValue.substring(0, 8).replace(/(\d{5})(\d)/, '$1-$2');
+}

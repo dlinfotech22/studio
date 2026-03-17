@@ -97,7 +97,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from './ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { cn, formatCurrency, formatDocument, maskDocument, formatPhone } from '@/lib/utils';
+import { cn, formatCurrency, formatDocument, maskDocument, formatPhone, formatZipCode } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -123,6 +123,11 @@ const companySchema = z.object({
   monthlyFee: z.coerce.number().min(0, 'O valor não pode ser negativo.').optional(),
   isAutomotive: z.boolean().default(false).optional(),
   address: z.string().optional(),
+  number: z.string().optional(),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email('Email inválido.').optional().or(z.literal('')),
 });
@@ -355,16 +360,15 @@ export function SystemAdminClient() {
         const resolver = zodResolver(editingCompany ? editCompanySchema : newCompanySchema);
         const defaultValues = editingCompany
             ? {
-                name: editingCompany.name,
+                ...editingCompany,
                 document: formatDocument(editingCompany.document),
                 allowedSubtypes: editingCompany.allowedSubtypes || [],
                 expiryDate: editingCompany.expiryDate ? (editingCompany.expiryDate as Timestamp).toDate() : null,
                 paymentNotification: editingCompany.paymentNotification || '',
                 monthlyFee: editingCompany.monthlyFee || undefined,
                 isAutomotive: editingCompany.isAutomotive || false,
-                address: editingCompany.address || '',
                 phone: formatPhone(editingCompany.phone || ''),
-                email: editingCompany.email || '',
+                zipCode: formatZipCode(editingCompany.zipCode || ''),
               }
             : {
                 name: '',
@@ -378,6 +382,11 @@ export function SystemAdminClient() {
                 monthlyFee: undefined,
                 isAutomotive: false,
                 address: '',
+                number: '',
+                neighborhood: '',
+                city: '',
+                state: '',
+                zipCode: '',
                 phone: '',
                 email: '',
               };
@@ -408,6 +417,11 @@ export function SystemAdminClient() {
           monthlyFee: validatedData.monthlyFee,
           isAutomotive: validatedData.isAutomotive,
           address: validatedData.address,
+          number: validatedData.number,
+          neighborhood: validatedData.neighborhood,
+          city: validatedData.city,
+          state: validatedData.state,
+          zipCode: validatedData.zipCode?.replace(/\D/g, ''),
           phone: validatedData.phone?.replace(/\D/g, ''),
           email: validatedData.email,
         };
@@ -451,9 +465,14 @@ export function SystemAdminClient() {
           name: validatedData.name,
           document: document,
           logo: '',
-          address: '',
-          phone: '',
-          email: '',
+          address: validatedData.address || '',
+          number: validatedData.number || '',
+          neighborhood: validatedData.neighborhood || '',
+          city: validatedData.city || '',
+          state: validatedData.state || '',
+          zipCode: validatedData.zipCode?.replace(/\D/g, '') || '',
+          phone: validatedData.phone?.replace(/\D/g, '') || '',
+          email: validatedData.email || '',
           allowedSubtypes: validatedData.allowedSubtypes,
           transactionCounter: 0,
           expiryDate: validatedData.expiryDate ? Timestamp.fromDate(validatedData.expiryDate) : null,
@@ -1080,18 +1099,87 @@ export function SystemAdminClient() {
               {editingCompany && (
                  <>
                     <FormField
-                        control={companyForm.control}
-                        name="address"
-                        render={({ field }) => (
+                      control={companyForm.control}
+                      name="address"
+                      render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Endereço</FormLabel>
-                            <FormControl>
+                          <FormLabel>Endereço</FormLabel>
+                          <FormControl>
                             <Input {...field} value={field.value ?? ''} autoComplete="off" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField
+                        control={companyForm.control}
+                        name="number"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Número</FormLabel>
+                            <FormControl>
+                                <Input {...field} value={field.value ?? ''} autoComplete="off" />
                             </FormControl>
                             <FormMessage />
-                        </FormItem>
+                            </FormItem>
                         )}
-                    />
+                        />
+                        <FormField
+                        control={companyForm.control}
+                        name="neighborhood"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Bairro</FormLabel>
+                            <FormControl>
+                                <Input {...field} value={field.value ?? ''} autoComplete="off" />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <FormField
+                        control={companyForm.control}
+                        name="city"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Cidade</FormLabel>
+                            <FormControl>
+                                <Input {...field} value={field.value ?? ''} autoComplete="off" />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                        <FormField
+                        control={companyForm.control}
+                        name="state"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Estado (UF)</FormLabel>
+                            <FormControl>
+                                <Input {...field} value={field.value ?? ''} maxLength={2} autoComplete="off" />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                        <FormField
+                        control={companyForm.control}
+                        name="zipCode"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>CEP</FormLabel>
+                            <FormControl>
+                                <Input {...field} value={field.value ?? ''} onChange={(e) => field.onChange(formatZipCode(e.target.value))} autoComplete="off" />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    </div>
                     <FormField
                         control={companyForm.control}
                         name="phone"

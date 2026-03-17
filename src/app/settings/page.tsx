@@ -55,7 +55,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { db, storage } from '@/lib/firebase';
-import { maskDocument, formatPhone } from '@/lib/utils';
+import { maskDocument, formatPhone, formatZipCode } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -90,6 +90,11 @@ const companyInfoSchema = z.object({
   document: z.string().min(1, 'O CNPJ/CPF é obrigatório.'),
   logo: z.string().optional(),
   address: z.string().optional(),
+  number: z.string().optional(),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   quoteValidityDays: z.coerce.number().int().min(1, 'A validade deve ser de pelo menos 1 dia.').optional(),
@@ -103,6 +108,11 @@ const defaultCompanyInfo: CompanyInfo = {
   document: '',
   logo: '',
   address: '',
+  number: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+  zipCode: '',
   phone: '',
   email: '',
 };
@@ -315,6 +325,7 @@ function CompanyProfile() {
       ...companyInfo,
       document: maskDocument(companyInfo.document),
       phone: formatPhone(companyInfo.phone || ''),
+      zipCode: formatZipCode(companyInfo.zipCode || ''),
       quoteValidityDays: companyInfo.quoteValidityDays || 30,
     },
   });
@@ -324,6 +335,7 @@ function CompanyProfile() {
         ...companyInfo,
         document: maskDocument(companyInfo.document),
         phone: formatPhone(companyInfo.phone || ''),
+        zipCode: formatZipCode(companyInfo.zipCode || ''),
         quoteValidityDays: companyInfo.quoteValidityDays || 30,
     });
   }, [companyInfo, form]);
@@ -332,12 +344,17 @@ function CompanyProfile() {
     if (!companyId || (!isSystemAdmin && !isCompanyAdmin)) return;
 
     try {
-      const updatedInfo = { ...companyInfo, ...values, name: values.name.toUpperCase(), phone: values.phone?.replace(/\D/g, '') };
+      const updatedInfo = { ...companyInfo, ...values, name: values.name.toUpperCase(), phone: values.phone?.replace(/\D/g, ''), zipCode: values.zipCode?.replace(/\D/g, '') };
       const companyRef = doc(db, 'companies', updatedInfo.id);
       const payload: Partial<CompanyInfo> = {
         name: updatedInfo.name,
         logo: updatedInfo.logo,
         address: values.address,
+        number: values.number,
+        neighborhood: values.neighborhood,
+        city: values.city,
+        state: values.state,
+        zipCode: updatedInfo.zipCode,
         phone: updatedInfo.phone,
         email: values.email,
         quoteValidityDays: values.quoteValidityDays,
@@ -351,6 +368,7 @@ function CompanyProfile() {
         ...updatedInfo,
         document: maskDocument(updatedInfo.document),
         phone: formatPhone(updatedInfo.phone || ''),
+        zipCode: formatZipCode(updatedInfo.zipCode || ''),
         quoteValidityDays: values.quoteValidityDays,
       });
     } catch (error: any) {
@@ -475,7 +493,7 @@ function CompanyProfile() {
                   autoComplete="off"
                 />
               </div>
-              <div className="max-w-md space-y-4">
+              <div className="max-w-xl space-y-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -515,7 +533,7 @@ function CompanyProfile() {
                   name="address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Endereço</FormLabel>
+                      <FormLabel>Endereço (Logradouro)</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -527,6 +545,97 @@ function CompanyProfile() {
                     </FormItem>
                   )}
                 />
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            disabled={!canEdit}
+                            autoComplete="off"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="neighborhood"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bairro</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            disabled={!canEdit}
+                            autoComplete="off"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Cidade</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              disabled={!canEdit}
+                              autoComplete="off"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormField
+                      control={form.control}
+                      name="state"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Estado (UF)</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              maxLength={2}
+                              disabled={!canEdit}
+                              autoComplete="off"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormField
+                      control={form.control}
+                      name="zipCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>CEP</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              disabled={!canEdit}
+                              autoComplete="off"
+                              onChange={(e) => field.onChange(formatZipCode(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                </div>
                 <FormField
                   control={form.control}
                   name="phone"
