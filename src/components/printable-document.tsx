@@ -221,8 +221,6 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
 
       <footer className="mt-16 text-center text-xs text-gray-400 border-t pt-4">
         <p className="font-bold text-sm">Esse cupom não é um documento fiscal</p>
-        <p>Este é um documento gerado pelo sistema.</p>
-        
       </footer>
     </div>
   );
