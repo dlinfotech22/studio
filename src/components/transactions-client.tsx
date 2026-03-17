@@ -247,6 +247,7 @@ export function TransactionsClient({}: {}) {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [isQuoteMode, setIsQuoteMode] = useState(false);
 
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [currentQuantity, setCurrentQuantity] = useState<number | ''>(1);
@@ -262,13 +263,14 @@ export function TransactionsClient({}: {}) {
 
   const openNewTransactionDialog = (type: 'revenue' | 'expense', mode?: string) => {
     setEditingTransaction(null);
-    const isQuoteMode = mode === 'quote';
+    const isQuote = mode === 'quote';
+    setIsQuoteMode(isQuote);
 
-    const defaultSubtype = isQuoteMode 
+    const defaultSubtype = isQuote 
         ? 'Prestação de Serviço' 
         : companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || (type === 'revenue' ? 'Prestação de Serviço' : 'Despesa');
     
-    const defaultServiceStatus = isQuoteMode ? 'Orçamento' : 'Aprovado';
+    const defaultServiceStatus = isQuote ? 'Orçamento' : 'Aprovado';
 
     form.reset({
       description: '', amount: undefined, date: new Date(), subtype: defaultSubtype,
@@ -286,6 +288,9 @@ export function TransactionsClient({}: {}) {
   }
 
   const handleEdit = (transaction: Transaction) => {
+    const isQuote = transaction.serviceStatus === 'Orçamento';
+    setIsQuoteMode(isQuote);
+
     let firstDueDate: Date | undefined;
     if (transaction.installments && transaction.installments.length > 0) {
         const firstInstallmentDueDate = transaction.installments[0].dueDate;
@@ -592,20 +597,23 @@ export function TransactionsClient({}: {}) {
           if (data.serviceStatus === 'Orçamento') {
               payload.quoteExpiryDate = Timestamp.fromDate(addDays(new Date(), 30));
           } else {
-              // In a real scenario, you might want to use deleteField() for quoteExpiryDate
-              // but setting it to null or undefined works to remove it from future payloads
               payload.quoteExpiryDate = null;
           }
         }
-
+        
         if (transactionType === 'expense' || data.subtype === 'Receita Avulsa') {
-          payload.status = 'Pago';
-          delete payload.paymentMethod;
+            payload.status = 'Pago';
+            delete payload.paymentMethod;
         } else {
-          payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
+            if (isServiceRelated && data.serviceStatus === 'Orçamento') {
+                payload.status = 'Pendente'; // Financial status for a quote is always pending
+                delete payload.paymentMethod;
+            } else {
+                payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
+            }
         }
-  
-        if (data.paymentMethod === 'A Prazo' && data.firstDueDate) {
+
+        if (data.paymentMethod === 'A Prazo' && data.firstDueDate && !isQuoteMode) {
           payload.installments = [{
             installmentNumber: 1,
             dueDate: Timestamp.fromDate(data.firstDueDate),
@@ -615,7 +623,7 @@ export function TransactionsClient({}: {}) {
           payload.installmentsCount = 1;
         }
   
-        if (data.paymentMethod === 'Parcelado' && data.installmentsCount && data.firstDueDate) {
+        if (data.paymentMethod === 'Parcelado' && data.installmentsCount && data.firstDueDate && !isQuoteMode) {
           payload.installments = [];
           const installmentAmount = totalAmount / data.installmentsCount;
           for (let i = 0; i < data.installmentsCount; i++) {
@@ -1284,11 +1292,14 @@ export function TransactionsClient({}: {}) {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingTransaction ? 'Editar' : 'Adicionar'} Lançamento
+             <DialogTitle>
+                {isQuoteMode ? 'Novo Orçamento' : (editingTransaction ? 'Editar' : 'Adicionar') + ' Lançamento'}
             </DialogTitle>
             <DialogDescription>
-              Preencha os detalhes do seu lançamento financeiro.
+                {isQuoteMode
+                    ? 'Preencha os detalhes para criar uma nova proposta de serviço/venda.'
+                    : 'Preencha os detalhes do seu lançamento financeiro.'
+                }
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -1454,7 +1465,7 @@ export function TransactionsClient({}: {}) {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                   <DatePicker fieldName="date" />
 
-                  {selectedSubtype !== 'Despesa' && selectedSubtype !== 'Receita Avulsa' && (
+                  {selectedSubtype !== 'Despesa' && selectedSubtype !== 'Receita Avulsa' && !isQuoteMode && (
                     <>
                       <FormField
                         control={form.control}
@@ -1517,7 +1528,7 @@ export function TransactionsClient({}: {}) {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Status do Serviço</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value} disabled={isQuoteMode}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Selecione um status" />
@@ -1525,7 +1536,7 @@ export function TransactionsClient({}: {}) {
                             </FormControl>
                             <SelectContent>
                               {serviceStatusOptions.map(status => (
-                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                                <SelectItem key={status} value={status} disabled={isQuoteMode && status !== 'Orçamento'}>{status}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -1615,3 +1626,5 @@ export function TransactionsClient({}: {}) {
     </>
   );
 }
+
+    
