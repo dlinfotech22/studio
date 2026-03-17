@@ -61,6 +61,22 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { db, storage } from '@/lib/firebase';
 import { maskDocument } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import ReactCrop, {
+  centerCrop,
+  makeAspectCrop,
+  type Crop,
+  type PixelCrop,
+} from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 // Schemas
 const profileSchema = z
@@ -89,6 +105,52 @@ const defaultCompanyInfo: CompanyInfo = {
   document: '',
   logo: '',
 };
+
+function canvasPreview(
+  image: HTMLImageElement,
+  canvas: HTMLCanvasElement,
+  crop: PixelCrop
+) {
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    throw new Error('No 2d context');
+  }
+
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+  const pixelRatio = window.devicePixelRatio || 1;
+
+  canvas.width = Math.floor(crop.width * scaleX * pixelRatio);
+  canvas.height = Math.floor(crop.height * scaleY * pixelRatio);
+
+  ctx.scale(pixelRatio, pixelRatio);
+  ctx.imageSmoothingQuality = 'high';
+
+  const cropX = crop.x * scaleX;
+  const cropY = crop.y * scaleY;
+
+  const centerX = image.naturalWidth / 2;
+  const centerY = image.naturalHeight / 2;
+
+  ctx.save();
+  ctx.translate(-cropX, -cropY);
+  ctx.translate(centerX, centerY);
+  ctx.translate(-centerX, -centerY);
+  ctx.drawImage(
+    image,
+    0,
+    0,
+    image.naturalWidth,
+    image.naturalHeight,
+    0,
+    0,
+    image.naturalWidth,
+    image.naturalHeight
+  );
+
+  ctx.restore();
+}
 
 // Sub-components for each settings tab
 function UserProfile() {
@@ -205,11 +267,20 @@ function UserProfile() {
 function CompanyProfile() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(defaultCompanyInfo);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [imgSrc, setImgSrc] = useState('');
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const aspect = 1;
 
   useEffect(() => {
     const fetchCompanyInfo = async (id: string) => {
@@ -288,137 +359,230 @@ function CompanyProfile() {
     }
   };
 
-  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if ((!isSystemAdmin && !isCompanyAdmin) || !companyId) return;
-    const file = e.target.files?.[0];
-    if (file) {
-      setIsUploading(true);
-      try {
-        const logoStorageRef = storageRef(storage, `logos/${companyId}/${file.name}`);
-        await uploadBytes(logoStorageRef, file);
-        const downloadURL = await getDownloadURL(logoStorageRef);
-        form.setValue('logo', downloadURL);
-        setCompanyInfo((prev) => ({ ...prev, logo: downloadURL }));
-        toast({ title: 'Sucesso!', description: 'Logo carregado. Clique em salvar para aplicar.' });
-      } catch (error) {
-        console.error('Failed to upload logo:', error);
-        toast({
-          title: 'Erro de Upload!',
-          description: 'Não foi possível carregar o logo.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsUploading(false);
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setCrop(undefined); // Reset crop
+      const reader = new FileReader();
+      reader.addEventListener('load', () =>
+        setImgSrc(reader.result?.toString() || '')
+      );
+      reader.readAsDataURL(e.target.files[0]);
+      setIsCropModalOpen(true);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''; // Reset file input
       }
     }
   };
 
+  const handleSaveCroppedLogo = async () => {
+    if (!completedCrop || !previewCanvasRef.current || !imgRef.current || !companyId) {
+      return;
+    }
+    setIsUploading(true);
+    setIsCropModalOpen(false);
+
+    canvasPreview(imgRef.current, previewCanvasRef.current, completedCrop);
+
+    previewCanvasRef.current.toBlob(async (blob) => {
+        if (!blob) {
+            toast({
+                title: 'Erro!',
+                description: 'Não foi possível gerar a imagem cortada.',
+                variant: 'destructive',
+            });
+            setIsUploading(false);
+            return;
+        }
+
+        try {
+            const logoStorageRef = storageRef(storage, `logos/${companyId}/logo.png`);
+            await uploadBytes(logoStorageRef, blob, { contentType: 'image/png' });
+            const downloadURL = await getDownloadURL(logoStorageRef);
+            form.setValue('logo', downloadURL);
+            setCompanyInfo((prev) => ({ ...prev, logo: downloadURL }));
+            toast({ title: 'Sucesso!', description: 'Logo carregado. Clique em salvar para aplicar as alterações.' });
+        } catch (error) {
+            console.error('Failed to upload cropped logo:', error);
+            toast({
+              title: 'Erro de Upload!',
+              description: 'Não foi possível carregar o logo.',
+              variant: 'destructive',
+            });
+        } finally {
+            setIsUploading(false);
+            setImgSrc('');
+        }
+    }, 'image/png');
+  };
+
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const { width, height } = e.currentTarget;
+    setCrop(centerCrop(
+      makeAspectCrop({
+        unit: '%',
+        width: 90,
+      }, aspect, width, height),
+      width,
+      height
+    ));
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Informações da Empresa</CardTitle>
-        <CardDescription>
-          {isSystemAdmin
-            ? 'Como administrador do sistema, você pode alterar o nome e o logo da empresa.'
-            : isCompanyAdmin
-            ? 'Como administrador da empresa, você pode alterar o logo e outras configurações.'
-            : 'Somente administradores podem editar estas informações.'}
-        </CardDescription>
-      </CardHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={form.watch('logo')} />
-                <AvatarFallback>
-                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                </AvatarFallback>
-              </Avatar>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}
-              >
-                {isUploading ? 'Carregando...' : 'Carregar Logo'}
-              </Button>
-              <Input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/png, image/jpeg"
-                onChange={handleLogoChange}
-                disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}
-                autoComplete="off"
-              />
-            </div>
-            <div className="max-w-md space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome da Empresa</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                        disabled={!isSystemAdmin}
-                        autoComplete="off"
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Informações da Empresa</CardTitle>
+          <CardDescription>
+            {isSystemAdmin
+              ? 'Como administrador do sistema, você pode alterar o nome e o logo da empresa.'
+              : isCompanyAdmin
+              ? 'Como administrador da empresa, você pode alterar o logo e outras configurações.'
+              : 'Somente administradores podem editar estas informações.'}
+          </CardDescription>
+        </CardHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={form.watch('logo')} />
+                  <AvatarFallback>
+                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                  </AvatarFallback>
+                </Avatar>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}
+                >
+                  {isUploading ? 'Carregando...' : 'Carregar Logo'}
+                </Button>
+                <Input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/png, image/jpeg"
+                  onChange={handleLogoChange}
+                  disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="max-w-md space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome da Empresa</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          disabled={!isSystemAdmin}
+                          autoComplete="off"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="document"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CNPJ / CPF</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={true} autoComplete="off" />
+                      </FormControl>
+                      <FormDescription>
+                        O documento é o identificador único da empresa e não pode ser alterado.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="quoteValidityDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Validade do Orçamento (dias)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          disabled={!isCompanyAdmin && !isSystemAdmin}
+                          autoComplete="off"
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Por quantos dias um orçamento permanece válido antes de expirar. (Padrão: 30)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}>Salvar Informações</Button>
+            </CardFooter>
+          </form>
+        </Form>
+      </Card>
+      <Dialog open={isCropModalOpen} onOpenChange={setIsCropModalOpen}>
+        <DialogContent className="max-w-md">
+            <DialogHeader>
+                <DialogTitle>Cortar Imagem</DialogTitle>
+                <DialogDescription>
+                    Ajuste a seleção para cortar o logo.
+                </DialogDescription>
+            </DialogHeader>
+            {imgSrc && (
+                <div className="flex justify-center">
+                  <ReactCrop
+                      crop={crop}
+                      onChange={(_, percentCrop) => setCrop(percentCrop)}
+                      onComplete={(c) => setCompletedCrop(c)}
+                      aspect={aspect}
+                      minHeight={100}
+                  >
+                      <img
+                          ref={imgRef}
+                          alt="Crop me"
+                          src={imgSrc}
+                          onLoad={onImageLoad}
+                          className="max-h-[60vh]"
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="document"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>CNPJ / CPF</FormLabel>
-                    <FormControl>
-                      <Input {...field} disabled={true} autoComplete="off" />
-                    </FormControl>
-                    <FormDescription>
-                      O documento é o identificador único da empresa e não pode ser alterado.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="quoteValidityDays"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Validade do Orçamento (dias)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        disabled={!isCompanyAdmin && !isSystemAdmin}
-                        autoComplete="off"
-                        value={field.value ?? ''}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Por quantos dias um orçamento permanece válido antes de expirar. (Padrão: 30)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" disabled={(!isSystemAdmin && !isCompanyAdmin) || isUploading}>Salvar Informações</Button>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
+                  </ReactCrop>
+                </div>
+            )}
+             {!!completedCrop && (
+                <canvas
+                    ref={previewCanvasRef}
+                    style={{
+                        display: 'none',
+                        objectFit: 'contain',
+                        width: completedCrop.width,
+                        height: completedCrop.height,
+                    }}
+                />
+            )}
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button type="button" variant="ghost">Cancelar</Button>
+                </DialogClose>
+                <Button onClick={handleSaveCroppedLogo} disabled={!completedCrop || isUploading}>
+                  {isUploading ? 'Salvando...' : 'Salvar Logo'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
