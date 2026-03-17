@@ -98,6 +98,7 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandInput,
+  CommandItem,
   CommandList,
 } from '@/components/ui/command';
 import { PrintableDocument } from './printable-document';
@@ -268,16 +269,21 @@ export function TransactionsClient({}: {}) {
     const isQuote = mode === 'quote';
     setIsQuoteMode(isQuote);
 
-    const defaultSubtypeForQuote = companyInfo?.allowedSubtypes?.find(
+    const subtypesForQuote = companyInfo?.allowedSubtypes?.filter(
         (st) =>
           st === 'Prestação de Serviço' ||
           st === 'Venda' ||
           st === 'Serviço + Venda'
-      ) || 'Prestação de Serviço';
+    ) || [];
+
+    const defaultSubtypeForQuote = subtypesForQuote.length > 0 ? subtypesForQuote[0] : 'Prestação de Serviço';
+    
+    const subtypesForRevenue = companyInfo?.allowedSubtypes?.filter(st => subtypeToTypeMap[st] === 'revenue') || [];
+    const defaultSubtypeForRevenue = subtypesForRevenue.length > 0 ? subtypesForRevenue[0] : 'Prestação de Serviço';
 
     const defaultSubtype = isQuote 
         ? defaultSubtypeForQuote
-        : companyInfo?.allowedSubtypes?.find(st => subtypeToTypeMap[st] === type) || (type === 'revenue' ? 'Prestação de Serviço' : 'Despesa');
+        : (type === 'revenue' ? defaultSubtypeForRevenue : 'Despesa');
     
     const defaultServiceStatus = isQuote ? 'Orçamento' : 'Aprovado';
 
@@ -293,7 +299,7 @@ export function TransactionsClient({}: {}) {
   
   const handlePrint = (transactionToPrint: Transaction, onDialogClose?: () => void) => {
     setTransactionToPrint(transactionToPrint);
-    setOnPrintDialogClose(onDialogClose ? () => onDialogClose : null);
+    setOnPrintDialogClose(() => onDialogClose || null);
     setIsPrintDialogOpen(true);
   };
 
@@ -554,10 +560,6 @@ export function TransactionsClient({}: {}) {
           throw new Error("Dados da empresa não encontrados.");
         }
   
-        // For new quotes, we don't touch the stock. Stock is adjusted on approval/completion.
-        // For edits, we need careful logic which is not fully implemented here yet.
-        // Simplified: stock changes only happen on "finalized" transactions, not on quote creation/edit.
-  
         let currentCounter = companyDoc.data().transactionCounter || 0;
         let nextSequentialId = editingTransaction ? editingTransaction.sequentialId : currentCounter + 1;
         if (!editingTransaction && nextSequentialId > 99999999) {
@@ -611,13 +613,20 @@ export function TransactionsClient({}: {}) {
         
         if (transactionType === 'expense' || data.subtype === 'Receita Avulsa') {
             payload.status = 'Pago';
-            delete payload.paymentMethod;
+            if (isQuoteMode) {
+              delete payload.paymentMethod;
+            }
         } else {
             if (isServiceRelated && data.serviceStatus === 'Orçamento') {
                 payload.status = 'Pendente'; // Financial status for a quote is always pending
                 delete payload.paymentMethod;
             } else {
-                payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
+                 if (isQuoteMode) {
+                    payload.status = 'Pendente';
+                    delete payload.paymentMethod;
+                 } else {
+                    payload.status = data.paymentMethod === 'À Vista' ? 'Pago' : 'Pendente';
+                 }
             }
         }
 
@@ -654,8 +663,6 @@ export function TransactionsClient({}: {}) {
   
         if (editingTransaction) {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
-          // Handle stock adjustment on edit - this logic needs to be robust
-          // For now, this example does not adjust stock on edit for simplicity.
           dbTx.update(transactionRef, payload);
           finalTransaction = { ...editingTransaction, ...payload, date: data.date } as Transaction;
         } else {
@@ -682,13 +689,12 @@ export function TransactionsClient({}: {}) {
       });
 
       if (finalTransaction) {
-        const isService = finalTransaction.subtype === 'Prestação de Serviço' || finalTransaction.subtype === 'Serviço + Venda';
         const isSale = finalTransaction.subtype === 'Venda';
-        const isServiceFinished = isService && finalTransaction.serviceStatus === 'Finalizado';
+        const isServiceFinished = (finalTransaction.subtype === 'Prestação de Serviço' || finalTransaction.subtype === 'Serviço + Venda') && finalTransaction.serviceStatus === 'Finalizado';
 
         if (isNewQuote) {
           handlePrint(finalTransaction, () => router.push('/quotes'));
-        } else if ((isSale || (isService && isServiceFinished)) && !isQuoteMode ) {
+        } else if ((isSale || isServiceFinished) && !isQuoteMode) {
           handlePrint(finalTransaction);
         }
       }
@@ -710,9 +716,6 @@ export function TransactionsClient({}: {}) {
     try {
         await runTransaction(db, async (dbTransaction) => {
             if (transactionToDelete.items && transactionToDelete.items.length > 0) {
-                // This logic should only run if the transaction was a completed sale
-                // For simplicity, we add stock back on any deletion. A more robust system
-                // would check the transaction status.
                 for (const item of transactionToDelete.items) {
                     const productRef = doc(db, 'products', item.productId);
                     const productDoc = await dbTransaction.get(productRef);
@@ -769,7 +772,7 @@ export function TransactionsClient({}: {}) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {type === 'revenue' && <TableHead>Cliente</TableHead>}
+                  <TableHead>Cliente</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Tipo</TableHead>
                   {type === 'revenue' && <TableHead>Status do Serviço</TableHead>}
@@ -782,18 +785,10 @@ export function TransactionsClient({}: {}) {
                 {paginatedData.length > 0 ? (
                   paginatedData.map((item) => (
                     <TableRow key={item.id}>
-                       {type === 'revenue' ? (
-                        <TableCell>{item.customerName || '-'}</TableCell>
-                      ) : (
-                        <TableCell className="font-medium">
-                          {item.description}
-                        </TableCell>
-                      )}
-                      {type === 'revenue' && (
-                        <TableCell className="font-medium">
-                          {item.description}
-                        </TableCell>
-                      )}
+                      <TableCell>{item.customerName || '-'}</TableCell>
+                      <TableCell className="font-medium">
+                        {item.description}
+                      </TableCell>
                       <TableCell>{item.subtype}</TableCell>
                        {type === 'revenue' && (
                           <TableCell>
