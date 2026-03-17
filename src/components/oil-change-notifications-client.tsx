@@ -93,7 +93,7 @@ export function OilChangeNotificationsClient() {
   const filteredServices = oilChangeServices.filter((service) => {
     const term = searchTerm.toLowerCase();
     const customerMatch = service.customerName?.toLowerCase().includes(term);
-    const idMatch = service.sequentialId?.toString().includes(term);
+    const idMatch = (service.sequentialId?.toString() || '').includes(term);
     return customerMatch || idMatch;
   });
 

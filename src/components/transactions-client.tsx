@@ -560,10 +560,16 @@ export function TransactionsClient({}: {}) {
           throw new Error("Dados da empresa não encontrados.");
         }
   
-        let currentCounter = companyDoc.data().transactionCounter || 0;
-        let nextSequentialId = editingTransaction ? editingTransaction.sequentialId : currentCounter + 1;
-        if (!editingTransaction && nextSequentialId > 99999999) {
-          nextSequentialId = 1;
+        const currentCounter = companyDoc.data().transactionCounter || 0;
+        
+        const isServiceRelated = data.subtype === 'Prestação de Serviço' || data.subtype === 'Serviço + Venda';
+        const isQuote = isServiceRelated && data.serviceStatus === 'Orçamento';
+
+        let sequentialIdToUse: number | undefined = undefined;
+        if (editingTransaction) {
+            sequentialIdToUse = editingTransaction.sequentialId;
+        } else if (!isQuote) {
+            sequentialIdToUse = currentCounter + 1;
         }
   
         const transactionType = subtypeToTypeMap[data.subtype];
@@ -582,12 +588,9 @@ export function TransactionsClient({}: {}) {
         
         const finalDescription = (data.description || '');
         
-        const isServiceRelated = data.subtype === 'Prestação de Serviço' || data.subtype === 'Serviço + Venda';
-
         const payload: { [key: string]: any } = {
           type: transactionType,
           companyId,
-          sequentialId: nextSequentialId,
           amount: Math.abs(totalAmount),
           description: finalDescription,
           date: Timestamp.fromDate(data.date),
@@ -600,6 +603,10 @@ export function TransactionsClient({}: {}) {
           kmAtual: data.kmAtual,
           kmProximaTroca: data.kmProximaTroca,
         };
+
+        if (sequentialIdToUse) {
+            payload.sequentialId = sequentialIdToUse;
+        }
         
         if (isServiceRelated) {
           payload.serviceStatus = data.serviceStatus;
@@ -668,8 +675,8 @@ export function TransactionsClient({}: {}) {
         } else {
           const newTransactionRef = doc(collection(db, 'transactions'));
           dbTx.set(newTransactionRef, payload);
-          if (payload.serviceStatus !== 'Orçamento') {
-            dbTx.update(companyRef, { transactionCounter: nextSequentialId });
+          if (!isQuote) {
+            dbTx.update(companyRef, { transactionCounter: sequentialIdToUse });
           }
           finalTransaction = { id: newTransactionRef.id, ...payload, date: data.date } as Transaction;
         }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,15 +9,16 @@ import {
   where,
   onSnapshot,
   doc,
-  updateDoc,
   Timestamp,
   deleteDoc,
+  runTransaction,
+  getDocs,
 } from 'firebase/firestore';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Wrench, CheckCircle, Search, MoreHorizontal, Edit, Trash2, FileClock, Check, CircleAlert, PlusCircle, Printer } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { type Transaction } from '@/lib/types';
+import { type Transaction, type CompanyInfo } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +34,7 @@ export function QuotesClient() {
   const [quotes, setQuotes] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const router = useRouter();
@@ -47,6 +50,20 @@ export function QuotesClient() {
     setCompanyId(cId);
     if (cId) {
         setIsLoading(true);
+
+        const fetchCompanyData = async () => {
+          try {
+            const companyQuery = query(collection(db, 'companies'), where('document', '==', cId));
+            const companySnapshot = await getDocs(companyQuery);
+            if (!companySnapshot.empty) {
+                setCompanyInfo({ id: companySnapshot.docs[0].id, ...companySnapshot.docs[0].data() } as CompanyInfo);
+            }
+          } catch(e) {
+            console.error("Failed to get company info", e);
+          }
+        };
+        fetchCompanyData();
+
         const quotesRef = collection(db, 'transactions');
         const qQuotes = query(
             quotesRef,
@@ -84,13 +101,29 @@ export function QuotesClient() {
   }, [searchTerm, itemsPerPage]);
 
   const handleApprove = async (quoteId: string) => {
+    if (!companyInfo) {
+      toast({title: "Erro", description: "Não foi possível encontrar os dados da empresa para aprovar o orçamento.", variant: "destructive"});
+      return;
+    }
     try {
-      const quoteRef = doc(db, 'transactions', quoteId);
-      // Here, you could also deduct stock if the business logic requires it upon approval.
-      // For now, we just change the status. Stock will be handled at completion.
-      await updateDoc(quoteRef, { 
-          serviceStatus: 'Aprovado'
+      const companyRef = doc(db, 'companies', companyInfo.id);
+
+      await runTransaction(db, async (transaction) => {
+          const companyDoc = await transaction.get(companyRef);
+          if (!companyDoc.exists()) {
+              throw new Error("Dados da empresa não encontrados.");
+          }
+          const currentCounter = companyDoc.data().transactionCounter || 0;
+          const newSequentialId = currentCounter + 1;
+
+          const quoteRef = doc(db, 'transactions', quoteId);
+          transaction.update(quoteRef, { 
+              serviceStatus: 'Aprovado',
+              sequentialId: newSequentialId
+          });
+          transaction.update(companyRef, { transactionCounter: newSequentialId });
       });
+
       toast({ title: 'Orçamento Aprovado!', description: 'O orçamento foi convertido em uma Ordem de Serviço.' });
     } catch (error) {
       console.error('Failed to approve quote:', error);
@@ -207,7 +240,7 @@ export function QuotesClient() {
                         <div>
                             <CardTitle className="text-lg">{quote.customerName}</CardTitle>
                             <CardDescription>
-                            <span className="font-semibold capitalize text-base">{`Orçamento: ${String(quote.sequentialId).padStart(8, '0')}`}</span>
+                            <span className="font-semibold capitalize text-base">{`Orçamento: ${quote.sequentialId ? String(quote.sequentialId).padStart(8, '0') : quote.id.substring(0, 8).toUpperCase()}`}</span>
                             </CardDescription>
                         </div>
                         <DropdownMenu>
