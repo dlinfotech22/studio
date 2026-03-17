@@ -579,7 +579,7 @@ export function TransactionsClient({}: {}) {
         
         const isServiceRelated = data.subtype === 'Prestação de Serviço' || data.subtype === 'Serviço + Venda';
 
-        const payload: Partial<Omit<Transaction, 'id' | 'date'>> & { date: Timestamp; installments?: any[]; quoteExpiryDate?: Timestamp | null} = {
+        const payload: { [key: string]: any } = {
           type: transactionType,
           companyId,
           sequentialId: nextSequentialId,
@@ -596,17 +596,11 @@ export function TransactionsClient({}: {}) {
           kmProximaTroca: data.kmProximaTroca,
         };
         
-        // Clean up undefined/null values before sending to Firestore
-        if (data.kmAtual) payload.kmAtual = data.kmAtual;
-        else delete payload.kmAtual;
-        
-        if (data.kmProximaTroca) payload.kmProximaTroca = data.kmProximaTroca;
-        else delete payload.kmProximaTroca;
-
         if (isServiceRelated) {
           payload.serviceStatus = data.serviceStatus;
           if (data.serviceStatus === 'Orçamento') {
-              payload.quoteExpiryDate = Timestamp.fromDate(addDays(new Date(), 30));
+              const validityDays = companyInfo?.quoteValidityDays || 30;
+              payload.quoteExpiryDate = Timestamp.fromDate(addDays(new Date(), validityDays));
           } else {
               payload.quoteExpiryDate = null;
           }
@@ -649,26 +643,25 @@ export function TransactionsClient({}: {}) {
         }
 
         // Clean up undefined fields before writing to Firestore
-        const finalPayload: { [key: string]: any } = {};
-        for (const [key, value] of Object.entries(payload)) {
-            if (value !== undefined) {
-                finalPayload[key] = value;
+        Object.keys(payload).forEach(key => {
+            if (payload[key] === undefined) {
+                delete payload[key];
             }
-        }
+        });
   
         if (editingTransaction) {
           const transactionRef = doc(db, 'transactions', editingTransaction.id);
           // Handle stock adjustment on edit - this logic needs to be robust
           // For now, this example does not adjust stock on edit for simplicity.
-          dbTx.update(transactionRef, finalPayload);
-          finalTransaction = { ...editingTransaction, ...finalPayload, date: data.date } as Transaction;
+          dbTx.update(transactionRef, payload);
+          finalTransaction = { ...editingTransaction, ...payload, date: data.date } as Transaction;
         } else {
           const newTransactionRef = doc(collection(db, 'transactions'));
-          dbTx.set(newTransactionRef, finalPayload);
-          if (finalPayload.serviceStatus !== 'Orçamento') {
+          dbTx.set(newTransactionRef, payload);
+          if (payload.serviceStatus !== 'Orçamento') {
             dbTx.update(companyRef, { transactionCounter: nextSequentialId });
           }
-          finalTransaction = { id: newTransactionRef.id, ...finalPayload, date: data.date } as Transaction;
+          finalTransaction = { id: newTransactionRef.id, ...payload, date: data.date } as Transaction;
         }
       });
   
@@ -688,10 +681,8 @@ export function TransactionsClient({}: {}) {
         const isSale = finalTransaction.subtype === 'Venda';
         const isServiceFinished = isService && finalTransaction.serviceStatus === 'Finalizado';
 
-        if ((isSale || isService) && !isQuoteMode && isServiceFinished) {
+        if ((isSale || (isService && isServiceFinished)) && !isQuoteMode ) {
           handlePrint(finalTransaction);
-        } else if (isSale && !isService) {
-           handlePrint(finalTransaction);
         }
       }
   
@@ -1175,8 +1166,8 @@ export function TransactionsClient({}: {}) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Cliente</TableHead>
                   <TableHead>Descrição</TableHead>
-                  {activeTab === 'revenue' && <TableHead>Cliente</TableHead>}
                   <TableHead>Tipo</TableHead>
                   {activeTab === 'revenue' && <TableHead>Status do Serviço</TableHead>}
                   <TableHead className="text-right">Valor</TableHead>
@@ -1188,7 +1179,7 @@ export function TransactionsClient({}: {}) {
                 {skeletonRows.map((_, index) => (
                   <TableRow key={index}>
                     <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                    {activeTab === 'revenue' && <TableCell><Skeleton className="h-5 w-full" /></TableCell>}
+                    <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                     {activeTab === 'revenue' && <TableCell><Skeleton className="h-5 w-full" /></TableCell>}
                     <TableCell className="text-right"><Skeleton className="h-5 w-20 ml-auto" /></TableCell>
@@ -1329,7 +1320,7 @@ export function TransactionsClient({}: {}) {
                                   st === 'Venda' ||
                                   st === 'Serviço + Venda'
                               )
-                            : companyInfo?.allowedSubtypes;
+                            : companyInfo?.allowedSubtypes?.filter(st => subtypeToTypeMap[st] === (activeTab));
                         return (
                           <FormItem>
                             <FormLabel>Tipo de Lançamento</FormLabel>

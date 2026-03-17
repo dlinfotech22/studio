@@ -78,6 +78,7 @@ const companyInfoSchema = z.object({
   name: z.string().min(1, 'O nome da empresa é obrigatório.'),
   document: z.string().min(1, 'O CNPJ/CPF é obrigatório.'),
   logo: z.string().optional(),
+  quoteValidityDays: z.coerce.number().int().min(1, 'A validade deve ser de pelo menos 1 dia.').optional(),
 });
 
 
@@ -241,6 +242,7 @@ function CompanyProfile() {
     values: {
       ...companyInfo,
       document: maskDocument(companyInfo.document),
+      quoteValidityDays: companyInfo.quoteValidityDays || 30,
     },
   });
 
@@ -248,6 +250,7 @@ function CompanyProfile() {
     form.reset({
         ...companyInfo,
         document: maskDocument(companyInfo.document),
+        quoteValidityDays: companyInfo.quoteValidityDays || 30,
     });
   }, [companyInfo, form]);
 
@@ -260,6 +263,7 @@ function CompanyProfile() {
       const payload: Partial<CompanyInfo> = {
         name: updatedInfo.name,
         logo: updatedInfo.logo,
+        quoteValidityDays: values.quoteValidityDays,
       };
       
       await updateDoc(companyRef, payload);
@@ -269,6 +273,7 @@ function CompanyProfile() {
       form.reset({
         ...updatedInfo,
         document: maskDocument(updatedInfo.document),
+        quoteValidityDays: values.quoteValidityDays,
       });
     } catch (error: any) {
       console.error('Failed to save company info:', error);
@@ -378,6 +383,29 @@ function CompanyProfile() {
                     </FormControl>
                     <FormDescription>
                       O documento é o identificador único da empresa e não pode ser alterado.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="quoteValidityDays"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Validade do Orçamento (dias)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        disabled={!isCompanyAdmin && !isSystemAdmin}
+                        autoComplete="off"
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Por quantos dias um orçamento permanece válido antes de expirar. (Padrão: 30)
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

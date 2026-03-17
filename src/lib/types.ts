@@ -60,7 +60,7 @@ export type Transaction = {
   paymentMethod?: PaymentMethod;
   status?: TransactionStatus;
   serviceStatus?: ServiceStatus;
-  quoteExpiryDate?: Date | Timestamp;
+  quoteExpiryDate?: Date | Timestamp | null;
   installments?: Installment[];
   installmentsCount?: number;
   // Fields for multi-item transactions
@@ -92,6 +92,7 @@ export type CompanyInfo = {
   paymentNotification?: string;
   monthlyFee?: number;
   isAutomotive?: boolean;
+  quoteValidityDays?: number;
 };
 
 export type Product = {
