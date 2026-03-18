@@ -1,3 +1,4 @@
+
 'use client';
 
 import { type Transaction, type Customer, type CompanyInfo } from '@/lib/types';
@@ -55,17 +56,39 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
       <style>
         {`
           @media print {
-            body * {
-              visibility: hidden;
+            body > *:not([data-radix-portal]) {
+              display: none !important;
             }
-            .printable-area, .printable-area * {
-              visibility: visible;
+            div[data-radix-dialog-overlay] {
+              display: none !important;
             }
-            .printable-area {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
+            div[role="dialog"] {
+              position: static !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              height: 100% !important;
+              max-height: 100% !important;
+              box-shadow: none !important;
+              border: none !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              transform: none !important;
+              overflow: visible !important;
+            }
+            div[role="dialog"] > * {
+              display: none !important;
+            }
+            div[role="dialog"] > .printable-scroll-area {
+              display: block !important;
+              border: none !important;
+              height: auto !important;
+              max-height: none !important;
+            }
+            div[role="dialog"] > .printable-scroll-area > [data-radix-scroll-area-scrollbar] {
+                display: none !important;
+            }
+            div[role="dialog"] > button[aria-label="Close"] {
+              display: none !important;
             }
             @page {
               size: A4;

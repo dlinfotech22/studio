@@ -451,7 +451,10 @@ export function TransactionsClient({}: {}) {
             const tx = allTransactions.find(t => t.id === txToReprintId);
             
             if (tx) {
-                handlePrint(tx);
+                 handlePrint(tx, () => {
+                  sessionStorage.removeItem('transaction-to-reprint');
+                  router.push('/work-orders');
+                });
             } else if (!isLoading) { 
                 const fetchAndPrint = async () => {
                     const txDoc = await getDoc(doc(db, 'transactions', txToReprintId));
@@ -462,7 +465,10 @@ export function TransactionsClient({}: {}) {
                             ...data, 
                             date: (data.date as Timestamp).toDate(),
                         } as Transaction;
-                        handlePrint(missingTx);
+                        handlePrint(missingTx, () => {
+                          sessionStorage.removeItem('transaction-to-reprint');
+                          router.push('/work-orders');
+                        });
                     } else {
                         toast({
                             title: 'Erro ao imprimir',
@@ -474,7 +480,6 @@ export function TransactionsClient({}: {}) {
                 fetchAndPrint();
             }
 
-            sessionStorage.removeItem('transaction-to-reprint');
             setHasInitialTransactionBeenHandled(true);
             return;
         }
@@ -491,7 +496,7 @@ export function TransactionsClient({}: {}) {
     if (!isLoading) {
         setHasInitialTransactionBeenHandled(true);
     }
-  }, [isLoading, allTransactions, hasInitialTransactionBeenHandled, handleEdit, handlePrint, openNewTransactionDialog, toast]);
+  }, [isLoading, allTransactions, hasInitialTransactionBeenHandled, handleEdit, handlePrint, openNewTransactionDialog, toast, router]);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
@@ -1686,7 +1691,7 @@ export function TransactionsClient({}: {}) {
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh] rounded-md border">
+          <ScrollArea className="max-h-[70vh] rounded-md border printable-scroll-area">
             <PrintableDocument
               transaction={transactionToPrint}
               customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
