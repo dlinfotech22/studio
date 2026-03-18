@@ -150,7 +150,6 @@ const userSchema = z.object({
     .or(z.literal(''))
     .optional(),
   role: z.enum(['system_admin', 'company_admin', 'user']),
-  hasDashboardAccess: z.boolean().default(false).optional(),
 });
 
 const renewalSchema = z.object({
@@ -347,7 +346,7 @@ export function SystemAdminClient() {
 
   const userForm = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
-    defaultValues: { name: '', username: '', password: '', role: 'user', hasDashboardAccess: false },
+    defaultValues: { name: '', username: '', password: '', role: 'user' },
   });
 
   const renewalForm = useForm<RenewalFormValues>({
@@ -525,7 +524,7 @@ export function SystemAdminClient() {
 
   const handleUserSubmit = async (data: UserFormValues) => {
     const isNewSysAdmin = !editingUser && data.role === 'system_admin';
-    const hasDashboardAccess = data.role === 'company_admin' || data.role === 'system_admin' ? true : data.hasDashboardAccess;
+    const hasDashboardAccess = data.role === 'company_admin' || data.role === 'system_admin';
 
     if (!isNewSysAdmin && !activeCompanyId && !editingUser) {
       toast({
@@ -673,7 +672,7 @@ export function SystemAdminClient() {
   const openNewSysAdminDialog = () => {
     setActiveCompanyId(null);
     setEditingUser(null);
-    userForm.reset({ name: '', username: '', password: '', role: 'system_admin', hasDashboardAccess: true });
+    userForm.reset({ name: '', username: '', password: '', role: 'system_admin' });
     setIsUserDialogOpen(true);
   }
 
@@ -689,10 +688,9 @@ export function SystemAdminClient() {
         username: user.username,
         password: '',
         role: user.role,
-        hasDashboardAccess: user.hasDashboardAccess || user.role === 'company_admin' || user.role === 'system_admin'
       });
     } else {
-      userForm.reset({ name: '', username: '', password: '', role: 'user', hasDashboardAccess: false });
+      userForm.reset({ name: '', username: '', password: '', role: 'user' });
     }
     setIsUserDialogOpen(true);
   };
@@ -1576,28 +1574,6 @@ export function SystemAdminClient() {
                   </FormItem>
                 )}
               />
-              {selectedRole !== 'system_admin' && (
-                <FormField
-                  control={userForm.control}
-                  name="hasDashboardAccess"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={selectedRole === 'company_admin'}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>
-                          Acesso ao Dashboard
-                        </FormLabel>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              )}
               <DialogFooter>
                 <DialogClose asChild>
                   <Button type="button" variant="ghost">

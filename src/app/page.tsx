@@ -57,7 +57,7 @@ export default function Home({}: {}) {
     );
   }
 
-  const canViewDashboard = currentUser?.role === 'system_admin' || currentUser?.role === 'company_admin' || currentUser?.hasDashboardAccess;
+  const canViewDashboard = currentUser?.role === 'system_admin' || currentUser?.role === 'company_admin';
 
   return (
     <div className="flex flex-col gap-6">
