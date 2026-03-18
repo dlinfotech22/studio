@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
@@ -274,7 +274,27 @@ export function TransactionsClient({}: {}) {
   const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
   const [onPrintDialogClose, setOnPrintDialogClose] = useState<(() => void) | null>(null);
 
-  const openNewTransactionDialog = (type: 'revenue' | 'expense', mode?: string) => {
+  const form = useForm<TransactionFormValues>({
+    resolver: zodResolver(transactionSchema),
+    defaultValues: {
+      description: '',
+      amount: undefined,
+      date: new Date(),
+      subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
+      customerId: undefined,
+      customerName: undefined,
+      paymentMethod: 'À Vista',
+      installmentsCount: undefined,
+      firstDueDate: undefined,
+      items: [],
+      services: [],
+      serviceStatus: 'Orçamento',
+      kmAtual: undefined,
+      kmProximaTroca: undefined,
+    },
+  });
+
+  const openNewTransactionDialog = useCallback((type: 'revenue' | 'expense', mode?: string) => {
     setEditingTransaction(null);
     const isQuote = mode === 'quote';
     setIsQuoteMode(isQuote);
@@ -305,15 +325,15 @@ export function TransactionsClient({}: {}) {
       kmAtual: undefined, kmProximaTroca: undefined,
     });
     setIsDialogOpen(true);
-  };
+  }, [companyInfo, form]);
   
-  const handlePrint = (transactionToPrint: Transaction, onDialogClose?: () => void) => {
+  const handlePrint = useCallback((transactionToPrint: Transaction, onDialogClose?: () => void) => {
     setTransactionToPrint(transactionToPrint);
     setOnPrintDialogClose(() => onDialogClose || null);
     setIsPrintDialogOpen(true);
-  };
+  }, []);
 
-  const handleEdit = (transaction: Transaction) => {
+  const handleEdit = useCallback((transaction: Transaction) => {
     const isQuote = transaction.serviceStatus === 'Orçamento';
     setIsQuoteMode(isQuote);
 
@@ -353,7 +373,7 @@ export function TransactionsClient({}: {}) {
     });
     setActiveTab(transaction.type);
     setIsDialogOpen(true);
-  };
+  }, [form]);
 
   useEffect(() => {
     const id = sessionStorage.getItem('current-user-company-id');
@@ -416,7 +436,7 @@ export function TransactionsClient({}: {}) {
         return;
     }
 
-    if (allTransactions.length > 0 || !isLoading) { // Check !isLoading to handle case with 0 transactions
+    if (allTransactions.length > 0 || !isLoading) {
         const transactionIdToEdit = sessionStorage.getItem('transaction-to-edit');
         if (transactionIdToEdit) {
             const tx = allTransactions.find(t => t.id === transactionIdToEdit);
@@ -429,7 +449,31 @@ export function TransactionsClient({}: {}) {
         const txToReprintId = sessionStorage.getItem('transaction-to-reprint');
         if (txToReprintId) {
             const tx = allTransactions.find(t => t.id === txToReprintId);
-            if (tx) handlePrint(tx);
+            
+            if (tx) {
+                handlePrint(tx);
+            } else if (!isLoading) { 
+                const fetchAndPrint = async () => {
+                    const txDoc = await getDoc(doc(db, 'transactions', txToReprintId));
+                    if (txDoc.exists()) {
+                        const data = txDoc.data();
+                        const missingTx = { 
+                            id: txDoc.id, 
+                            ...data, 
+                            date: (data.date as Timestamp).toDate(),
+                        } as Transaction;
+                        handlePrint(missingTx);
+                    } else {
+                        toast({
+                            title: 'Erro ao imprimir',
+                            description: 'O documento a ser impresso não foi encontrado.',
+                            variant: 'destructive',
+                        })
+                    }
+                }
+                fetchAndPrint();
+            }
+
             sessionStorage.removeItem('transaction-to-reprint');
             setHasInitialTransactionBeenHandled(true);
             return;
@@ -447,7 +491,7 @@ export function TransactionsClient({}: {}) {
     if (!isLoading) {
         setHasInitialTransactionBeenHandled(true);
     }
-  }, [isLoading, allTransactions, hasInitialTransactionBeenHandled]);
+  }, [isLoading, allTransactions, hasInitialTransactionBeenHandled, handleEdit, handlePrint, openNewTransactionDialog, toast]);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
@@ -493,26 +537,6 @@ export function TransactionsClient({}: {}) {
       )
     );
   }, [allTransactions, searchTerm, amountFilter, dateFilter]);
-
-  const form = useForm<TransactionFormValues>({
-    resolver: zodResolver(transactionSchema),
-    defaultValues: {
-      description: '',
-      amount: undefined,
-      date: new Date(),
-      subtype: companyInfo?.allowedSubtypes?.[0] || 'Prestação de Serviço',
-      customerId: undefined,
-      customerName: undefined,
-      paymentMethod: 'À Vista',
-      installmentsCount: undefined,
-      firstDueDate: undefined,
-      items: [],
-      services: [],
-      serviceStatus: 'Orçamento',
-      kmAtual: undefined,
-      kmProximaTroca: undefined,
-    },
-  });
 
   const { fields: items, append: appendProduct, remove: removeProduct, update: updateProduct } = useFieldArray({
     control: form.control,
