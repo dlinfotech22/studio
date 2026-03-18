@@ -86,6 +86,10 @@ export function WorkOrdersClient() {
       const transactionRef = doc(db, 'transactions', transactionId);
       await updateDoc(transactionRef, { serviceStatus: newStatus });
       toast({ title: 'Status Atualizado!', description: `O serviço foi atualizado para "${newStatus}".` });
+      if (newStatus === 'Finalizado') {
+        sessionStorage.setItem('transaction-to-reprint', transactionId);
+        router.push('/transactions');
+      }
     } catch (error) {
       console.error('Failed to update service status:', error);
       toast({ title: 'Erro ao atualizar status', description: 'Não foi possível alterar o status do serviço.', variant: 'destructive' });
