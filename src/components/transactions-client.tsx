@@ -98,6 +98,7 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandInput,
+  CommandItem,
   CommandList,
 } from '@/components/ui/command';
 import { PrintableDocument } from './printable-document';
@@ -176,19 +177,19 @@ const transactionSchema = z.object({
         });
     }
     if (data.subtype === 'Serviço + Venda') {
-      if (!data.items || data.items.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Você deve adicionar pelo menos um produto para "Serviço + Venda".',
-          path: ['items'],
-        });
+      if ((!data.items || data.items.length === 0)) {
+          ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'Você deve adicionar pelo menos um produto.',
+              path: ['items'],
+          });
       }
-      if (!data.services || data.services.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Você deve adicionar pelo menos um serviço para "Serviço + Venda".',
-          path: ['services'],
-        });
+      if ((!data.services || data.services.length === 0)) {
+          ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'Você deve adicionar pelo menos um serviço.',
+              path: ['services'],
+          });
       }
     }
     if (data.paymentMethod === 'Parcelado' && (!data.installmentsCount || data.installmentsCount <= 1)) {
