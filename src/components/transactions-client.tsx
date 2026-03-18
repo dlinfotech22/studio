@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
-import { format, getMonth, getYear, addMonths, addDays } from 'date-fns';
+import { format, getMonth, getYear, addMonths, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   collection,
@@ -98,7 +98,6 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandInput,
-  CommandItem,
   CommandList,
 } from '@/components/ui/command';
 import { PrintableDocument } from './printable-document';
@@ -467,14 +466,12 @@ export function TransactionsClient({}: {}) {
       });
     } else {
       const now = new Date();
-      const currentMonth = getMonth(now);
-      const currentYear = getYear(now);
+      const thirtyDaysAgo = subDays(now, 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+
       transactionsToDisplay = transactionsToDisplay.filter((t) => {
         const transactionDate = new Date(t.date as Date);
-        return (
-          getMonth(transactionDate) === currentMonth &&
-          getYear(transactionDate) === currentYear
-        );
+        return transactionDate >= thirtyDaysAgo;
       });
     }
 
@@ -567,7 +564,7 @@ export function TransactionsClient({}: {}) {
         const isQuote = isServiceRelated && data.serviceStatus === 'Orçamento';
 
         let sequentialIdToUse: number | undefined = undefined;
-        if (editingTransaction) {
+        if (editingTransaction && editingTransaction.sequentialId) {
             sequentialIdToUse = editingTransaction.sequentialId;
         } else if (!isQuote) {
             sequentialIdToUse = currentCounter + 1;
