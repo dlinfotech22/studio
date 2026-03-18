@@ -53,50 +53,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
 
   return (
     <div className="bg-white text-black p-8 font-sans printable-area">
-      <style>
-        {`
-          @media print {
-            body > *:not([data-radix-portal]) {
-              display: none !important;
-            }
-            div[data-radix-dialog-overlay] {
-              display: none !important;
-            }
-            div[role="dialog"] {
-              position: static !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              height: 100% !important;
-              max-height: 100% !important;
-              box-shadow: none !important;
-              border: none !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              transform: none !important;
-              overflow: visible !important;
-            }
-            div[role="dialog"] > * {
-              display: none !important;
-            }
-            div[role="dialog"] > .printable-scroll-area {
-              display: block !important;
-              border: none !important;
-              height: auto !important;
-              max-height: none !important;
-            }
-            div[role="dialog"] > .printable-scroll-area > [data-radix-scroll-area-scrollbar] {
-                display: none !important;
-            }
-            div[role="dialog"] > button[aria-label="Close"] {
-              display: none !important;
-            }
-            @page {
-              size: A4;
-              margin: 20mm;
-            }
-          }
-        `}
-      </style>
+      
       <header className="flex justify-between items-start pb-4 border-b border-gray-300">
          <div>
             <div className="flex items-center gap-4">
