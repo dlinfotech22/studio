@@ -166,21 +166,21 @@ const transactionSchema = z.object({
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'Você deve adicionar pelo menos um produto para "Venda".',
-            path: ['subtype'],
+            path: ['items'],
         });
     }
      if (data.subtype === 'Prestação de Serviço' && (!data.services || data.services.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'Você deve adicionar pelo menos um serviço para "Prestação de Serviço".',
-            path: ['subtype'],
+            path: ['services'],
         });
     }
     if (data.subtype === 'Serviço + Venda' && (!data.items || data.items.length === 0) && (!data.services || data.services.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: 'Adicione pelo menos um item ou serviço para "Serviço + Venda".',
-            path: ['subtype'],
+            path: ['services'],
         });
     }
     if (data.paymentMethod === 'Parcelado' && (!data.installmentsCount || data.installmentsCount <= 1)) {
@@ -1411,7 +1411,7 @@ export function TransactionsClient({}: {}) {
                           ))}
                           {services.length === 0 && <p className="text-sm text-center text-muted-foreground">Nenhum serviço adicionado.</p>}
                       </div>
-                      {form.formState.errors.services && <p className="text-sm font-medium text-destructive">{form.formState.errors.services.message}</p>}
+                      <FormField control={form.control} name="services" render={({ fieldState }) => <FormMessage>{fieldState.error?.message || fieldState.error?.root?.message}</FormMessage>} />
                   </CardContent>
                 </Card>
               )}
@@ -1449,7 +1449,7 @@ export function TransactionsClient({}: {}) {
                             ))}
                             {items.length === 0 && <p className="text-sm text-center text-muted-foreground">Nenhum produto adicionado.</p>}
                         </div>
-                        {form.formState.errors.items && <p className="text-sm font-medium text-destructive">{form.formState.errors.items.message}</p>}
+                        <FormField control={form.control} name="items" render={({ fieldState }) => <FormMessage>{fieldState.error?.message || fieldState.error?.root?.message}</FormMessage>} />
                     </CardContent>
                 </Card>
               )}
