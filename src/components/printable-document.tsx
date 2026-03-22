@@ -48,32 +48,10 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
   const productTotal = productItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
   const serviceTotal = serviceItems.reduce((sum, item) => sum + item.price, 0);
 
-  const addressLine1 = [companyInfo?.address, companyInfo?.number && `nº ${companyInfo.number}`].filter(Boolean).join(', ');
-  const addressLine2 = [companyInfo?.neighborhood, companyInfo?.city, companyInfo?.state].filter(Boolean).join(' - ');
-
   return (
     <div className="bg-white text-black p-8 font-sans printable-area">
       
-      <header className="flex justify-between items-start pb-4 border-b border-gray-300">
-         <div>
-            <div className="flex items-center gap-4">
-                {companyInfo?.logo && (
-                    <Avatar className="h-16 w-16">
-                    <AvatarImage src={companyInfo.logo} />
-                    <AvatarFallback><Building /></AvatarFallback>
-                    </Avatar>
-                )}
-                <h1 className="text-2xl font-bold text-gray-800">{companyInfo?.name || 'Sua Empresa'}</h1>
-            </div>
-            <div className="text-sm text-gray-500 mt-2 space-y-1">
-                {companyInfo?.document && <p>CNPJ/CPF: {formatDocument(companyInfo.document)}</p>}
-                {addressLine1 && <p>{addressLine1}</p>}
-                {addressLine2 && <p>{addressLine2}</p>}
-                {companyInfo?.zipCode && <p>CEP: {companyInfo.zipCode}</p>}
-                {companyInfo?.phone && <p>Tel: {formatPhone(companyInfo.phone)}</p>}
-                {companyInfo?.email && <p>Email: {companyInfo.email}</p>}
-            </div>
-        </div>
+      <header className="flex justify-end items-start pb-4 border-b border-gray-300">
         <div className="text-right">
           <h2 className="text-xl font-semibold text-gray-700">{getTitle()}</h2>
           <p className="text-sm text-gray-500">Nº: {transaction.sequentialId ? String(transaction.sequentialId).padStart(8, '0') : transaction.id.substring(0, 8).toUpperCase()}</p>

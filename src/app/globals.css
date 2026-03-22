@@ -88,20 +88,20 @@ body {
 }
 
 @media print {
-  body > *:not(div[data-radix-portal]) {
+  body > *:not([data-radix-portal]) {
       display: none !important;
   }
 
-  div[data-radix-portal] {
+  [data-radix-portal] {
       display: block !important;
       position: static !important;
   }
 
-  div[data-radix-dialog-overlay] {
+  [data-radix-dialog-overlay] {
       display: none !important;
   }
 
-  div[role="dialog"] {
+  [data-radix-dialog-content] {
       position: static !important;
       width: 100% !important;
       max-width: none !important;
@@ -113,23 +113,25 @@ body {
       margin: 0 !important;
       animation: none !important;
       transform: none !important;
+      overflow: visible !important;
   }
-
-  div[role="dialog"] > *:not(.printable-scroll-area) {
+  
+  [data-radix-dialog-content] > *:not(.printable-scroll-area){
       display: none !important;
   }
 
-  div[role="dialog"] > .printable-scroll-area,
-  .printable-scroll-area > [data-radix-scroll-area-viewport] {
+  .printable-scroll-area,
+  .printable-scroll-area > div[data-radix-scroll-area-viewport] {
       display: block !important;
       height: auto !important;
       max-height: none !important;
       overflow: visible !important;
       border: none !important;
   }
-
+  
   .printable-area {
       color: #000 !important;
+      background: #fff !important;
   }
 
   @page {
