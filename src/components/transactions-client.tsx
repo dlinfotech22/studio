@@ -998,22 +998,27 @@ export function TransactionsClient({}: {}) {
               <CommandGroup>
                   {allProducts.map((prod) => (
                   <CommandItem
-                    value={prod.name}
-                    key={prod.id}
-                    onSelect={() => {
-                        setCurrentProduct(prod);
-                        setOpen(false);
-                    }}
-                    onPointerDown={(e) => {
-                        e.preventDefault(); // Impede o input de perder o foco
-                        e.stopPropagation(); // Impede o Modal de roubar o evento
-                        setCurrentProduct(prod);
-                        setTimeout(() => setOpen(false), 0);
-                    }}
-                  >
-                      <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
-                      {prod.name}
-                  </CommandItem>
+                  value={prod.name}
+                  key={prod.id}
+                  onSelect={() => {
+                      // Isso aqui garante que o TECLADO (Enter) continue funcionando
+                      setCurrentProduct(prod);
+                      setOpen(false);
+                  }}
+                  onPointerDownCapture={(e) => {
+                      // Para o Modal de interceptar o evento e fechar tudo
+                      e.stopPropagation();
+                  }}
+                  onClickCapture={(e) => {
+                      // Força a seleção do MOUSE antes de qualquer outra biblioteca tentar agir
+                      e.stopPropagation();
+                      setCurrentProduct(prod);
+                      setOpen(false);
+                  }}
+              >
+                  <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
+                  {prod.name}
+              </CommandItem>
                   ))}
               </CommandGroup>
               </CommandList>
@@ -1041,22 +1046,22 @@ export function TransactionsClient({}: {}) {
               <CommandGroup>
                   {allServices.map((serv) => (
                   <CommandItem
-                      value={serv.name}
-                      key={serv.id}
-                      onSelect={() => {
-                        setCurrentService(serv);
-                        setOpen(false);
-                      }}
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setCurrentService(serv);
-                        setTimeout(() => setOpen(false), 0);
-                      }}
-                  >
-                      <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
-                      {serv.name}
-                  </CommandItem>
+                  value={serv.name}
+                  key={serv.id}
+                  onSelect={() => {
+                      setCurrentService(serv);
+                      setOpen(false);
+                  }}
+                  onPointerDownCapture={(e) => e.stopPropagation()}
+                  onClickCapture={(e) => {
+                      e.stopPropagation();
+                      setCurrentService(serv);
+                      setOpen(false);
+                  }}
+              >
+                  <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
+                  {serv.name}
+              </CommandItem>
                   ))}
               </CommandGroup>
               </CommandList>
@@ -1118,26 +1123,26 @@ export function TransactionsClient({}: {}) {
                         <CommandGroup>
                             {allCustomers.map((client) => (
                                 <CommandItem
-                                    key={client.id}
-                                    value={client.name}
-                                    onSelect={() => {
-                                      form.setValue('customerId', client.id);
-                                      form.setValue('customerName', client.name);
-                                      setInputValue(client.name);
-                                      setOpen(false);
-                                    }}
-                                    onPointerDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      form.setValue('customerId', client.id);
-                                      form.setValue('customerName', client.name);
-                                      setInputValue(client.name);
-                                      setTimeout(() => setOpen(false), 0);
-                                    }}
-                                >
-                                    <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
-                                    {client.name}
-                                </CommandItem>
+                                key={client.id}
+                                value={client.name}
+                                onSelect={() => {
+                                    form.setValue('customerId', client.id);
+                                    form.setValue('customerName', client.name);
+                                    setInputValue(client.name);
+                                    setOpen(false);
+                                }}
+                                onPointerDownCapture={(e) => e.stopPropagation()}
+                                onClickCapture={(e) => {
+                                    e.stopPropagation();
+                                    form.setValue('customerId', client.id);
+                                    form.setValue('customerName', client.name);
+                                    setInputValue(client.name);
+                                    setOpen(false);
+                                }}
+                            >
+                                <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
+                                {client.name}
+                            </CommandItem>
                             ))}
                         </CommandGroup>
                     </CommandList>
