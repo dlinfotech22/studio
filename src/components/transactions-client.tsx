@@ -1698,7 +1698,7 @@ export function TransactionsClient({}: {}) {
         }
       }}>
         <DialogContent className="max-w-3xl">
-          <DialogHeader className="dialog-print-header">
+          <DialogHeader>
             <DialogTitle>{getPrintDialogTitle()}</DialogTitle>
             <DialogDescription>
               Revise as informações e clique em imprimir para gerar o documento.
@@ -1711,10 +1711,14 @@ export function TransactionsClient({}: {}) {
               companyInfo={companyInfo}
             />
           </ScrollArea>
-          <DialogFooter className="dialog-print-footer">
+          <DialogFooter>
             <Button variant="outline" onClick={() => {
                 document.body.classList.remove('print-dialog-open');
                 setIsPrintDialogOpen(false);
+                if (onPrintDialogClose) {
+                    onPrintDialogClose();
+                    setOnPrintDialogClose(null);
+                }
             }}>Fechar</Button>
             <Button onClick={() => window.print()}>Imprimir</Button>
           </DialogFooter>
