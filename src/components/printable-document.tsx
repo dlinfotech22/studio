@@ -51,13 +51,11 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
   return (
     <div className="bg-white text-black p-8 font-sans printable-area">
       
-      <header className="flex justify-end items-start pb-4 border-b border-gray-300">
-        <div className="text-right">
+      <div className="text-right mb-8">
           <h2 className="text-xl font-semibold text-gray-700">{getTitle()}</h2>
           <p className="text-sm text-gray-500">Nº: {transaction.sequentialId ? String(transaction.sequentialId).padStart(8, '0') : transaction.id.substring(0, 8).toUpperCase()}</p>
           <p className="text-sm text-gray-500">Data de Emissão: {format(new Date(transaction.date as Date), 'dd/MM/yyyy HH:mm')}</p>
-        </div>
-      </header>
+      </div>
 
       {customer && (
         <section className="mt-6">

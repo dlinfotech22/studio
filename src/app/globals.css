@@ -88,54 +88,48 @@ body {
 }
 
 @media print {
-  body > *:not([data-radix-portal]) {
-      display: none !important;
+  body.print-dialog-open > *:not([data-radix-portal]) {
+    display: none !important;
   }
 
-  [data-radix-portal] {
-      display: block !important;
-      position: static !important;
+  body.print-dialog-open [data-radix-dialog-overlay] {
+    display: none !important;
   }
 
-  [data-radix-dialog-overlay] {
-      display: none !important;
-  }
-
-  [data-radix-dialog-content] {
-      position: static !important;
-      width: 100% !important;
-      max-width: none !important;
-      height: auto !important;
-      max-height: none !important;
-      box-shadow: none !important;
-      border: none !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      animation: none !important;
-      transform: none !important;
-      overflow: visible !important;
+  body.print-dialog-open [data-radix-dialog-content] {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    animation: none !important;
+    transform: none !important;
   }
   
-  [data-radix-dialog-content] > *:not(.printable-scroll-area){
-      display: none !important;
+  body.print-dialog-open [data-radix-dialog-content] > *:not(.printable-scroll-area){
+    display: none !important;
   }
 
-  .printable-scroll-area,
-  .printable-scroll-area > div[data-radix-scroll-area-viewport] {
-      display: block !important;
-      height: auto !important;
-      max-height: none !important;
-      overflow: visible !important;
-      border: none !important;
+  body.print-dialog-open .printable-scroll-area,
+  body.print-dialog-open .printable-scroll-area > div[data-radix-scroll-area-viewport] {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
   }
   
-  .printable-area {
-      color: #000 !important;
-      background: #fff !important;
+  body.print-dialog-open .printable-area {
+    color: #000 !important;
+    background: #fff !important;
   }
 
   @page {
-      size: A4;
-      margin: 20mm;
+    size: A4;
+    margin: 20mm;
   }
 }

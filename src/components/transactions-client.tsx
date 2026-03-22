@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -164,14 +165,14 @@ const transactionSchema = z.object({
     if (data.subtype === 'Venda' && (!data.items || data.items.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Você deve adicionar pelo menos um produto para "Venda".',
+            message: 'Você deve adicionar pelo menos um produto.',
             path: ['items'],
         });
     }
      if (data.subtype === 'Prestação de Serviço' && (!data.services || data.services.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Você deve adicionar pelo menos um serviço para "Prestação de Serviço".',
+            message: 'Você deve adicionar pelo menos um serviço.',
             path: ['services'],
         });
     }
@@ -304,6 +305,17 @@ export function TransactionsClient({}: {}) {
     });
     return () => subscription.unsubscribe();
   }, [form.watch]);
+
+  useEffect(() => {
+    if (isPrintDialogOpen) {
+      document.body.classList.add('print-dialog-open');
+    } else {
+      document.body.classList.remove('print-dialog-open');
+    }
+    return () => {
+      document.body.classList.remove('print-dialog-open');
+    };
+  }, [isPrintDialogOpen]);
 
   const openNewTransactionDialog = useCallback((type: 'revenue' | 'expense', mode?: string) => {
     setEditingTransaction(null);
