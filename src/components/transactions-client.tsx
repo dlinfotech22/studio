@@ -1004,8 +1004,7 @@ export function TransactionsClient({}: {}) {
                           setCurrentProduct(prod);
                           setOpen(false);
                       }}
-                      onMouseDown={(e) => e.preventDefault()}
-                  >
+                      >
                       <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
                       {prod.name}
                   </CommandItem>
@@ -1042,8 +1041,7 @@ export function TransactionsClient({}: {}) {
                           setCurrentService(serv);
                           setOpen(false);
                       }}
-                      onMouseDown={(e) => e.preventDefault()}
-                  >
+                      >
                       <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
                       {serv.name}
                   </CommandItem>
@@ -1117,8 +1115,7 @@ export function TransactionsClient({}: {}) {
                                         setInputValue(client.name);
                                         setOpen(false);
                                     }}
-                                    onMouseDown={(e) => e.preventDefault()}
-                                >
+                                    >
                                     <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
                                     {client.name}
                                 </CommandItem>
