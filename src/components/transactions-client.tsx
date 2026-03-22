@@ -990,7 +990,7 @@ export function TransactionsClient({}: {}) {
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
           <Command>
               <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
               <CommandList>
@@ -998,12 +998,18 @@ export function TransactionsClient({}: {}) {
               <CommandGroup>
                   {allProducts.map((prod) => (
                   <CommandItem
-                  value={prod.name}
-                  key={prod.id}
-                  onSelect={() => {
-                      setCurrentProduct(prod);
-                      setOpen(false);
-                  }}
+                    value={prod.name}
+                    key={prod.id}
+                    onSelect={() => {
+                        setCurrentProduct(prod);
+                        setOpen(false);
+                    }}
+                    onPointerDown={(e) => {
+                        e.preventDefault(); // Impede o input de perder o foco
+                        e.stopPropagation(); // Impede o Modal de roubar o evento
+                        setCurrentProduct(prod);
+                        setTimeout(() => setOpen(false), 0);
+                    }}
                   >
                       <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
                       {prod.name}
@@ -1027,7 +1033,7 @@ export function TransactionsClient({}: {}) {
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
           <Command>
               <CommandInput placeholder="Digite para filtrar..." autoComplete="off"/>
               <CommandList>
@@ -1040,8 +1046,14 @@ export function TransactionsClient({}: {}) {
                       onSelect={() => {
                         setCurrentService(serv);
                         setOpen(false);
-                    }}
-                      >
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCurrentService(serv);
+                        setTimeout(() => setOpen(false), 0);
+                      }}
+                  >
                       <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
                       {serv.name}
                   </CommandItem>
@@ -1093,7 +1105,7 @@ export function TransactionsClient({}: {}) {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
                 <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
                     <CommandInput
                         placeholder="Buscar cliente..."
@@ -1113,8 +1125,16 @@ export function TransactionsClient({}: {}) {
                                       form.setValue('customerName', client.name);
                                       setInputValue(client.name);
                                       setOpen(false);
-                                  }}
-                                    >
+                                    }}
+                                    onPointerDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      form.setValue('customerId', client.id);
+                                      form.setValue('customerName', client.name);
+                                      setInputValue(client.name);
+                                      setTimeout(() => setOpen(false), 0);
+                                    }}
+                                >
                                     <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
                                     {client.name}
                                 </CommandItem>
