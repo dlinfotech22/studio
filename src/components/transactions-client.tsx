@@ -998,13 +998,18 @@ export function TransactionsClient({}: {}) {
               <CommandGroup>
                   {allProducts.map((prod) => (
                   <CommandItem
-                      value={prod.name}
-                      key={prod.id}
-                      onSelect={() => {
-                        setCurrentProduct(prod);
-                        setTimeout(() => setOpen(false), 0); // Atraso minúsculo resolve o bug
-                    }}
-                      >
+                  value={prod.name}
+                  key={prod.id}
+                  onSelect={() => {
+                      setCurrentProduct(prod);
+                      setOpen(false);
+                  }}
+                  onMouseDown={(e) => {
+                      e.preventDefault(); // Evita que o input perca o foco e feche antes da hora
+                      setCurrentProduct(prod); // Força a seleção imediatamente
+                      setTimeout(() => setOpen(false), 0);
+                  }}
+              >
                       <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
                       {prod.name}
                   </CommandItem>
