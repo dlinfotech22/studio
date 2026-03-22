@@ -1320,7 +1320,19 @@ export function TransactionsClient({}: {}) {
                                                           form.setValue('customerName', client.name);
                                                           setCustomerSearchValue(client.name);
                                                           setIsCustomerOpen(false);
-                                                      }}
+                                                        }}
+                                                        onMouseDown={(e) => {
+                                                          e.preventDefault();
+                                                          e.stopPropagation();
+                                                        }}
+                                                        onMouseUp={(e) => {
+                                                          e.preventDefault();
+                                                          e.stopPropagation();
+                                                          form.setValue('customerId', client.id);
+                                                          form.setValue('customerName', client.name);
+                                                          setCustomerSearchValue(client.name);
+                                                          setIsCustomerOpen(false);
+                                                        }}
                                                     >
                                                         <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
                                                         {client.name}
@@ -1368,7 +1380,17 @@ export function TransactionsClient({}: {}) {
                                               onSelect={() => {
                                                 setCurrentService(serv);
                                                 setIsServiceOpen(false);
-                                            }}
+                                              }}
+                                              onMouseDown={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                              }}
+                                              onMouseUp={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  setCurrentService(serv);
+                                                  setIsServiceOpen(false);
+                                              }}
                                           >
                                               <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
                                               {serv.name}
@@ -1430,6 +1452,16 @@ export function TransactionsClient({}: {}) {
                                               value={prod.name}
                                               key={prod.id}
                                               onSelect={() => {
+                                                  setCurrentProduct(prod);
+                                                  setIsProductOpen(false);
+                                              }}
+                                              onMouseDown={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                              }}
+                                              onMouseUp={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
                                                   setCurrentProduct(prod);
                                                   setIsProductOpen(false);
                                               }}
