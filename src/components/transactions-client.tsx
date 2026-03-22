@@ -325,8 +325,8 @@ export function TransactionsClient({}: {}) {
     const defaultSubtypeForQuote = subtypesForQuote.length > 0 ? subtypesForQuote[0] : 'Prestação de Serviço';
     
     const subtypesForRevenue = companyInfo?.allowedSubtypes?.filter(st => subtypeToTypeMap[st] === 'revenue') || [];
-    const defaultSubtypeForRevenue = subtypesForRevenue.length > 0 ? defaultSubtypeForRevenue : 'Prestação de Serviço';
-
+    const defaultSubtypeForRevenue = subtypesForRevenue.length > 0 ? subtypesForRevenue[0] : 'Prestação de Serviço';
+    
     const defaultSubtype = isQuote 
         ? defaultSubtypeForQuote
         : (type === 'revenue' ? defaultSubtypeForRevenue : 'Despesa');
@@ -1685,13 +1685,13 @@ export function TransactionsClient({}: {}) {
       </Dialog>
 
       <Dialog open={isPrintDialogOpen} onOpenChange={(isOpen) => {
-        setIsPrintDialogOpen(isOpen);
         if (!isOpen) {
-            if (onPrintDialogClose) {
-                onPrintDialogClose();
-                setOnPrintDialogClose(null);
-            }
+          if (onPrintDialogClose) {
+              onPrintDialogClose();
+              setOnPrintDialogClose(null);
+          }
         }
+        setIsPrintDialogOpen(isOpen);
       }}>
         <DialogContent className="max-w-3xl">
           <DialogHeader className="dialog-print-header">
@@ -1700,7 +1700,7 @@ export function TransactionsClient({}: {}) {
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh] rounded-md border">
+          <ScrollArea className="max-h-[70vh] rounded-md border printable-area">
             <PrintableDocument
               transaction={transactionToPrint}
               customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
@@ -1710,10 +1710,6 @@ export function TransactionsClient({}: {}) {
           <DialogFooter className="dialog-print-footer">
             <Button variant="outline" onClick={() => {
                 setIsPrintDialogOpen(false);
-                if (onPrintDialogClose) {
-                    onPrintDialogClose();
-                    setOnPrintDialogClose(null);
-                }
             }}>Fechar</Button>
             <Button onClick={() => window.print()}>Imprimir</Button>
           </DialogFooter>
