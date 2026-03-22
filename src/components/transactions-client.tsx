@@ -1001,9 +1001,9 @@ export function TransactionsClient({}: {}) {
                       value={prod.name}
                       key={prod.id}
                       onSelect={() => {
-                          setCurrentProduct(prod);
-                          setOpen(false);
-                      }}
+                        setCurrentProduct(prod);
+                        setTimeout(() => setOpen(false), 0); // Atraso minúsculo resolve o bug
+                    }}
                       >
                       <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
                       {prod.name}
@@ -1038,9 +1038,9 @@ export function TransactionsClient({}: {}) {
                       value={serv.name}
                       key={serv.id}
                       onSelect={() => {
-                          setCurrentService(serv);
-                          setOpen(false);
-                      }}
+                        setCurrentService(serv);
+                        setTimeout(() => setOpen(false), 0); // Atraso minúsculo resolve o bug
+                    }}
                       >
                       <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
                       {serv.name}
@@ -1110,11 +1110,11 @@ export function TransactionsClient({}: {}) {
                                     key={client.id}
                                     value={client.name}
                                     onSelect={() => {
-                                        form.setValue('customerId', client.id);
-                                        form.setValue('customerName', client.name);
-                                        setInputValue(client.name);
-                                        setOpen(false);
-                                    }}
+                                      form.setValue('customerId', client.id);
+                                      form.setValue('customerName', client.name);
+                                      setInputValue(client.name);
+                                      setTimeout(() => setOpen(false), 0); // Atraso minúsculo resolve o bug
+                                  }}
                                     >
                                     <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
                                     {client.name}
