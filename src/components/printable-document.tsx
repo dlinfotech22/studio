@@ -53,12 +53,11 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
       
       <header className="flex items-start justify-between mb-8">
         <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16 rounded-md">
-            <AvatarImage src={companyInfo?.logo} />
-            <AvatarFallback className="rounded-md">
-              <Building className="h-8 w-8" />
-            </AvatarFallback>
-          </Avatar>
+          {companyInfo?.logo && (
+            <Avatar className="h-16 w-16 rounded-md">
+              <AvatarImage src={companyInfo.logo} />
+            </Avatar>
+          )}
           <div>
             <h1 className="text-xl font-bold">{companyInfo?.name}</h1>
             <p className="text-xs text-gray-500">

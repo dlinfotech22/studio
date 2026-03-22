@@ -78,6 +78,7 @@ body {
   }
 
   @page {
+    size: auto;
     margin: 0;
   }
 }
@@ -92,34 +93,22 @@ body {
 }
 
 @media print {
-  body.print-dialog-open {
-    background: #fff;
+  body * {
+    visibility: hidden;
   }
-
-  body.print-dialog-open > *:not([data-radix-portal]) {
+  .printable-area, .printable-area * {
+    visibility: visible;
+  }
+  .printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 2rem;
+    background: white !important;
+    color: black !important;
+  }
+  .dialog-print-header, .dialog-print-footer {
     display: none !important;
-  }
-
-  body.print-dialog-open [data-radix-dialog-overlay] {
-    display: none !important;
-  }
-
-  body.print-dialog-open [data-radix-dialog-content] {
-    position: static !important;
-    width: 100% !important;
-    max-width: none !important;
-    height: auto !important;
-    max-height: none !important;
-    box-shadow: none !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    animation: none !important;
-    transform: none !important;
-  }
-
-  .dialog-print-header,
-  .dialog-print-footer {
-      display: none !important;
   }
 }

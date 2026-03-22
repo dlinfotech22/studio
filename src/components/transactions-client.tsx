@@ -300,14 +300,6 @@ export function TransactionsClient({}: {}) {
     },
   });
 
-  useEffect(() => {
-    if (isPrintDialogOpen) {
-      document.body.classList.add('print-dialog-open');
-    } else {
-      document.body.classList.remove('print-dialog-open');
-    }
-  }, [isPrintDialogOpen]);
-
   // Efeito para sincronizar o input do cliente com o estado
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
@@ -333,7 +325,7 @@ export function TransactionsClient({}: {}) {
     const defaultSubtypeForQuote = subtypesForQuote.length > 0 ? subtypesForQuote[0] : 'Prestação de Serviço';
     
     const subtypesForRevenue = companyInfo?.allowedSubtypes?.filter(st => subtypeToTypeMap[st] === 'revenue') || [];
-    const defaultSubtypeForRevenue = subtypesForRevenue.length > 0 ? subtypesForRevenue[0] : 'Prestação de Serviço';
+    const defaultSubtypeForRevenue = subtypesForRevenue.length > 0 ? defaultSubtypeForRevenue : 'Prestação de Serviço';
 
     const defaultSubtype = isQuote 
         ? defaultSubtypeForQuote
