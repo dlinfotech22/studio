@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -166,14 +167,14 @@ const transactionSchema = z.object({
     if (data.subtype === 'Venda' && (!data.items || data.items.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Você deve adicionar pelo menos um produto para "Venda".',
+            message: 'Você deve adicionar pelo menos um produto.',
             path: ['items'],
         });
     }
      if (data.subtype === 'Prestação de Serviço' && (!data.services || data.services.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Você deve adicionar pelo menos um serviço para "Prestação de Serviço".',
+            message: 'Você deve adicionar pelo menos um serviço.',
             path: ['services'],
         });
     }
@@ -347,6 +348,7 @@ export function TransactionsClient({}: {}) {
   const handlePrint = useCallback((transactionToPrint: Transaction, onDialogClose?: () => void) => {
     setTransactionToPrint(transactionToPrint);
     setOnPrintDialogClose(() => onDialogClose || null);
+    document.body.classList.add('print-dialog-open');
     setIsPrintDialogOpen(true);
   }, []);
 
@@ -1688,6 +1690,7 @@ export function TransactionsClient({}: {}) {
       <Dialog open={isPrintDialogOpen} onOpenChange={(isOpen) => {
         setIsPrintDialogOpen(isOpen);
         if (!isOpen) {
+            document.body.classList.remove('print-dialog-open');
             if (onPrintDialogClose) {
                 onPrintDialogClose();
                 setOnPrintDialogClose(null);
@@ -1695,7 +1698,7 @@ export function TransactionsClient({}: {}) {
         }
       }}>
         <DialogContent className="max-w-3xl">
-          <DialogHeader>
+          <DialogHeader className="dialog-print-header">
             <DialogTitle>{getPrintDialogTitle()}</DialogTitle>
             <DialogDescription>
               Revise as informações e clique em imprimir para gerar o documento.
@@ -1708,8 +1711,11 @@ export function TransactionsClient({}: {}) {
               companyInfo={companyInfo}
             />
           </ScrollArea>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>Fechar</Button>
+          <DialogFooter className="dialog-print-footer">
+            <Button variant="outline" onClick={() => {
+                document.body.classList.remove('print-dialog-open');
+                setIsPrintDialogOpen(false);
+            }}>Fechar</Button>
             <Button onClick={() => window.print()}>Imprimir</Button>
           </DialogFooter>
         </DialogContent>
