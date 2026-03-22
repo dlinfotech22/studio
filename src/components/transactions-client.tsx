@@ -982,175 +982,204 @@ export function TransactionsClient({}: {}) {
 
   const ProductCombobox = () => {
     const [open, setOpen] = useState(false);
+  
     return (
-       <Popover open={open} onOpenChange={setOpen} modal={true}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")}>
-              {currentProduct ? currentProduct.name : "Selecione um produto"}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <Button
+            variant="outline"
+            role="combobox"
+            className={cn(
+              "w-full justify-between",
+              !currentProduct && "text-muted-foreground"
+            )}
+          >
+            {currentProduct ? currentProduct.name : "Selecione um produto"}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
+  
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
           <Command>
-              <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-              <CommandList>
+            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+            <CommandList>
               <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
               <CommandGroup>
-                  {allProducts.map((prod) => (
+                {allProducts.map((prod) => (
                   <CommandItem
-                  value={prod.name}
-                  key={prod.id}
-                  onSelect={() => {
-                      // Isso aqui garante que o TECLADO (Enter) continue funcionando
+                    key={prod.id}
+                    value={prod.name}
+                    onSelect={() => {
                       setCurrentProduct(prod);
                       setOpen(false);
-                  }}
-                  onPointerDownCapture={(e) => {
-                      // Para o Modal de interceptar o evento e fechar tudo
-                      e.stopPropagation();
-                  }}
-                  onClickCapture={(e) => {
-                      // Força a seleção do MOUSE antes de qualquer outra biblioteca tentar agir
-                      e.stopPropagation();
-                      setCurrentProduct(prod);
-                      setOpen(false);
-                  }}
-              >
-                  <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
-                  {prod.name}
-              </CommandItem>
-                  ))}
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        currentProduct?.id === prod.id
+                          ? "opacity-100"
+                          : "opacity-0"
+                      )}
+                    />
+                    {prod.name}
+                  </CommandItem>
+                ))}
               </CommandGroup>
-              </CommandList>
+            </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
-    )
-  }
+    );
+  };
 
   const ServiceCombobox = () => {
     const [open, setOpen] = useState(false);
+  
     return (
-       <Popover open={open} onOpenChange={setOpen} modal={true}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentService && "text-muted-foreground")}>
-              {currentService ? currentService.name : "Selecione um serviço"}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <Button
+            variant="outline"
+            role="combobox"
+            className={cn(
+              "w-full justify-between",
+              !currentService && "text-muted-foreground"
+            )}
+          >
+            {currentService ? currentService.name : "Selecione um serviço"}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
+  
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
           <Command>
-              <CommandInput placeholder="Digite para filtrar..." autoComplete="off"/>
-              <CommandList>
+            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+            <CommandList>
               <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
               <CommandGroup>
-                  {allServices.map((serv) => (
+                {allServices.map((serv) => (
                   <CommandItem
-                  value={serv.name}
-                  key={serv.id}
-                  onSelect={() => {
+                    key={serv.id}
+                    value={serv.name}
+                    onSelect={() => {
                       setCurrentService(serv);
                       setOpen(false);
-                  }}
-                  onPointerDownCapture={(e) => e.stopPropagation()}
-                  onClickCapture={(e) => {
-                      e.stopPropagation();
-                      setCurrentService(serv);
-                      setOpen(false);
-                  }}
-              >
-                  <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
-                  {serv.name}
-              </CommandItem>
-                  ))}
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        currentService?.id === serv.id
+                          ? "opacity-100"
+                          : "opacity-0"
+                      )}
+                    />
+                    {serv.name}
+                  </CommandItem>
+                ))}
               </CommandGroup>
-              </CommandList>
+            </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
-    )
-  }
+    );
+  };
 
   const CustomerCombobox = () => {
     const [open, setOpen] = useState(false);
-    const [inputValue, setInputValue] = useState(form.getValues('customerName') || '');
-
-    useEffect(() => {
-        const subscription = form.watch((value, { name }) => {
-            if (name === 'customerName') {
-                setInputValue(value.customerName || '');
-            }
-        });
-        return () => subscription.unsubscribe();
-    }, [form.watch]);
-
-    return (
-        <Popover
-            open={open}
-            onOpenChange={(isOpen) => {
-                setOpen(isOpen);
-                if (!isOpen && inputValue) {
-                    const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === inputValue.toLowerCase());
-                    if (!matchedCustomer) {
-                        form.setValue('customerName', inputValue.toUpperCase());
-                        form.setValue('customerId', undefined);
-                    }
-                }
-            }}
-            modal={true}
-        >
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className={cn("w-full justify-between", !form.getValues('customerName') && "text-muted-foreground")}
-                >
-                    {form.getValues('customerName') || "Selecione ou digite um cliente"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
-                <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-                    <CommandInput
-                        placeholder="Buscar cliente..."
-                        value={inputValue}
-                        onValueChange={setInputValue}
-                        autoComplete="off"
-                    />
-                    <CommandList>
-                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                        <CommandGroup>
-                            {allCustomers.map((client) => (
-                                <CommandItem
-                                key={client.id}
-                                value={client.name}
-                                onSelect={() => {
-                                    form.setValue('customerId', client.id);
-                                    form.setValue('customerName', client.name);
-                                    setInputValue(client.name);
-                                    setOpen(false);
-                                }}
-                                onPointerDownCapture={(e) => e.stopPropagation()}
-                                onClickCapture={(e) => {
-                                    e.stopPropagation();
-                                    form.setValue('customerId', client.id);
-                                    form.setValue('customerName', client.name);
-                                    setInputValue(client.name);
-                                    setOpen(false);
-                                }}
-                            >
-                                <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
-                                {client.name}
-                            </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
+    const [inputValue, setInputValue] = useState(
+      form.getValues("customerName") || ""
     );
-};
+  
+    useEffect(() => {
+      const subscription = form.watch((value, { name }) => {
+        if (name === "customerName") {
+          setInputValue(value.customerName || "");
+        }
+      });
+      return () => subscription.unsubscribe();
+    }, [form]);
+  
+    return (
+      <Popover
+        open={open}
+        onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+  
+          if (!isOpen && inputValue) {
+            const matchedCustomer = allCustomers.find(
+              (c) => c.name.toLowerCase() === inputValue.toLowerCase()
+            );
+  
+            if (!matchedCustomer) {
+              form.setValue("customerName", inputValue.toUpperCase());
+              form.setValue("customerId", undefined);
+            }
+          }
+        }}
+      >
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            className={cn(
+              "w-full justify-between",
+              !form.getValues("customerName") && "text-muted-foreground"
+            )}
+          >
+            {form.getValues("customerName") ||
+              "Selecione ou digite um cliente"}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+  
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
+          <Command
+            filter={(value, search) =>
+              value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
+            }
+          >
+            <CommandInput
+              placeholder="Buscar cliente..."
+              value={inputValue}
+              onValueChange={setInputValue}
+              autoComplete="off"
+            />
+  
+            <CommandList>
+              <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+  
+              <CommandGroup>
+                {allCustomers.map((client) => (
+                  <CommandItem
+                    key={client.id}
+                    value={client.name}
+                    onSelect={() => {
+                      form.setValue("customerId", client.id);
+                      form.setValue("customerName", client.name);
+                      setInputValue(client.name);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        form.getValues("customerId") === client.id
+                          ? "opacity-100"
+                          : "opacity-0"
+                      )}
+                    />
+                    {client.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    );
+  };
   
   const DatePicker = ({fieldName}: {fieldName: "date" | "firstDueDate"}) => {
     const getLabel = () => {
