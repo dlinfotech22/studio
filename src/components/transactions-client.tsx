@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -245,16 +244,13 @@ export function TransactionsClient({}: {}) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
-  const [filteredTransactions, setFilteredTransactions] = useState<
-    Transaction[]
-  >([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingTransaction, setEditingTransaction] =
-    useState<Transaction | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
@@ -273,6 +269,12 @@ export function TransactionsClient({}: {}) {
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
   const [onPrintDialogClose, setOnPrintDialogClose] = useState<(() => void) | null>(null);
+
+  // Estados para os Comboboxes
+  const [isProductOpen, setIsProductOpen] = useState(false);
+  const [isServiceOpen, setIsServiceOpen] = useState(false);
+  const [isCustomerOpen, setIsCustomerOpen] = useState(false);
+  const [customerSearchValue, setCustomerSearchValue] = useState('');
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
@@ -293,6 +295,16 @@ export function TransactionsClient({}: {}) {
       kmProximaTroca: undefined,
     },
   });
+
+  // Efeito para sincronizar o input do cliente com o estado
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+        if (name === 'customerName') {
+            setCustomerSearchValue(value.customerName || '');
+        }
+    });
+    return () => subscription.unsubscribe();
+  }, [form.watch]);
 
   const openNewTransactionDialog = useCallback((type: 'revenue' | 'expense', mode?: string) => {
     setEditingTransaction(null);
@@ -980,207 +992,6 @@ export function TransactionsClient({}: {}) {
     }
   };
 
-  const ProductCombobox = () => {
-    const [open, setOpen] = useState(false);
-  
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            className={cn(
-              "w-full justify-between",
-              !currentProduct && "text-muted-foreground"
-            )}
-          >
-            {currentProduct ? currentProduct.name : "Selecione um produto"}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-  
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
-          <Command>
-            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-            <CommandList>
-              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-              <CommandGroup>
-                {allProducts.map((prod) => (
-                  <CommandItem
-                    key={prod.id}
-                    value={prod.name}
-                    onSelect={() => {
-                      setCurrentProduct(prod);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        currentProduct?.id === prod.id
-                          ? "opacity-100"
-                          : "opacity-0"
-                      )}
-                    />
-                    {prod.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    );
-  };
-
-  const ServiceCombobox = () => {
-    const [open, setOpen] = useState(false);
-  
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            className={cn(
-              "w-full justify-between",
-              !currentService && "text-muted-foreground"
-            )}
-          >
-            {currentService ? currentService.name : "Selecione um serviço"}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-  
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
-          <Command>
-            <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-            <CommandList>
-              <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
-              <CommandGroup>
-                {allServices.map((serv) => (
-                  <CommandItem
-                    key={serv.id}
-                    value={serv.name}
-                    onSelect={() => {
-                      setCurrentService(serv);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        currentService?.id === serv.id
-                          ? "opacity-100"
-                          : "opacity-0"
-                      )}
-                    />
-                    {serv.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    );
-  };
-
-  const CustomerCombobox = () => {
-    const [open, setOpen] = useState(false);
-    const [inputValue, setInputValue] = useState(
-      form.getValues("customerName") || ""
-    );
-  
-    useEffect(() => {
-      const subscription = form.watch((value, { name }) => {
-        if (name === "customerName") {
-          setInputValue(value.customerName || "");
-        }
-      });
-      return () => subscription.unsubscribe();
-    }, [form]);
-  
-    return (
-      <Popover
-        open={open}
-        onOpenChange={(isOpen) => {
-          setOpen(isOpen);
-  
-          if (!isOpen && inputValue) {
-            const matchedCustomer = allCustomers.find(
-              (c) => c.name.toLowerCase() === inputValue.toLowerCase()
-            );
-  
-            if (!matchedCustomer) {
-              form.setValue("customerName", inputValue.toUpperCase());
-              form.setValue("customerId", undefined);
-            }
-          }
-        }}
-      >
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            className={cn(
-              "w-full justify-between",
-              !form.getValues("customerName") && "text-muted-foreground"
-            )}
-          >
-            {form.getValues("customerName") ||
-              "Selecione ou digite um cliente"}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-  
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
-          <Command
-            filter={(value, search) =>
-              value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
-            }
-          >
-            <CommandInput
-              placeholder="Buscar cliente..."
-              value={inputValue}
-              onValueChange={setInputValue}
-              autoComplete="off"
-            />
-  
-            <CommandList>
-              <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-  
-              <CommandGroup>
-                {allCustomers.map((client) => (
-                  <CommandItem
-                    key={client.id}
-                    value={client.name}
-                    onSelect={() => {
-                      form.setValue("customerId", client.id);
-                      form.setValue("customerName", client.name);
-                      setInputValue(client.name);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        form.getValues("customerId") === client.id
-                          ? "opacity-100"
-                          : "opacity-0"
-                      )}
-                    />
-                    {client.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    );
-  };
-  
   const DatePicker = ({fieldName}: {fieldName: "date" | "firstDueDate"}) => {
     const getLabel = () => {
         switch(fieldName) {
@@ -1463,7 +1274,63 @@ export function TransactionsClient({}: {}) {
                       render={() => (
                         <FormItem className="flex flex-col pt-2">
                            <FormLabel>Cliente</FormLabel>
-                           <CustomerCombobox />
+                           {/* CLIENTE COMBOBOX INLINE */}
+                           <Popover
+                                open={isCustomerOpen}
+                                onOpenChange={(isOpen) => {
+                                    setIsCustomerOpen(isOpen);
+                                    if (!isOpen && customerSearchValue) {
+                                        const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === customerSearchValue.toLowerCase());
+                                        if (!matchedCustomer) {
+                                            form.setValue('customerName', customerSearchValue.toUpperCase());
+                                            form.setValue('customerId', undefined);
+                                        }
+                                    }
+                                }}
+                                modal={true}
+                            >
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={isCustomerOpen}
+                                        className={cn("w-full justify-between", !form.getValues('customerName') && "text-muted-foreground")}
+                                    >
+                                        {form.getValues('customerName') || "Selecione ou digite um cliente"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
+                                    <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
+                                        <CommandInput
+                                            placeholder="Buscar cliente..."
+                                            value={customerSearchValue}
+                                            onValueChange={setCustomerSearchValue}
+                                            autoComplete="off"
+                                        />
+                                        <CommandList>
+                                            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                                            <CommandGroup>
+                                                {allCustomers.map((client) => (
+                                                    <CommandItem
+                                                        key={client.id}
+                                                        value={client.name}
+                                                        onSelect={() => {
+                                                          form.setValue('customerId', client.id);
+                                                          form.setValue('customerName', client.name);
+                                                          setCustomerSearchValue(client.name);
+                                                          setIsCustomerOpen(false);
+                                                      }}
+                                                    >
+                                                        <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
+                                                        {client.name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                            <FormMessage />
                         </FormItem>
                       )}
@@ -1480,7 +1347,38 @@ export function TransactionsClient({}: {}) {
                       <div className="flex flex-col md:flex-row gap-2 items-end">
                             <div className="flex-1 w-full">
                               <Label>Serviço</Label>
-                              <ServiceCombobox />
+                              {/* SERVIÇOS COMBOBOX INLINE */}
+                              <Popover open={isServiceOpen} onOpenChange={setIsServiceOpen} modal={true}>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentService && "text-muted-foreground")}>
+                                      {currentService ? currentService.name : "Selecione um serviço"}
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
+                                  <Command>
+                                      <CommandInput placeholder="Digite para filtrar..." autoComplete="off"/>
+                                      <CommandList>
+                                      <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
+                                      <CommandGroup>
+                                          {allServices.map((serv) => (
+                                          <CommandItem
+                                              value={serv.name}
+                                              key={serv.id}
+                                              onSelect={() => {
+                                                setCurrentService(serv);
+                                                setIsServiceOpen(false);
+                                            }}
+                                          >
+                                              <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
+                                              {serv.name}
+                                          </CommandItem>
+                                          ))}
+                                      </CommandGroup>
+                                      </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
                             </div>
                           <Button type="button" onClick={handleAddService}>Adicionar</Button>
                       </div>
@@ -1513,7 +1411,38 @@ export function TransactionsClient({}: {}) {
                         <div className="flex flex-col md:flex-row gap-2 items-end">
                              <div className="flex-1 w-full">
                                 <Label>Produto</Label>
-                                <ProductCombobox />
+                                {/* PRODUTO COMBOBOX INLINE */}
+                                <Popover open={isProductOpen} onOpenChange={setIsProductOpen} modal={true}>
+                                  <PopoverTrigger asChild>
+                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")}>
+                                        {currentProduct ? currentProduct.name : "Selecione um produto"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
+                                    <Command>
+                                        <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+                                        <CommandList>
+                                        <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                        <CommandGroup>
+                                            {allProducts.map((prod) => (
+                                            <CommandItem
+                                              value={prod.name}
+                                              key={prod.id}
+                                              onSelect={() => {
+                                                  setCurrentProduct(prod);
+                                                  setIsProductOpen(false);
+                                              }}
+                                            >
+                                                <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
+                                                {prod.name}
+                                            </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
                              </div>
                             <div className="w-full md:w-24">
                                 <Label>Qtde.</Label>
