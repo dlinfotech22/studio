@@ -216,7 +216,6 @@ const transactionSchema = z.object({
     }
 });
 
-
 type TransactionFormValues = z.infer<typeof transactionSchema>;
 
 const subtypeToTypeMap: Record<TransactionSubtype, TransactionType> = {
@@ -270,7 +269,7 @@ export function TransactionsClient({}: {}) {
   const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
   const [onPrintDialogClose, setOnPrintDialogClose] = useState<(() => void) | null>(null);
 
-  // Estados para os Comboboxes
+  // Estados para os Dropdowns Nativos
   const [isProductOpen, setIsProductOpen] = useState(false);
   const [isServiceOpen, setIsServiceOpen] = useState(false);
   const [isCustomerOpen, setIsCustomerOpen] = useState(false);
@@ -1274,75 +1273,54 @@ export function TransactionsClient({}: {}) {
                       render={() => (
                         <FormItem className="flex flex-col pt-2">
                            <FormLabel>Cliente</FormLabel>
-                           {/* CLIENTE COMBOBOX INLINE */}
-                           <Popover
-                                open={isCustomerOpen}
-                                onOpenChange={(isOpen) => {
-                                    setIsCustomerOpen(isOpen);
-                                    if (!isOpen && customerSearchValue) {
-                                        const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === customerSearchValue.toLowerCase());
-                                        if (!matchedCustomer) {
-                                            form.setValue('customerName', customerSearchValue.toUpperCase());
-                                            form.setValue('customerId', undefined);
-                                        }
-                                    }
-                                }}
-                                modal={true}
-                            >
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={isCustomerOpen}
-                                        className={cn("w-full justify-between", !form.getValues('customerName') && "text-muted-foreground")}
-                                    >
-                                        {form.getValues('customerName') || "Selecione ou digite um cliente"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
-                                    <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-                                        <CommandInput
-                                            placeholder="Buscar cliente..."
-                                            value={customerSearchValue}
-                                            onValueChange={setCustomerSearchValue}
-                                            autoComplete="off"
-                                        />
-                                        <CommandList>
-                                            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                                            <CommandGroup>
-                                                {allCustomers.map((client) => (
-                                                    <CommandItem
-                                                        key={client.id}
-                                                        value={client.name}
-                                                        onSelect={() => {
-                                                          form.setValue('customerId', client.id);
-                                                          form.setValue('customerName', client.name);
-                                                          setCustomerSearchValue(client.name);
-                                                          setIsCustomerOpen(false);
-                                                        }}
-                                                        onMouseDown={(e) => {
-                                                          e.preventDefault();
-                                                          e.stopPropagation();
-                                                        }}
-                                                        onMouseUp={(e) => {
-                                                          e.preventDefault();
-                                                          e.stopPropagation();
-                                                          form.setValue('customerId', client.id);
-                                                          form.setValue('customerName', client.name);
-                                                          setCustomerSearchValue(client.name);
-                                                          setIsCustomerOpen(false);
-                                                        }}
-                                                    >
-                                                        <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
-                                                        {client.name}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                           {/* DROPDOWN NATIVO: CLIENTES */}
+                           <div className="relative w-full">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    role="combobox"
+                                    onClick={() => setIsCustomerOpen(!isCustomerOpen)}
+                                    className={cn("w-full justify-between", !form.getValues('customerName') && "text-muted-foreground")}
+                                >
+                                    {form.getValues('customerName') || "Selecione ou digite um cliente"}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                                {isCustomerOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-[90]" onClick={() => setIsCustomerOpen(false)} />
+                                        <div className="absolute top-full left-0 z-[100] w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md overflow-hidden animate-in fade-in-0 zoom-in-95">
+                                            <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
+                                                <CommandInput
+                                                    placeholder="Buscar cliente..."
+                                                    value={customerSearchValue}
+                                                    onValueChange={setCustomerSearchValue}
+                                                    autoComplete="off"
+                                                />
+                                                <CommandList className="max-h-[200px] overflow-y-auto">
+                                                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {allCustomers.map((client) => (
+                                                            <CommandItem
+                                                                key={client.id}
+                                                                value={client.name}
+                                                                onSelect={() => {
+                                                                    form.setValue('customerId', client.id);
+                                                                    form.setValue('customerName', client.name);
+                                                                    setCustomerSearchValue(client.name);
+                                                                    setIsCustomerOpen(false);
+                                                                }}
+                                                            >
+                                                                <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
+                                                                {client.name}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                            <FormMessage />
                         </FormItem>
                       )}
@@ -1359,48 +1337,47 @@ export function TransactionsClient({}: {}) {
                       <div className="flex flex-col md:flex-row gap-2 items-end">
                             <div className="flex-1 w-full">
                               <Label>Serviço</Label>
-                              {/* SERVIÇOS COMBOBOX INLINE */}
-                              <Popover open={isServiceOpen} onOpenChange={setIsServiceOpen} modal={true}>
-                                <PopoverTrigger asChild>
-                                  <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentService && "text-muted-foreground")}>
+                              {/* DROPDOWN NATIVO: SERVIÇOS */}
+                              <div className="relative w-full">
+                                  <Button
+                                      type="button"
+                                      variant="outline"
+                                      role="combobox"
+                                      onClick={() => setIsServiceOpen(!isServiceOpen)}
+                                      className={cn("w-full justify-between", !currentService && "text-muted-foreground")}
+                                  >
                                       {currentService ? currentService.name : "Selecione um serviço"}
                                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                   </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
-                                  <Command>
-                                      <CommandInput placeholder="Digite para filtrar..." autoComplete="off"/>
-                                      <CommandList>
-                                      <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
-                                      <CommandGroup>
-                                          {allServices.map((serv) => (
-                                          <CommandItem
-                                              value={serv.name}
-                                              key={serv.id}
-                                              onSelect={() => {
-                                                setCurrentService(serv);
-                                                setIsServiceOpen(false);
-                                              }}
-                                              onMouseDown={(e) => {
-                                                  e.preventDefault();
-                                                  e.stopPropagation();
-                                              }}
-                                              onMouseUp={(e) => {
-                                                  e.preventDefault();
-                                                  e.stopPropagation();
-                                                  setCurrentService(serv);
-                                                  setIsServiceOpen(false);
-                                              }}
-                                          >
-                                              <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
-                                              {serv.name}
-                                          </CommandItem>
-                                          ))}
-                                      </CommandGroup>
-                                      </CommandList>
-                                  </Command>
-                                </PopoverContent>
-                              </Popover>
+                                  {isServiceOpen && (
+                                      <>
+                                          <div className="fixed inset-0 z-[90]" onClick={() => setIsServiceOpen(false)} />
+                                          <div className="absolute top-full left-0 z-[100] w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md overflow-hidden animate-in fade-in-0 zoom-in-95">
+                                              <Command>
+                                                  <CommandInput placeholder="Digite para filtrar..." autoComplete="off"/>
+                                                  <CommandList className="max-h-[200px] overflow-y-auto">
+                                                      <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
+                                                      <CommandGroup>
+                                                          {allServices.map((serv) => (
+                                                              <CommandItem
+                                                                  key={serv.id}
+                                                                  value={serv.name}
+                                                                  onSelect={() => {
+                                                                      setCurrentService(serv);
+                                                                      setIsServiceOpen(false);
+                                                                  }}
+                                                              >
+                                                                  <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
+                                                                  {serv.name}
+                                                              </CommandItem>
+                                                          ))}
+                                                      </CommandGroup>
+                                                  </CommandList>
+                                              </Command>
+                                          </div>
+                                      </>
+                                  )}
+                              </div>
                             </div>
                           <Button type="button" onClick={handleAddService}>Adicionar</Button>
                       </div>
@@ -1433,48 +1410,47 @@ export function TransactionsClient({}: {}) {
                         <div className="flex flex-col md:flex-row gap-2 items-end">
                              <div className="flex-1 w-full">
                                 <Label>Produto</Label>
-                                {/* PRODUTO COMBOBOX INLINE */}
-                                <Popover open={isProductOpen} onOpenChange={setIsProductOpen} modal={true}>
-                                  <PopoverTrigger asChild>
-                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")}>
+                                {/* DROPDOWN NATIVO: PRODUTOS */}
+                                <div className="relative w-full">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        role="combobox"
+                                        onClick={() => setIsProductOpen(!isProductOpen)}
+                                        className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")}
+                                    >
                                         {currentProduct ? currentProduct.name : "Selecione um produto"}
                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[51]">
-                                    <Command>
-                                        <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-                                        <CommandList>
-                                        <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                                        <CommandGroup>
-                                            {allProducts.map((prod) => (
-                                            <CommandItem
-                                              value={prod.name}
-                                              key={prod.id}
-                                              onSelect={() => {
-                                                  setCurrentProduct(prod);
-                                                  setIsProductOpen(false);
-                                              }}
-                                              onMouseDown={(e) => {
-                                                  e.preventDefault();
-                                                  e.stopPropagation();
-                                              }}
-                                              onMouseUp={(e) => {
-                                                  e.preventDefault();
-                                                  e.stopPropagation();
-                                                  setCurrentProduct(prod);
-                                                  setIsProductOpen(false);
-                                              }}
-                                            >
-                                                <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
-                                                {prod.name}
-                                            </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                  </PopoverContent>
-                                </Popover>
+                                    {isProductOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-[90]" onClick={() => setIsProductOpen(false)} />
+                                            <div className="absolute top-full left-0 z-[100] w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md overflow-hidden animate-in fade-in-0 zoom-in-95">
+                                                <Command>
+                                                    <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
+                                                    <CommandList className="max-h-[200px] overflow-y-auto">
+                                                        <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {allProducts.map((prod) => (
+                                                                <CommandItem
+                                                                    key={prod.id}
+                                                                    value={prod.name}
+                                                                    onSelect={() => {
+                                                                        setCurrentProduct(prod);
+                                                                        setIsProductOpen(false);
+                                                                    }}
+                                                                >
+                                                                    <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
+                                                                    {prod.name}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                              </div>
                             <div className="w-full md:w-24">
                                 <Label>Qtde.</Label>
