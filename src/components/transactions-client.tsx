@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -93,6 +92,8 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { db } from '@/lib/firebase';
+// Mantemos os imports do Command para não quebrar outras partes do app que possam precisar, 
+// mas não os usaremos mais aqui nos dropdowns.
 import {
   Command,
   CommandEmpty,
@@ -165,14 +166,14 @@ const transactionSchema = z.object({
     if (data.subtype === 'Venda' && (!data.items || data.items.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Você deve adicionar pelo menos um produto.',
+            message: 'Você deve adicionar pelo menos um produto para "Venda".',
             path: ['items'],
         });
     }
      if (data.subtype === 'Prestação de Serviço' && (!data.services || data.services.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Você deve adicionar pelo menos um serviço.',
+            message: 'Você deve adicionar pelo menos um serviço para "Prestação de Serviço".',
             path: ['services'],
         });
     }
@@ -270,9 +271,13 @@ export function TransactionsClient({}: {}) {
   const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
   const [onPrintDialogClose, setOnPrintDialogClose] = useState<(() => void) | null>(null);
 
-  // Estados para os Dropdowns Nativos
+  // Estados dos Menus (Substituindo CMDX)
   const [isProductOpen, setIsProductOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  
   const [isServiceOpen, setIsServiceOpen] = useState(false);
+  const [serviceSearch, setServiceSearch] = useState('');
+  
   const [isCustomerOpen, setIsCustomerOpen] = useState(false);
   const [customerSearchValue, setCustomerSearchValue] = useState('');
 
@@ -305,17 +310,6 @@ export function TransactionsClient({}: {}) {
     });
     return () => subscription.unsubscribe();
   }, [form.watch]);
-
-  useEffect(() => {
-    if (isPrintDialogOpen) {
-      document.body.classList.add('print-dialog-open');
-    } else {
-      document.body.classList.remove('print-dialog-open');
-    }
-    return () => {
-      document.body.classList.remove('print-dialog-open');
-    };
-  }, [isPrintDialogOpen]);
 
   const openNewTransactionDialog = useCallback((type: 'revenue' | 'expense', mode?: string) => {
     setEditingTransaction(null);
@@ -1286,53 +1280,68 @@ export function TransactionsClient({}: {}) {
                         <FormItem className="flex flex-col pt-2">
                            <FormLabel>Cliente</FormLabel>
                            {/* DROPDOWN NATIVO: CLIENTES */}
-                           <div className="relative w-full">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    role="combobox"
-                                    onClick={() => setIsCustomerOpen(!isCustomerOpen)}
-                                    className={cn("w-full justify-between", !form.getValues('customerName') && "text-muted-foreground")}
-                                >
-                                    {form.getValues('customerName') || "Selecione ou digite um cliente"}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                                {isCustomerOpen && (
-                                    <>
-                                        <div className="fixed inset-0 z-[90]" onClick={() => setIsCustomerOpen(false)} />
-                                        <div className="absolute top-full left-0 z-[100] w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md overflow-hidden animate-in fade-in-0 zoom-in-95">
-                                            <Command filter={(value, search) => value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0}>
-                                                <CommandInput
-                                                    placeholder="Buscar cliente..."
-                                                    value={customerSearchValue}
-                                                    onValueChange={setCustomerSearchValue}
-                                                    autoComplete="off"
-                                                />
-                                                <CommandList className="max-h-[200px] overflow-y-auto">
-                                                    <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                                                    <CommandGroup>
-                                                        {allCustomers.map((client) => (
-                                                            <CommandItem
-                                                                key={client.id}
-                                                                value={client.name}
-                                                                onSelect={() => {
-                                                                    form.setValue('customerId', client.id);
-                                                                    form.setValue('customerName', client.name);
-                                                                    setCustomerSearchValue(client.name);
-                                                                    setIsCustomerOpen(false);
-                                                                }}
-                                                            >
-                                                                <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
-                                                                {client.name}
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
+                           <Popover
+                                open={isCustomerOpen}
+                                onOpenChange={(isOpen) => {
+                                    setIsCustomerOpen(isOpen);
+                                    if (!isOpen && customerSearchValue) {
+                                        const matchedCustomer = allCustomers.find(c => c.name.toLowerCase() === customerSearchValue.toLowerCase());
+                                        if (!matchedCustomer) {
+                                            form.setValue('customerName', customerSearchValue.toUpperCase());
+                                            form.setValue('customerId', undefined);
+                                        }
+                                    }
+                                }}
+                                modal={true}
+                            >
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={isCustomerOpen}
+                                        className={cn("w-full justify-between", !form.getValues('customerName') && "text-muted-foreground")}
+                                    >
+                                        {form.getValues('customerName') || "Selecione ou digite um cliente"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[100]" onOpenAutoFocus={(e) => e.preventDefault()}>
+                                    <div className="p-2 border-b">
+                                        <Input
+                                            placeholder="Buscar cliente..."
+                                            value={customerSearchValue}
+                                            onChange={(e) => setCustomerSearchValue(e.target.value)}
+                                            className="h-8 border-none focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
+                                            autoComplete="off"
+                                        />
+                                    </div>
+                                    <ScrollArea className="max-h-[200px]">
+                                        <div className="p-1">
+                                            {allCustomers.filter((c) => c.name.toLowerCase().includes(customerSearchValue.toLowerCase())).length === 0 ? (
+                                                <p className="p-2 text-sm text-center text-muted-foreground">Nenhum cliente encontrado.</p>
+                                            ) : (
+                                                allCustomers
+                                                    .filter((c) => c.name.toLowerCase().includes(customerSearchValue.toLowerCase()))
+                                                    .map((client) => (
+                                                        <div
+                                                            key={client.id}
+                                                            onClick={() => {
+                                                                form.setValue('customerId', client.id);
+                                                                form.setValue('customerName', client.name);
+                                                                setCustomerSearchValue(client.name);
+                                                                setIsCustomerOpen(false);
+                                                            }}
+                                                            className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                                                        >
+                                                            <Check className={cn("mr-2 h-4 w-4", form.getValues('customerId') === client.id ? "opacity-100" : "opacity-0")} />
+                                                            {client.name}
+                                                        </div>
+                                                    ))
+                                            )}
                                         </div>
-                                    </>
-                                )}
-                            </div>
+                                    </ScrollArea>
+                                </PopoverContent>
+                            </Popover>
                            <FormMessage />
                         </FormItem>
                       )}
@@ -1350,46 +1359,47 @@ export function TransactionsClient({}: {}) {
                             <div className="flex-1 w-full">
                               <Label>Serviço</Label>
                               {/* DROPDOWN NATIVO: SERVIÇOS */}
-                              <div className="relative w-full">
-                                  <Button
-                                      type="button"
-                                      variant="outline"
-                                      role="combobox"
-                                      onClick={() => setIsServiceOpen(!isServiceOpen)}
-                                      className={cn("w-full justify-between", !currentService && "text-muted-foreground")}
-                                  >
+                              <Popover open={isServiceOpen} onOpenChange={setIsServiceOpen} modal={true}>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentService && "text-muted-foreground")}>
                                       {currentService ? currentService.name : "Selecione um serviço"}
                                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                   </Button>
-                                  {isServiceOpen && (
-                                      <>
-                                          <div className="fixed inset-0 z-[90]" onClick={() => setIsServiceOpen(false)} />
-                                          <div className="absolute top-full left-0 z-[100] w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md overflow-hidden animate-in fade-in-0 zoom-in-95">
-                                              <Command>
-                                                  <CommandInput placeholder="Digite para filtrar..." autoComplete="off"/>
-                                                  <CommandList className="max-h-[200px] overflow-y-auto">
-                                                      <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
-                                                      <CommandGroup>
-                                                          {allServices.map((serv) => (
-                                                              <CommandItem
-                                                                  key={serv.id}
-                                                                  value={serv.name}
-                                                                  onSelect={() => {
-                                                                      setCurrentService(serv);
-                                                                      setIsServiceOpen(false);
-                                                                  }}
-                                                              >
-                                                                  <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
-                                                                  {serv.name}
-                                                              </CommandItem>
-                                                          ))}
-                                                      </CommandGroup>
-                                                  </CommandList>
-                                              </Command>
-                                          </div>
-                                      </>
-                                  )}
-                              </div>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[100]" onOpenAutoFocus={(e) => e.preventDefault()}>
+                                  <div className="p-2 border-b">
+                                      <Input
+                                          placeholder="Buscar serviço..."
+                                          value={serviceSearch}
+                                          onChange={(e) => setServiceSearch(e.target.value)}
+                                          className="h-8 border-none focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
+                                          autoComplete="off"
+                                      />
+                                  </div>
+                                  <ScrollArea className="max-h-[200px]">
+                                      <div className="p-1">
+                                          {allServices.filter(s => s.name.toLowerCase().includes(serviceSearch.toLowerCase())).length === 0 ? (
+                                              <p className="p-2 text-sm text-center text-muted-foreground">Nenhum serviço encontrado.</p>
+                                          ) : (
+                                              allServices.filter(s => s.name.toLowerCase().includes(serviceSearch.toLowerCase())).map((serv) => (
+                                              <div
+                                                  key={serv.id}
+                                                  onClick={() => {
+                                                      setCurrentService(serv);
+                                                      setIsServiceOpen(false);
+                                                      setServiceSearch('');
+                                                  }}
+                                                  className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                                              >
+                                                  <Check className={cn("mr-2 h-4 w-4", currentService?.id === serv.id ? "opacity-100" : "opacity-0")} />
+                                                  {serv.name}
+                                              </div>
+                                              ))
+                                          )}
+                                      </div>
+                                  </ScrollArea>
+                                </PopoverContent>
+                              </Popover>
                             </div>
                           <Button type="button" onClick={handleAddService}>Adicionar</Button>
                       </div>
@@ -1423,46 +1433,47 @@ export function TransactionsClient({}: {}) {
                              <div className="flex-1 w-full">
                                 <Label>Produto</Label>
                                 {/* DROPDOWN NATIVO: PRODUTOS */}
-                                <div className="relative w-full">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        role="combobox"
-                                        onClick={() => setIsProductOpen(!isProductOpen)}
-                                        className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")}
-                                    >
+                                <Popover open={isProductOpen} onOpenChange={setIsProductOpen} modal={true}>
+                                  <PopoverTrigger asChild>
+                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between", !currentProduct && "text-muted-foreground")}>
                                         {currentProduct ? currentProduct.name : "Selecione um produto"}
                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
-                                    {isProductOpen && (
-                                        <>
-                                            <div className="fixed inset-0 z-[90]" onClick={() => setIsProductOpen(false)} />
-                                            <div className="absolute top-full left-0 z-[100] w-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md overflow-hidden animate-in fade-in-0 zoom-in-95">
-                                                <Command>
-                                                    <CommandInput placeholder="Digite para filtrar..." autoComplete="off" />
-                                                    <CommandList className="max-h-[200px] overflow-y-auto">
-                                                        <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                                                        <CommandGroup>
-                                                            {allProducts.map((prod) => (
-                                                                <CommandItem
-                                                                    key={prod.id}
-                                                                    value={prod.name}
-                                                                    onSelect={() => {
-                                                                        setCurrentProduct(prod);
-                                                                        setIsProductOpen(false);
-                                                                    }}
-                                                                >
-                                                                    <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
-                                                                    {prod.name}
-                                                                </CommandItem>
-                                                            ))}
-                                                        </CommandGroup>
-                                                    </CommandList>
-                                                </Command>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[100]" onOpenAutoFocus={(e) => e.preventDefault()}>
+                                    <div className="p-2 border-b">
+                                        <Input
+                                            placeholder="Buscar produto..."
+                                            value={productSearch}
+                                            onChange={(e) => setProductSearch(e.target.value)}
+                                            className="h-8 border-none focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
+                                            autoComplete="off"
+                                        />
+                                    </div>
+                                    <ScrollArea className="max-h-[200px]">
+                                        <div className="p-1">
+                                            {allProducts.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 ? (
+                                                <p className="p-2 text-sm text-center text-muted-foreground">Nenhum produto encontrado.</p>
+                                            ) : (
+                                                allProducts.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).map((prod) => (
+                                                <div
+                                                  key={prod.id}
+                                                  onClick={() => {
+                                                      setCurrentProduct(prod);
+                                                      setIsProductOpen(false);
+                                                      setProductSearch('');
+                                                  }}
+                                                  className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", currentProduct?.id === prod.id ? "opacity-100" : "opacity-0")} />
+                                                    {prod.name}
+                                                </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                  </PopoverContent>
+                                </Popover>
                              </div>
                             <div className="w-full md:w-24">
                                 <Label>Qtde.</Label>
