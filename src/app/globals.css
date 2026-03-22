@@ -76,6 +76,10 @@ body {
     --sidebar-border: 217 33% 17%;
     --sidebar-ring: 210 40% 60%;
   }
+
+  @page {
+    margin: 0;
+  }
 }
 
 @layer base {
@@ -112,5 +116,10 @@ body {
     margin: 0 !important;
     animation: none !important;
     transform: none !important;
+  }
+
+  .dialog-print-header,
+  .dialog-print-footer {
+      display: none !important;
   }
 }

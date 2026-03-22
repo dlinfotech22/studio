@@ -2,7 +2,7 @@
 'use client';
 
 import { type Transaction, type Customer, type CompanyInfo } from '@/lib/types';
-import { formatCurrency, formatDocument, formatPhone } from '@/lib/utils';
+import { formatCurrency, formatDocument, formatPhone, formatZipCode } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Building } from 'lucide-react';
@@ -51,11 +51,37 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
   return (
     <div className="bg-white text-black p-8 font-sans printable-area">
       
-      <div className="text-right mb-8">
-          <h2 className="text-xl font-semibold text-gray-700">{getTitle()}</h2>
-          <p className="text-sm text-gray-500">Nº: {transaction.sequentialId ? String(transaction.sequentialId).padStart(8, '0') : transaction.id.substring(0, 8).toUpperCase()}</p>
-          <p className="text-sm text-gray-500">Data de Emissão: {format(new Date(transaction.date as Date), 'dd/MM/yyyy HH:mm')}</p>
-      </div>
+      <header className="flex items-start justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16 rounded-md">
+            <AvatarImage src={companyInfo?.logo} />
+            <AvatarFallback className="rounded-md">
+              <Building className="h-8 w-8" />
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="text-xl font-bold">{companyInfo?.name}</h1>
+            <p className="text-xs text-gray-500">
+              {companyInfo?.document ? `${formatDocument(companyInfo.document)}` : ''}
+            </p>
+            <p className="text-xs text-gray-500">
+              {companyInfo?.address && `${companyInfo.address}, ${companyInfo.number}`}{companyInfo?.neighborhood && `, ${companyInfo.neighborhood}`}
+            </p>
+            <p className="text-xs text-gray-500">
+              {companyInfo?.city && `${companyInfo.city} - ${companyInfo.state}`}{companyInfo?.zipCode && `, CEP: ${formatZipCode(companyInfo.zipCode)}`}
+            </p>
+              <p className="text-xs text-gray-500">
+              {companyInfo?.phone && `Telefone: ${formatPhone(companyInfo.phone)}`}{companyInfo?.email && ` | Email: ${companyInfo.email}`}
+            </p>
+          </div>
+        </div>
+        
+        <div className="text-right">
+            <h2 className="text-xl font-semibold text-gray-700">{getTitle()}</h2>
+            <p className="text-sm text-gray-500">Nº: {transaction.sequentialId ? String(transaction.sequentialId).padStart(8, '0') : transaction.id.substring(0, 8).toUpperCase()}</p>
+            <p className="text-sm text-gray-500">Data de Emissão: {format(new Date(transaction.date as Date), 'dd/MM/yyyy HH:mm')}</p>
+        </div>
+      </header>
 
       {customer && (
         <section className="mt-6">
@@ -168,7 +194,7 @@ export function PrintableDocument({ transaction, customer, companyInfo }: Printa
         </div>
       </section>
 
-      {transaction.serviceStatus !== 'Orçamento' && (
+      {transaction.serviceStatus === 'Orçamento' ? null : (
         <section className="mt-16 pt-8 text-center">
           <div className="inline-block">
             <div className="w-64 border-b border-black"></div>

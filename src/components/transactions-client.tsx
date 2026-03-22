@@ -93,8 +93,6 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { db } from '@/lib/firebase';
-// Mantemos os imports do Command para não quebrar outras partes do app que possam precisar, 
-// mas não os usaremos mais aqui nos dropdowns.
 import {
   Command,
   CommandEmpty,
@@ -302,6 +300,14 @@ export function TransactionsClient({}: {}) {
     },
   });
 
+  useEffect(() => {
+    if (isPrintDialogOpen) {
+      document.body.classList.add('print-dialog-open');
+    } else {
+      document.body.classList.remove('print-dialog-open');
+    }
+  }, [isPrintDialogOpen]);
+
   // Efeito para sincronizar o input do cliente com o estado
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
@@ -348,7 +354,6 @@ export function TransactionsClient({}: {}) {
   const handlePrint = useCallback((transactionToPrint: Transaction, onDialogClose?: () => void) => {
     setTransactionToPrint(transactionToPrint);
     setOnPrintDialogClose(() => onDialogClose || null);
-    document.body.classList.add('print-dialog-open');
     setIsPrintDialogOpen(true);
   }, []);
 
@@ -1690,7 +1695,6 @@ export function TransactionsClient({}: {}) {
       <Dialog open={isPrintDialogOpen} onOpenChange={(isOpen) => {
         setIsPrintDialogOpen(isOpen);
         if (!isOpen) {
-            document.body.classList.remove('print-dialog-open');
             if (onPrintDialogClose) {
                 onPrintDialogClose();
                 setOnPrintDialogClose(null);
@@ -1698,22 +1702,21 @@ export function TransactionsClient({}: {}) {
         }
       }}>
         <DialogContent className="max-w-3xl">
-          <DialogHeader>
+          <DialogHeader className="dialog-print-header">
             <DialogTitle>{getPrintDialogTitle()}</DialogTitle>
             <DialogDescription>
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh] rounded-md border printable-scroll-area">
+          <ScrollArea className="max-h-[70vh] rounded-md border">
             <PrintableDocument
               transaction={transactionToPrint}
               customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
               companyInfo={companyInfo}
             />
           </ScrollArea>
-          <DialogFooter>
+          <DialogFooter className="dialog-print-footer">
             <Button variant="outline" onClick={() => {
-                document.body.classList.remove('print-dialog-open');
                 setIsPrintDialogOpen(false);
                 if (onPrintDialogClose) {
                     onPrintDialogClose();
