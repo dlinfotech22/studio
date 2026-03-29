@@ -96,7 +96,8 @@ body {
   body * {
     visibility: hidden;
   }
-  .printable-area, .printable-area * {
+  .printable-area,
+  .printable-area * {
     visibility: visible;
   }
   .printable-area {
@@ -104,11 +105,5 @@ body {
     left: 0;
     top: 0;
     width: 100%;
-    padding: 2rem;
-    background: white !important;
-    color: black !important;
-  }
-  .dialog-print-header, .dialog-print-footer {
-    display: none !important;
   }
 }

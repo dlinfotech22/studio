@@ -177,17 +177,15 @@ const transactionSchema = z.object({
         });
     }
     if (data.subtype === 'Serviço + Venda') {
-      if ((!data.items || data.items.length === 0)) {
-          ctx.addIssue({
+      if ((!data.items || data.items.length === 0) && (!data.services || data.services.length === 0)) {
+           ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: 'Você deve adicionar pelo menos um produto.',
+              message: 'Você deve adicionar pelo menos um produto ou serviço.',
               path: ['items'],
           });
-      }
-      if ((!data.services || data.services.length === 0)) {
           ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: 'Você deve adicionar pelo menos um serviço.',
+              message: 'Você deve adicionar pelo menos um produto ou serviço.',
               path: ['services'],
           });
       }
@@ -1700,13 +1698,13 @@ export function TransactionsClient({}: {}) {
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh] rounded-md border printable-area">
+          <div className="rounded-md border">
             <PrintableDocument
               transaction={transactionToPrint}
               customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
               companyInfo={companyInfo}
             />
-          </ScrollArea>
+          </div>
           <DialogFooter className="dialog-print-footer">
             <Button variant="outline" onClick={() => {
                 setIsPrintDialogOpen(false);
