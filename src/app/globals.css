@@ -91,6 +91,9 @@ body {
     body > *:not(.DialogPortal) {
         visibility: hidden;
     }
+    .DialogPortal, .DialogPortal * {
+        visibility: visible;
+    }
     .DialogPortal {
         position: static;
     }
