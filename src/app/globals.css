@@ -76,11 +76,6 @@ body {
     --sidebar-border: 217 33% 17%;
     --sidebar-ring: 210 40% 60%;
   }
-
-  @page {
-    size: auto;
-    margin: 0;
-  }
 }
 
 @layer base {
@@ -93,30 +88,30 @@ body {
 }
 
 @media print {
-  body.printing > *:not([data-radix-portal]) {
+  body > *:not(.printable-container) {
+    display: none;
+  }
+  
+  .printable-container {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .printable-area {
+    display: block;
+  }
+
+  .dialog-print-header,
+  .dialog-print-footer {
     display: none;
   }
 
-  body.printing .dialog-print-header,
-  body.printing .dialog-print-footer {
-    display: none;
-  }
-
-  body.printing [data-radix-portal] > div {
-    position: static !important;
-    background: none !important;
-  }
-
-  body.printing [data-radix-dialog-content] {
-    box-shadow: none !important;
-    border: none !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    position: static !important;
-    transform: none !important;
+  @page {
+    margin: 0;
   }
 }
