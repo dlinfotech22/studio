@@ -442,7 +442,6 @@ export function TransactionsClient({}: {}) {
         unsubServices();
         unsubCustomers();
         unsubCompany();
-        document.body.classList.remove('printing');
     };
   }, []);
   
@@ -1699,7 +1698,7 @@ export function TransactionsClient({}: {}) {
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <div className="h-[70vh] rounded-md border overflow-y-auto printable-container">
+          <div className="h-[70vh] rounded-md border overflow-y-auto">
             <PrintableDocument
               transaction={transactionToPrint}
               customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}

@@ -88,30 +88,42 @@ body {
 }
 
 @media print {
-  body > *:not(.printable-container) {
-    display: none;
-  }
-  
-  .printable-container {
-    display: block;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-  }
+    body > *:not(.DialogPortal) {
+        visibility: hidden;
+    }
+    .DialogPortal {
+        position: static;
+    }
+    .DialogOverlay {
+        display: none;
+    }
+    .DialogContent {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        border: none;
+        padding: 0;
+        margin: 0;
+        box-shadow: none;
+        animation: none !important;
+        -webkit-animation: none !important;
+    }
+    .DialogContent > .h-\[70vh\] {
+        height: auto !important;
+        overflow: visible !important;
+        border: none !important;
+    }
+    .dialog-print-header,
+    .dialog-print-footer,
+    .DialogContent > button[aria-label="Close"] {
+        display: none;
+    }
 
-  .printable-area {
-    display: block;
-  }
-
-  .dialog-print-header,
-  .dialog-print-footer {
-    display: none;
-  }
-
-  @page {
-    margin: 0;
-  }
+    @page {
+        size: auto;
+        margin: 0;
+    }
 }
