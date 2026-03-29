@@ -344,6 +344,7 @@ export function TransactionsClient({}: {}) {
   const handlePrint = useCallback((transactionToPrint: Transaction, onDialogClose?: () => void) => {
     setTransactionToPrint(transactionToPrint);
     setOnPrintDialogClose(() => onDialogClose || null);
+    document.body.classList.add('printing');
     setIsPrintDialogOpen(true);
   }, []);
 
@@ -442,6 +443,7 @@ export function TransactionsClient({}: {}) {
         unsubServices();
         unsubCustomers();
         unsubCompany();
+        document.body.classList.remove('printing');
     };
   }, []);
   
@@ -1684,6 +1686,7 @@ export function TransactionsClient({}: {}) {
 
       <Dialog open={isPrintDialogOpen} onOpenChange={(isOpen) => {
         if (!isOpen) {
+          document.body.classList.remove('printing');
           if (onPrintDialogClose) {
               onPrintDialogClose();
               setOnPrintDialogClose(null);
@@ -1698,7 +1701,7 @@ export function TransactionsClient({}: {}) {
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md border">
+          <div className="h-[70vh] rounded-md border overflow-y-auto">
             <PrintableDocument
               transaction={transactionToPrint}
               customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
