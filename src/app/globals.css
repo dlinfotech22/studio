@@ -87,29 +87,58 @@ body {
   }
 }
 
-.printable-container {
-  display: none;
-}
-
 @media print {
+  /* @page rule controls print settings for the page itself */
   @page {
     size: A4;
+    /* Setting margin to 0 helps remove browser-injected headers and footers. */
     margin: 0;
   }
 
-  body > * {
+  /* When printing is triggered, apply these styles */
+  body.print-dialog-open {
+    background: #fff; /* Ensure a white background for the page */
+  }
+
+  /* Hide everything except the Radix portal that contains the dialog */
+  body.print-dialog-open > *:not([data-radix-portal]) {
     display: none !important;
   }
 
-  .printable-container {
-    display: block !important;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
+  /* Hide the dialog overlay and its non-printable parts */
+  body.print-dialog-open .dialog-print-header,
+  body.print-dialog-open .dialog-print-footer,
+  body.print-dialog-open [data-radix-dialog-overlay] {
+    display: none !important;
   }
 
-  .printable-area {
+  /* Make the dialog content act as the main print container */
+  body.print-dialog-open [data-radix-dialog-content] {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    animation: none !important;
+    transform: none !important;
+  }
+  
+  /* Ensure the scroll area doesn't interfere */
+  body.print-dialog-open .printable-scroll-area,
+  body.print-dialog-open .printable-scroll-area > div[data-radix-scroll-area-viewport] {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+  }
+  
+  /* The actual printable content gets its own padding, which acts as the page margin */
+  body.print-dialog-open .printable-area {
     color: #000 !important;
     background: #fff !important;
     padding: 20mm; /* A4 standard margin */
