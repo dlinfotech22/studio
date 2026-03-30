@@ -88,60 +88,63 @@ body {
 }
 
 @media print {
-  /* @page rule controls print settings for the page itself */
   @page {
     size: A4;
-    /* Setting margin to 0 helps remove browser-injected headers and footers. */
     margin: 0;
   }
 
-  /* When printing is triggered, apply these styles */
-  body.print-dialog-open {
-    background: #fff; /* Ensure a white background for the page */
+  body {
+    background-color: #fff !important;
   }
-
-  /* Hide everything except the Radix portal that contains the dialog */
-  body.print-dialog-open > *:not([data-radix-portal]) {
+  
+  body > *:not([data-radix-portal]) {
     display: none !important;
   }
 
-  /* Hide the dialog overlay and its non-printable parts */
-  body.print-dialog-open .dialog-print-header,
-  body.print-dialog-open .dialog-print-footer,
-  body.print-dialog-open [data-radix-dialog-overlay] {
+  [data-radix-portal] {
+    display: block !important;
+  }
+
+  [data-radix-dialog-overlay] {
     display: none !important;
   }
 
-  /* Make the dialog content act as the main print container */
-  body.print-dialog-open [data-radix-dialog-content] {
+  [data-radix-dialog-content] {
     position: static !important;
     width: 100% !important;
-    max-width: none !important;
+    max-width: 100% !important;
     height: auto !important;
     max-height: none !important;
-    box-shadow: none !important;
     border: none !important;
+    box-shadow: none !important;
     padding: 0 !important;
     margin: 0 !important;
     animation: none !important;
     transform: none !important;
   }
   
-  /* Ensure the scroll area doesn't interfere */
-  body.print-dialog-open .printable-scroll-area,
-  body.print-dialog-open .printable-scroll-area > div[data-radix-scroll-area-viewport] {
-    display: block !important;
+  .dialog-print-header,
+  .dialog-print-footer {
+    display: none !important;
+  }
+  
+  .printable-scroll-area {
+    border: none !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
-    border: none !important;
   }
   
-  /* The actual printable content gets its own padding, which acts as the page margin */
-  body.print-dialog-open .printable-area {
+  .printable-scroll-area > div[data-radix-scroll-area-viewport] {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .printable-area {
     color: #000 !important;
     background: #fff !important;
-    padding: 20mm; /* A4 standard margin */
+    padding: 20mm;
     box-sizing: border-box;
   }
 }

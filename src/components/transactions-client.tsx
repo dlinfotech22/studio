@@ -1698,15 +1698,13 @@ export function TransactionsClient({}: {}) {
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <div className="printable-scroll-area">
-            <div className="printable-area">
-                <PrintableDocument
-                    transaction={transactionToPrint}
-                    customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
-                    companyInfo={companyInfo}
-                />
-            </div>
-          </div>
+          <ScrollArea className="max-h-[70vh] rounded-md border printable-scroll-area">
+            <PrintableDocument
+              transaction={transactionToPrint}
+              customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
+              companyInfo={companyInfo}
+            />
+          </ScrollArea>
           <DialogFooter className="dialog-print-footer">
             <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>Fechar</Button>
             <Button onClick={() => window.print()}>Imprimir</Button>
