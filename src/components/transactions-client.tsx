@@ -247,8 +247,9 @@ export function TransactionsClient({}: {}) {
   const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
-  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isQuoteMode, setIsQuoteMode] = useState(false);
+  const [afterPrintCallback, setAfterPrintCallback] = useState<(() => void) | null>(null);
+
 
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [currentQuantity, setCurrentQuantity] = useState<number | ''>(1);
@@ -261,7 +262,6 @@ export function TransactionsClient({}: {}) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [hasInitialTransactionBeenHandled, setHasInitialTransactionBeenHandled] = useState(false);
-  const [onPrintDialogClose, setOnPrintDialogClose] = useState<(() => void) | null>(null);
 
   // Estados dos Menus (Substituindo CMDX)
   const [isProductOpen, setIsProductOpen] = useState(false);
@@ -336,12 +336,33 @@ export function TransactionsClient({}: {}) {
     setIsDialogOpen(true);
   }, [companyInfo, form]);
   
-  const handlePrint = useCallback((transactionToPrint: Transaction, onDialogClose?: () => void) => {
-    setTransactionToPrint(transactionToPrint);
-    setOnPrintDialogClose(() => onDialogClose || null);
-    document.body.classList.add('print-dialog-open');
-    setIsPrintDialogOpen(true);
+  const handlePrint = useCallback((tx: Transaction, onComplete?: () => void) => {
+    setTransactionToPrint(tx);
+    if (onComplete) {
+      setAfterPrintCallback(() => onComplete);
+    }
   }, []);
+
+  useEffect(() => {
+    if (transactionToPrint) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [transactionToPrint]);
+
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      if (afterPrintCallback) {
+        afterPrintCallback();
+        setAfterPrintCallback(null);
+      }
+      setTransactionToPrint(null);
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => window.removeEventListener('afterprint', handleAfterPrint);
+  }, [afterPrintCallback]);
 
   const handleEdit = useCallback((transaction: Transaction) => {
     const isQuote = transaction.serviceStatus === 'Orçamento';
@@ -460,11 +481,13 @@ export function TransactionsClient({}: {}) {
         if (txToReprintId) {
             const tx = allTransactions.find(t => t.id === txToReprintId);
             
+            const reprintComplete = () => {
+              sessionStorage.removeItem('transaction-to-reprint');
+              router.push('/work-orders');
+            };
+
             if (tx) {
-                 handlePrint(tx, () => {
-                  sessionStorage.removeItem('transaction-to-reprint');
-                  router.push('/work-orders');
-                });
+                 handlePrint(tx, reprintComplete);
             } else if (!isLoading) { 
                 const fetchAndPrint = async () => {
                     const txDoc = await getDoc(doc(db, 'transactions', txToReprintId));
@@ -475,10 +498,7 @@ export function TransactionsClient({}: {}) {
                             ...data, 
                             date: (data.date as Timestamp).toDate(),
                         } as Transaction;
-                        handlePrint(missingTx, () => {
-                          sessionStorage.removeItem('transaction-to-reprint');
-                          router.push('/work-orders');
-                        });
+                        handlePrint(missingTx, reprintComplete);
                     } else {
                         toast({
                             title: 'Erro ao imprimir',
@@ -747,7 +767,10 @@ export function TransactionsClient({}: {}) {
         const isServiceFinished = (finalTransaction.subtype === 'Prestação de Serviço' || finalTransaction.subtype === 'Serviço + Venda') && finalTransaction.serviceStatus === 'Finalizado';
 
         if (isNewQuote) {
-          handlePrint(finalTransaction, () => router.push('/quotes'));
+          handlePrint(finalTransaction, () => {
+            sessionStorage.removeItem('new-transaction-mode');
+            router.push('/quotes');
+          });
         } else if ((isSale || isServiceFinished) && !isQuoteMode) {
           handlePrint(finalTransaction);
         }
@@ -1041,22 +1064,6 @@ export function TransactionsClient({}: {}) {
       />
     )
   }
-
-  const getPrintDialogTitle = () => {
-    if (!transactionToPrint) return 'Gerar Documento';
-    if (transactionToPrint.serviceStatus === 'Orçamento') {
-      return 'Gerar Orçamento';
-    }
-    switch (transactionToPrint.subtype) {
-      case 'Prestação de Serviço':
-      case 'Serviço + Venda':
-        return 'Gerar Ordem de Serviço';
-      case 'Venda':
-        return 'Gerar Comprovante de Venda';
-      default:
-        return 'Gerar Documento';
-    }
-  };
 
   const renderLoadingSkeleton = () => {
     const skeletonRows = Array.from({ length: 5 });
@@ -1677,39 +1684,15 @@ export function TransactionsClient({}: {}) {
           </Form>
         </DialogContent>
       </Dialog>
-
-      <Dialog open={isPrintDialogOpen} onOpenChange={(isOpen) => {
-        setIsPrintDialogOpen(isOpen);
-        if (!isOpen) {
-            document.body.classList.remove('print-dialog-open');
-            if (onPrintDialogClose) {
-                onPrintDialogClose();
-                setOnPrintDialogClose(null);
-            }
-        }
-      }}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader className="dialog-print-header">
-            <DialogTitle>{getPrintDialogTitle()}</DialogTitle>
-            <DialogDescription>
-              Revise as informações e clique em imprimir para gerar o documento.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[70vh] rounded-md border printable-scroll-area overflow-y-auto">
+      <div className="printable-container">
+        {transactionToPrint && (
             <PrintableDocument
               transaction={transactionToPrint}
               customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
               companyInfo={companyInfo}
             />
-          </div>
-          <DialogFooter className="dialog-print-footer">
-            <Button variant="outline" onClick={() => {
-                setIsPrintDialogOpen(false);
-            }}>Fechar</Button>
-            <Button onClick={() => window.print()}>Imprimir</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
     </>
   );
 }
