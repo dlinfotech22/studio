@@ -1695,13 +1695,13 @@ export function TransactionsClient({}: {}) {
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh] rounded-md border printable-scroll-area">
+          <div className="max-h-[70vh] rounded-md border printable-scroll-area overflow-y-auto">
             <PrintableDocument
               transaction={transactionToPrint}
               customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
               companyInfo={companyInfo}
             />
-          </ScrollArea>
+          </div>
           <DialogFooter className="dialog-print-footer">
             <Button variant="outline" onClick={() => {
                 setIsPrintDialogOpen(false);
