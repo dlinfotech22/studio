@@ -340,7 +340,6 @@ export function TransactionsClient({}: {}) {
   const handlePrint = useCallback((transactionToPrint: Transaction, onDialogClose?: () => void) => {
     setTransactionToPrint(transactionToPrint);
     setAfterPrintCallback(() => onDialogClose || null);
-    document.body.classList.add('print-dialog-open');
     setIsPrintDialogOpen(true);
   }, []);
 
@@ -1681,16 +1680,7 @@ export function TransactionsClient({}: {}) {
           </Form>
         </DialogContent>
       </Dialog>
-      <Dialog open={isPrintDialogOpen} onOpenChange={(isOpen) => {
-        setIsPrintDialogOpen(isOpen);
-        if (!isOpen) {
-            document.body.classList.remove('print-dialog-open');
-            if (afterPrintCallback) {
-                afterPrintCallback();
-                setAfterPrintCallback(null);
-            }
-        }
-      }}>
+      <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader className="dialog-print-header">
             <DialogTitle>{getPrintDialogTitle()}</DialogTitle>
@@ -1698,13 +1688,13 @@ export function TransactionsClient({}: {}) {
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh] rounded-md border printable-scroll-area">
+          <div className="max-h-[70vh] overflow-y-auto rounded-md border printable-area-wrapper">
             <PrintableDocument
               transaction={transactionToPrint}
               customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
               companyInfo={companyInfo}
             />
-          </ScrollArea>
+          </div>
           <DialogFooter className="dialog-print-footer">
             <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>Fechar</Button>
             <Button onClick={() => window.print()}>Imprimir</Button>

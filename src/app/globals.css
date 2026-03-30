@@ -94,57 +94,52 @@ body {
   }
 
   body {
+    visibility: hidden !important;
     background-color: #fff !important;
+  }
+  
+  [data-radix-portal],
+  [data-radix-portal] > * {
+    visibility: visible !important;
   }
   
   body > *:not([data-radix-portal]) {
     display: none !important;
   }
 
-  [data-radix-portal] {
-    display: block !important;
-  }
-
-  [data-radix-dialog-overlay] {
+  [data-radix-dialog-overlay],
+  .dialog-print-header,
+  .dialog-print-footer {
     display: none !important;
   }
-
+  
   [data-radix-dialog-content] {
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
     height: auto !important;
     max-height: none !important;
-    border: none !important;
     box-shadow: none !important;
+    border: none !important;
     padding: 0 !important;
     margin: 0 !important;
     animation: none !important;
     transform: none !important;
   }
   
-  .dialog-print-header,
-  .dialog-print-footer {
-    display: none !important;
-  }
-  
-  .printable-scroll-area {
+  .printable-area-wrapper {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
     border: none !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
+    padding: 0 !important;
   }
   
-  .printable-scroll-area > div[data-radix-scroll-area-viewport] {
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-
   .printable-area {
+    padding: 20mm; /* A4 standard margin */
+    box-sizing: border-box;
     color: #000 !important;
     background: #fff !important;
-    padding: 20mm;
-    box-sizing: border-box;
   }
 }
