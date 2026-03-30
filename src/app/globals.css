@@ -88,45 +88,53 @@ body {
 }
 
 @media print {
-    body > *:not(.DialogPortal) {
-        visibility: hidden;
-    }
-    .DialogPortal, .DialogPortal * {
-        visibility: visible;
-    }
-    .DialogPortal {
-        position: static;
-    }
-    .DialogOverlay {
-        display: none;
-    }
-    .DialogContent {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        max-width: 100%;
-        height: auto;
-        border: none;
-        padding: 0;
-        margin: 0;
-        box-shadow: none;
-        animation: none !important;
-        -webkit-animation: none !important;
-    }
-    .DialogContent > .h-\[70vh\] {
-        height: auto !important;
-        overflow: visible !important;
-        border: none !important;
-    }
-    .dialog-print-header,
-    .dialog-print-footer,
-    .DialogContent > button[aria-label="Close"] {
-        display: none;
-    }
+  body.is-printing > *:not(.DialogPortal) {
+    visibility: hidden;
+  }
 
-    @page {
-        size: auto;
-        margin: 0;
-    }
+  body.is-printing .DialogPortal,
+  body.is-printing .DialogPortal * {
+    visibility: visible;
+  }
+  
+  body.is-printing .DialogPortal {
+    position: static;
+  }
+
+  body.is-printing .DialogOverlay {
+    display: none;
+  }
+
+  body.is-printing .DialogContent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    border: none;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+    animation: none !important;
+    -webkit-animation: none !important;
+    transform: none !important;
+  }
+
+  body.is-printing .DialogContent > div:first-of-type {
+    height: auto !important;
+    overflow: visible !important;
+    border: none !important;
+  }
+
+  body.is-printing .dialog-print-header,
+  body.is-printing .dialog-print-footer,
+  body.is-printing .DialogContent > button[aria-label="Close"] {
+    display: none;
+  }
+
+  @page {
+    size: auto;
+    margin: 0;
+  }
 }

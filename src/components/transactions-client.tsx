@@ -298,6 +298,18 @@ export function TransactionsClient({}: {}) {
     },
   });
 
+  useEffect(() => {
+    if (isPrintDialogOpen) {
+      document.body.classList.add('is-printing');
+    } else {
+      document.body.classList.remove('is-printing');
+    }
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('is-printing');
+    }
+  }, [isPrintDialogOpen]);
+
   // Efeito para sincronizar o input do cliente com o estado
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
