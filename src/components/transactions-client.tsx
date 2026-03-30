@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -1698,11 +1699,13 @@ export function TransactionsClient({}: {}) {
             </DialogDescription>
           </DialogHeader>
           <div className="printable-scroll-area">
-            <PrintableDocument
-                transaction={transactionToPrint}
-                customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
-                companyInfo={companyInfo}
-            />
+            <div className="printable-area">
+                <PrintableDocument
+                    transaction={transactionToPrint}
+                    customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
+                    companyInfo={companyInfo}
+                />
+            </div>
           </div>
           <DialogFooter className="dialog-print-footer">
             <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>Fechar</Button>
