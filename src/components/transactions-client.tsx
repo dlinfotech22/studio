@@ -319,7 +319,7 @@ export function TransactionsClient({}: {}) {
     
     const subtypesForRevenue = companyInfo?.allowedSubtypes?.filter(st => subtypeToTypeMap[st] === 'revenue') || [];
     const defaultSubtypeForRevenue = subtypesForRevenue.length > 0 ? subtypesForRevenue[0] : 'Prestação de Serviço';
-    
+
     const defaultSubtype = isQuote 
         ? defaultSubtypeForQuote
         : (type === 'revenue' ? defaultSubtypeForRevenue : 'Despesa');
@@ -1704,7 +1704,6 @@ export function TransactionsClient({}: {}) {
           </ScrollArea>
           <DialogFooter className="dialog-print-footer">
             <Button variant="outline" onClick={() => {
-                document.body.classList.remove('print-dialog-open');
                 setIsPrintDialogOpen(false);
             }}>Fechar</Button>
             <Button onClick={() => window.print()}>Imprimir</Button>
