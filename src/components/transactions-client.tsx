@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { useRouter } from 'next/navigation';
+import { useReactToPrint } from 'react-to-print';
 
 import { type Transaction, type Product, type TransactionSubtype, type TransactionType, type CompanyInfo, type PaymentMethod, type TransactionStatus, type Customer, type TransactionItem, type Service, type TransactionServiceItem, type ServiceStatus } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -247,9 +248,8 @@ export function TransactionsClient({}: {}) {
   const [activeTab, setActiveTab] = useState<'revenue' | 'expense'>('revenue');
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
-  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [isQuoteMode, setIsQuoteMode] = useState(false);
-  const [afterPrintCallback, setAfterPrintCallback] = useState<(() => void) | null>(null);
+  const printComponentRef = useRef<HTMLDivElement>(null);
 
 
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
@@ -294,6 +294,25 @@ export function TransactionsClient({}: {}) {
     },
   });
 
+  const handlePrint = useReactToPrint({
+    content: () => printComponentRef.current,
+    onAfterPrint: () => {
+      const navTo = sessionStorage.getItem('after-print-nav-to');
+      if (navTo) {
+        sessionStorage.removeItem('after-print-nav-to');
+        sessionStorage.removeItem('transaction-to-reprint');
+        router.push(navTo);
+      }
+      setTransactionToPrint(null);
+    },
+  });
+
+  useEffect(() => {
+    if (transactionToPrint) {
+      handlePrint();
+    }
+  }, [transactionToPrint, handlePrint]);
+
   // Efeito para sincronizar o input do cliente com o estado
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
@@ -336,12 +355,6 @@ export function TransactionsClient({}: {}) {
     });
     setIsDialogOpen(true);
   }, [companyInfo, form]);
-  
-  const handlePrint = useCallback((transactionToPrint: Transaction, onDialogClose?: () => void) => {
-    setTransactionToPrint(transactionToPrint);
-    setAfterPrintCallback(() => onDialogClose || null);
-    setIsPrintDialogOpen(true);
-  }, []);
 
   const handleEdit = useCallback((transaction: Transaction) => {
     const isQuote = transaction.serviceStatus === 'Orçamento';
@@ -461,10 +474,8 @@ export function TransactionsClient({}: {}) {
             const tx = allTransactions.find(t => t.id === txToReprintId);
             
             if (tx) {
-                 handlePrint(tx, () => {
-                  sessionStorage.removeItem('transaction-to-reprint');
-                  router.push('/work-orders');
-                });
+                sessionStorage.setItem('after-print-nav-to', '/work-orders');
+                setTransactionToPrint(tx);
             } else if (!isLoading) { 
                 const fetchAndPrint = async () => {
                     const txDoc = await getDoc(doc(db, 'transactions', txToReprintId));
@@ -475,10 +486,8 @@ export function TransactionsClient({}: {}) {
                             ...data, 
                             date: (data.date as Timestamp).toDate(),
                         } as Transaction;
-                        handlePrint(missingTx, () => {
-                          sessionStorage.removeItem('transaction-to-reprint');
-                          router.push('/work-orders');
-                        });
+                        sessionStorage.setItem('after-print-nav-to', '/work-orders');
+                        setTransactionToPrint(missingTx);
                     } else {
                         toast({
                             title: 'Erro ao imprimir',
@@ -506,7 +515,7 @@ export function TransactionsClient({}: {}) {
     if (!isLoading) {
         setHasInitialTransactionBeenHandled(true);
     }
-  }, [isLoading, allTransactions, hasInitialTransactionBeenHandled, handleEdit, handlePrint, openNewTransactionDialog, toast, router]);
+  }, [isLoading, allTransactions, hasInitialTransactionBeenHandled, handleEdit, openNewTransactionDialog, toast, router]);
 
   useEffect(() => {
     const hasActiveFilter = searchTerm || amountFilter || dateFilter;
@@ -747,12 +756,10 @@ export function TransactionsClient({}: {}) {
         const isServiceFinished = (finalTransaction.subtype === 'Prestação de Serviço' || finalTransaction.subtype === 'Serviço + Venda') && finalTransaction.serviceStatus === 'Finalizado';
 
         if (isNewQuote) {
-          handlePrint(finalTransaction, () => {
-            sessionStorage.removeItem('new-transaction-mode');
-            router.push('/quotes');
-          });
+          sessionStorage.setItem('after-print-nav-to', '/quotes');
+          setTransactionToPrint(finalTransaction);
         } else if ((isSale || isServiceFinished) && !isQuoteMode) {
-          handlePrint(finalTransaction);
+          setTransactionToPrint(finalTransaction);
         }
       }
   
@@ -879,7 +886,7 @@ export function TransactionsClient({}: {}) {
                               <Edit className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
                             {item.type === 'revenue' && item.subtype !== 'Receita Avulsa' && item.serviceStatus !== 'Orçamento' && (
-                              <DropdownMenuItem onClick={() => handlePrint(item)}>
+                              <DropdownMenuItem onClick={() => setTransactionToPrint(item)}>
                                   <Printer className="mr-2 h-4 w-4" /> Reimprimir
                               </DropdownMenuItem>
                             )}
@@ -1044,22 +1051,6 @@ export function TransactionsClient({}: {}) {
       />
     )
   }
-
-  const getPrintDialogTitle = () => {
-    if (!transactionToPrint) return 'Gerar Documento';
-    if (transactionToPrint.serviceStatus === 'Orçamento') {
-      return 'Gerar Orçamento';
-    }
-    switch (transactionToPrint.subtype) {
-      case 'Prestação de Serviço':
-      case 'Serviço + Venda':
-        return 'Gerar Ordem de Serviço';
-      case 'Venda':
-        return 'Gerar Comprovante de Venda';
-      default:
-        return 'Gerar Documento';
-    }
-  };
 
   const renderLoadingSkeleton = () => {
     const skeletonRows = Array.from({ length: 5 });
@@ -1680,27 +1671,15 @@ export function TransactionsClient({}: {}) {
           </Form>
         </DialogContent>
       </Dialog>
-      <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader className="dialog-print-header">
-            <DialogTitle>{getPrintDialogTitle()}</DialogTitle>
-            <DialogDescription>
-              Revise as informações e clique em imprimir para gerar o documento.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[70vh] overflow-y-auto rounded-md border printable-area-wrapper">
-            <PrintableDocument
-              transaction={transactionToPrint}
-              customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
-              companyInfo={companyInfo}
-            />
-          </div>
-          <DialogFooter className="dialog-print-footer">
-            <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>Fechar</Button>
-            <Button onClick={() => window.print()}>Imprimir</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <div style={{ display: 'none' }}>
+        <div ref={printComponentRef} id="print-area">
+          <PrintableDocument
+            transaction={transactionToPrint}
+            customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
+            companyInfo={companyInfo}
+          />
+        </div>
+      </div>
     </>
   );
 }
