@@ -183,11 +183,6 @@ const transactionSchema = z.object({
               message: 'Você deve adicionar pelo menos um produto ou serviço.',
               path: ['items'],
           });
-          ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: 'Você deve adicionar pelo menos um produto ou serviço.',
-              path: ['services'],
-          });
       }
     }
     if (data.paymentMethod === 'Parcelado' && (!data.installmentsCount || data.installmentsCount <= 1)) {
@@ -298,18 +293,6 @@ export function TransactionsClient({}: {}) {
     },
   });
 
-  useEffect(() => {
-    if (isPrintDialogOpen) {
-      document.body.classList.add('is-printing');
-    } else {
-      document.body.classList.remove('is-printing');
-    }
-    // Cleanup on unmount
-    return () => {
-      document.body.classList.remove('is-printing');
-    }
-  }, [isPrintDialogOpen]);
-
   // Efeito para sincronizar o input do cliente com o estado
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
@@ -356,6 +339,7 @@ export function TransactionsClient({}: {}) {
   const handlePrint = useCallback((transactionToPrint: Transaction, onDialogClose?: () => void) => {
     setTransactionToPrint(transactionToPrint);
     setOnPrintDialogClose(() => onDialogClose || null);
+    document.body.classList.add('print-dialog-open');
     setIsPrintDialogOpen(true);
   }, []);
 
@@ -1695,13 +1679,14 @@ export function TransactionsClient({}: {}) {
       </Dialog>
 
       <Dialog open={isPrintDialogOpen} onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          if (onPrintDialogClose) {
-              onPrintDialogClose();
-              setOnPrintDialogClose(null);
-          }
-        }
         setIsPrintDialogOpen(isOpen);
+        if (!isOpen) {
+            document.body.classList.remove('print-dialog-open');
+            if (onPrintDialogClose) {
+                onPrintDialogClose();
+                setOnPrintDialogClose(null);
+            }
+        }
       }}>
         <DialogContent className="max-w-3xl">
           <DialogHeader className="dialog-print-header">
@@ -1710,15 +1695,16 @@ export function TransactionsClient({}: {}) {
               Revise as informações e clique em imprimir para gerar o documento.
             </DialogDescription>
           </DialogHeader>
-          <div className="h-[70vh] rounded-md border overflow-y-auto">
+          <ScrollArea className="max-h-[70vh] rounded-md border printable-scroll-area">
             <PrintableDocument
               transaction={transactionToPrint}
               customer={allCustomers.find(c => c.id === transactionToPrint?.customerId)}
               companyInfo={companyInfo}
             />
-          </div>
+          </ScrollArea>
           <DialogFooter className="dialog-print-footer">
             <Button variant="outline" onClick={() => {
+                document.body.classList.remove('print-dialog-open');
                 setIsPrintDialogOpen(false);
             }}>Fechar</Button>
             <Button onClick={() => window.print()}>Imprimir</Button>
